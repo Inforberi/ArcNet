@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
 import PackageDialog, {UsageSummary} from '../features/users/PackageDialog';
+import DevicesDialog from '../features/users/DevicesDialog';
 import {blockLabel, type UsageReply} from '../features/users/usage';
 import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
 
@@ -12,6 +13,7 @@ export default function Users() {
   const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[] }>('/api/users') });
   const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
   const [packageUser,setPackageUser] = useState<VPNUser | null>(null);
+  const [deviceUser,setDeviceUser] = useState<VPNUser | null>(null);
   const packages = new Map(usage.data?.items.map(item=>[item.user_id,item]));
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -142,8 +144,9 @@ export default function Users() {
                       <td><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
                       <td>{new Date(u.created_at * 1000).toLocaleDateString('ru-RU')}</td>
                       <td><div className="flex wrap">
+                        <Button className="small" onClick={()=>{setSubscription(null);setSubscriptionUser(null);setDeviceUser(u)}}>Устройства</Button>
                         <Button className="small" disabled={!packages.has(u.id)} onClick={() => setPackageUser(u)}>Пакет / расход</Button>
-                        <Button className="small" onClick={() => void showSubscription(u)}>Подписка / QR</Button>
+                        <Button className="small" disabled={u.devices_managed} title={u.devices_managed?'Подписки доступны в разделе «Устройства»':undefined} onClick={() => void showSubscription(u)}>{u.devices_managed?'Общий ключ отключён':'Подписка / QR'}</Button>
                         <Button className="small" disabled={toggle.isPending || remove.isPending} onClick={() => void toggleUser(u)}>
                           {u.enabled ? 'Отключить' : 'Включить'}
                         </Button>
@@ -159,6 +162,7 @@ export default function Users() {
       )}
 
       {packageUser && usage.data && packages.get(packageUser.id) && <PackageDialog key={packageUser.id} name={packageUser.name} initial={packages.get(packageUser.id)!} status={usage.data} onClose={()=>setPackageUser(null)}/>}
+      {deviceUser && <DevicesDialog id={deviceUser.id} name={deviceUser.name} onClose={()=>setDeviceUser(null)}/>}
 
       {subscription && subscriptionUser && (
         <Panel title={`Подключение · ${subscriptionUser.name}`}>

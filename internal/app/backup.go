@@ -49,14 +49,18 @@ func (a *App) exportLocked(ctx context.Context) (backup.Snapshot, error) {
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
+	deviceState, err := a.Store.DeviceState(ctx)
+	if err != nil {
+		return backup.Snapshot{}, err
+	}
 	budget, err := a.Store.LogBudgetMB(ctx)
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
 	if v.Address == "" {
-		return backup.FromStore(nil, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles).WithUsage(accounting), nil
+		return backup.FromStore(nil, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles).WithUsage(accounting).WithDevices(deviceState), nil
 	}
-	return backup.FromStore(&v, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles).WithUsage(accounting), nil
+	return backup.FromStore(&v, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles).WithUsage(accounting).WithDevices(deviceState), nil
 }
 
 // RestoreState replaces only VPN state and rolls it back if applying Xray fails.
@@ -92,13 +96,13 @@ func (a *App) RestoreState(ctx context.Context, candidate backup.Snapshot) error
 	if candidate.Version >= 5 {
 		importedRoutingProfiles = &candidate.RoutingProfiles
 	}
-	if err = a.Store.ReplaceFullStateWithUsage(ctx, newVPN, newUsers, newProfiles, newCreds, importedNodes, importedBudget, importedRoutes, importedRoutingProfiles, candidate.Usage); err != nil {
+	if err = a.Store.ReplaceFullStateWithDevices(ctx, newVPN, newUsers, newProfiles, newCreds, importedNodes, importedBudget, importedRoutes, importedRoutingProfiles, candidate.Usage, candidate.Devices); err != nil {
 		return err
 	}
 	if err = a.applyAll(ctx, *newVPN, newUsers); err != nil {
 		undoCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		dbErr := a.Store.ReplaceFullStateWithUsage(undoCtx, oldVPN, oldUsers, oldProfiles, oldCreds, &old.Nodes, old.LogBudgetMB, &old.Routes, &old.RoutingProfiles, old.Usage)
+		dbErr := a.Store.RollbackFullStateWithDevices(undoCtx, oldVPN, oldUsers, oldProfiles, oldCreds, &old.Nodes, old.LogBudgetMB, &old.Routes, &old.RoutingProfiles, old.Usage, old.Devices)
 		if dbErr != nil {
 			return fmt.Errorf("Xray update failed (%v), database rollback also failed: %w", err, dbErr)
 		}

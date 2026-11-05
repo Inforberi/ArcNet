@@ -22,6 +22,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/arcvpn/arcvpn/internal/devices"
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/routes"
 	"github.com/arcvpn/arcvpn/internal/routingprofile"
@@ -31,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 6
+	Version         = 7
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -78,6 +79,7 @@ type Protocol struct {
 	Enabled    bool   `json:"enabled"`
 }
 type Snapshot struct {
+	Devices         *devices.State             `json:"devices,omitempty"`
 	Usage           *usage.State               `json:"usage,omitempty"`
 	Version         int                        `json:"version"`
 	CreatedAt       int64                      `json:"created_at"`
@@ -167,6 +169,28 @@ func (s Snapshot) WithRoutingProfiles(profiles []routingprofile.Profile) Snapsho
 func supportedVersion(v int) bool { return v >= 1 && v <= Version }
 
 func (s Snapshot) Validate() error {
+	if s.Devices != nil {
+		if s.Version < 7 {
+			return ErrInvalid
+		}
+		identities := map[int64]string{}
+		for _, u := range s.Users {
+			identities[u.ID] = u.UUID
+		}
+		if s.Devices.Validate(identities) != nil {
+			return ErrInvalid
+		}
+		if len(*s.Devices) > 0 {
+			if len(s.Nodes) > 0 {
+				return ErrInvalid
+			}
+			for _, p := range s.Protocols {
+				if p.Enabled && p.Kind != protocols.XHTTP {
+					return ErrInvalid
+				}
+			}
+		}
+	}
 	if s.Usage != nil {
 		if s.Version < 6 {
 			return ErrInvalid
@@ -456,4 +480,5 @@ func (s Snapshot) RemapAddress(raw string) (Snapshot, error) {
 	return s, nil
 }
 
-func (s Snapshot) WithUsage(state usage.State) Snapshot { s.Usage = &state; return s }
+func (s Snapshot) WithUsage(state usage.State) Snapshot     { s.Usage = &state; return s }
+func (s Snapshot) WithDevices(state devices.State) Snapshot { s.Devices = &state; return s }

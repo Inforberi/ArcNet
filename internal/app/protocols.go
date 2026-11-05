@@ -15,6 +15,11 @@ import (
 // applyXray includes every configured XHTTP listener in the same validated
 // Xray configuration as the original TCP Reality inbound.
 func (a *App) applyXray(ctx context.Context, reality store.Reality, users []store.User) error {
+	var deviceErr error
+	users, deviceErr = a.xrayUsers(ctx, users)
+	if deviceErr != nil {
+		return deviceErr
+	}
 	previousEpoch := ""
 	if counters, at, err := a.Core.Statistics(ctx, users, true); err == nil {
 		if err := a.Store.RecordUsage(ctx, counters, at); err != nil {

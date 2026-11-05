@@ -91,3 +91,4 @@
 **Дополнительный scope gap:** дорожная карта этапа 3 предполагает SSH hardening из UI, но такого API/UI в исходниках 0.5.1 нет. Нужно завершить либо формально согласовать перенос, до заявления о кодовой полноте stage3.
 
 **Текущая точка разработки:** начать этап 4 с [чеклиста](planning/stage4-checklist.md). Устранить утечку enrollment token через argv и описать trust/rollout до новых возможностей удалённого управления. Проект **не production**; этапы 1–3 остаются `EXTERNAL_PENDING`, этап 4 — `PLANNED / NOT STARTED`. Этот документальный handoff не реализует stage4 функции.
+**2026-11-05 — устройства локального Xray:** отдельные credentials/подписки, серверный лимит/CAS, отзыв, UI и backup v7 реализованы; общий ключ после перехода отключён. Физические устройства не аттестуются; remote/UDP devices и live disconnect/overshoot не подтверждены. [Контракт](adr/009-device-credentials.md), [результаты](testing/local-results/stage5-2026-11-05-devices.md).

@@ -234,6 +234,12 @@ func (s *Server) Routes() http.Handler {
 		_, _ = w.Write(data)
 	})
 	mux.HandleFunc("GET /api/users/usage", s.mustAuth(s.userUsage, false))
+	mux.HandleFunc("GET /api/users/{id}/devices", s.mustAuth(s.userDevices, false))
+	mux.HandleFunc("POST /api/users/{id}/devices", s.mustAuth(s.userDeviceChange, true))
+	mux.HandleFunc("PUT /api/users/{id}/devices", s.mustAuth(s.userDeviceChange, true))
+	mux.HandleFunc("DELETE /api/users/{id}/devices/{device}", s.mustAuth(s.userDeviceChange, true))
+	mux.HandleFunc("GET /api/users/{id}/devices/{device}/links", s.mustAuth(s.userDeviceLinks, false))
+	mux.HandleFunc("GET /device/{token}", s.deviceSubscription)
 	mux.HandleFunc("PUT /api/users/{id}/package", s.mustAuth(s.userPackageSave, true))
 	mux.HandleFunc("GET /api/users/{id}/debits", s.mustAuth(s.userDebits, false))
 	mux.HandleFunc("GET /api/users", s.mustAuth(s.users, false))
@@ -277,7 +283,7 @@ func (s *Server) Routes() http.Handler {
 	}
 	fileServer := http.FileServerFS(assets)
 	mux.Handle("GET /", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") || strings.HasPrefix(r.URL.Path, "/device/") {
 			http.NotFound(w, r)
 			return
 		}
@@ -308,12 +314,12 @@ func (s *Server) Routes() http.Handler {
 		if r.TLS != nil {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") || strings.HasPrefix(r.URL.Path, "/device/") {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		defer func() {
 			if val := recover(); val != nil {
-				s.log.Error("recovered http panic", "path", r.URL.Path, "error", fmt.Sprint(val))
+				s.log.Error("recovered http panic", "route", r.Pattern, "type", fmt.Sprintf("%T", val))
 				http.Error(w, "internal error", http.StatusInternalServerError)
 			}
 		}()
@@ -551,6 +557,18 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, 500, "Internal error")
 		return
+	}
+	state, err := s.App.Store.DeviceState(r.Context())
+	if err != nil {
+		handleErr(w, err)
+		return
+	}
+	managed := map[int64]bool{}
+	for _, record := range state {
+		managed[record.UserID] = true
+	}
+	for i := range users {
+		users[i].DevicesManaged = managed[users[i].ID]
 	}
 	respond(w, 200, map[string]any{"items": users})
 }

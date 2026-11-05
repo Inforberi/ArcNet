@@ -149,3 +149,10 @@
 ### Продолжение 0.6.3 — внешний data-plane probe
 
 `internal/nodeprobe/` — узкий Xray VLESS/REALITY SOCKS5/HTTPS 204 клиент без direct fallback; `cmd/arcvpn/node_probe.go` — независимый CLI с приватными файлами и одноразовым grant; `internal/store/node_probe.go` — SQLite grant/revision/digest TTL/migration; `internal/httpapi/node_probe.go` — admin+CSRF grant и bearer отчёт; `frontend/src/pages/Nodes.tsx` — UI probe и раздельные статусы. Источник истины: [release 0.6.3](../release-0.6.3-stage4-continuation.md), [тесты](../testing/local-results/stage4-2026-11-04-0.6.3.md), [текущая задача](current-task.md). CLI без реального Xray/network test не доказывает доступность VPN.
+## 2026-11-05: отдельные доступы устройств
+
+- `internal/devices/devices.go`, `internal/store/devices.go` — credential identity, лимиты/CAS, private storage/token index, сохранение отзывов при restore.
+- `internal/app/devices.go`, `internal/xray/{xray,statistics}.go` — apply/retry, отключение общего ключа, агрегация aliases в пользовательский расход.
+- `internal/httpapi/devices.go`, `frontend/src/features/users/DevicesDialog.tsx` — session/CSRF API, индивидуальная подписка, UI-композиция и advanced limit.
+- `internal/backup/backup_v7_test.go`, тесты рядом с модулями, `tests/devices_e2e.mjs` — encryption/restore/API/browser checks. Stand запускается opt-in тестом `TestDevicesBrowserFixture`.
+- Контракт: [ADR-009](../adr/009-device-credentials.md). Это локальные Xray credentials, не физический HWID и не VPS-приёмка.

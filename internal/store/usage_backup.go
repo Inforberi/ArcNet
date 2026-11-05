@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/arcvpn/arcvpn/internal/db"
+	"github.com/arcvpn/arcvpn/internal/devices"
 	"github.com/arcvpn/arcvpn/internal/usage"
 )
 
@@ -47,7 +48,7 @@ func (s *Store) UsageBackup(ctx context.Context) (usage.State, error) {
 
 // RestoreDeletedUser is the compensation for a failed engine apply. Credentials,
 // package totals, checkpoints and debit history are restored atomically.
-func (s *Store) RestoreDeletedUser(ctx context.Context, u User, credentials []ProtocolCredential, accounting usage.State) error {
+func (s *Store) RestoreDeletedUser(ctx context.Context, u User, credentials []ProtocolCredential, accounting usage.State, deviceState ...devices.Record) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
 		if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
 			return err
@@ -78,6 +79,16 @@ func (s *Store) RestoreDeletedUser(ctx context.Context, u User, credentials []Pr
 		for _, d := range accounting.Debits {
 			if d.UserID == u.ID {
 				if err := tx.Exec("INSERT INTO traffic_debits(user_id,period,bucket,upload,download) VALUES(?,?,?,?,?)", strconv.FormatInt(d.UserID, 10), strconv.FormatInt(d.Period, 10), strconv.FormatInt(d.At/60, 10), strconv.FormatInt(d.Upload, 10), strconv.FormatInt(d.Download, 10)); err != nil {
+					return err
+				}
+			}
+		}
+		for _, r := range deviceState {
+			if r.UserID != u.ID || r.Identity != u.UUID {
+				return devices.ErrInvalid
+			}
+			if r.Version > 0 {
+				if err := saveDevices(tx, r); err != nil {
 					return err
 				}
 			}

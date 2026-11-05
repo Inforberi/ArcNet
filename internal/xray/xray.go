@@ -88,7 +88,7 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 		if !u.Enabled {
 			continue
 		}
-		clients = append(clients, map[string]any{"id": u.UUID, "flow": "xtls-rprx-vision", "email": fmt.Sprintf("user-%d@local", u.ID)})
+		clients = append(clients, userClients(u, false)...)
 	}
 	root := map[string]any{
 		"log": map[string]any{"loglevel": "warning"},
@@ -137,7 +137,7 @@ func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.
 		clients := make([]map[string]any, 0, len(users))
 		for _, u := range users {
 			if u.Enabled {
-				clients = append(clients, map[string]any{"id": u.UUID, "email": fmt.Sprintf("xhttp-user-%d@local", u.ID)})
+				clients = append(clients, userClients(u, true)...)
 			}
 		}
 		inbounds = append(inbounds, map[string]any{
@@ -162,6 +162,30 @@ func (c Controller) ApplyWithProfiles(ctx context.Context, r store.Reality, user
 		return err
 	}
 	return c.apply(ctx, data)
+}
+
+func userClients(u store.User, xhttp bool) []map[string]any {
+	prefix := "user-"
+	if xhttp {
+		prefix = "xhttp-user-"
+	}
+	client := func(id, email string) map[string]any {
+		c := map[string]any{"id": id, "email": email}
+		if !xhttp {
+			c["flow"] = "xtls-rprx-vision"
+		}
+		return c
+	}
+	if u.DeviceAccess == nil {
+		return []map[string]any{client(u.UUID, fmt.Sprintf("%s%d@local", prefix, u.ID))}
+	}
+	result := []map[string]any{}
+	for _, d := range u.DeviceAccess.Devices {
+		if d.RevokedAt == 0 {
+			result = append(result, client(d.UUID, prefix+"device-"+d.ID+"@local"))
+		}
+	}
+	return result
 }
 
 func (c Controller) Apply(ctx context.Context, r store.Reality, users []store.User) error {

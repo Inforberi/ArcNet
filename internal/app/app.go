@@ -158,6 +158,10 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+	deviceState, err := a.Store.UserDevices(ctx, id)
+	if err != nil {
+		return err
+	}
 	r, err := a.Store.ReadReality(ctx)
 	if err != nil {
 		return err
@@ -170,7 +174,7 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 		err = a.applyAll(ctx, r, users)
 	}
 	if err != nil {
-		if rollbackErr := a.Store.RestoreDeletedUser(context.Background(), old, oldCredentials, accounting); rollbackErr != nil {
+		if rollbackErr := a.Store.RestoreDeletedUser(context.Background(), old, oldCredentials, accounting, deviceState); rollbackErr != nil {
 			return fmt.Errorf("deletion failed and user/accounting rollback failed: %w", rollbackErr)
 		}
 		if oldUsers, e := a.Store.ListUsers(context.Background()); e == nil {

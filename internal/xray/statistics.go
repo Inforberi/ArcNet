@@ -95,6 +95,11 @@ func ParseStatistics(blob []byte, users []store.User, xhttp bool, epoch string, 
 				prefix = "xhttp-user-"
 			}
 			index[prefix+strconv.FormatInt(u.ID, 10)+"@local"] = len(result)
+			if u.DeviceAccess != nil {
+				for _, d := range u.DeviceAccess.Devices {
+					index[prefix+"device-"+d.ID+"@local"] = len(result)
+				}
+			}
 			result = append(result, usage.Counter{UserID: u.ID, Identity: u.UUID, Stream: stream, Epoch: epoch, StartedAt: started, ObservedAt: observed})
 		}
 	}
@@ -126,9 +131,15 @@ func ParseStatistics(blob []byte, users []store.User, xhttp bool, epoch string, 
 		}
 		switch parts[3] {
 		case "uplink":
-			result[i].Upload = n
+			if n > usage.MaxBytes-result[i].Upload {
+				return nil, usage.ErrInvalid
+			}
+			result[i].Upload += n
 		case "downlink":
-			result[i].Download = n
+			if n > usage.MaxBytes-result[i].Download {
+				return nil, usage.ErrInvalid
+			}
+			result[i].Download += n
 		default:
 			return nil, usage.ErrInvalid
 		}
@@ -174,6 +185,13 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 		for _, prefix := range []string{"user-", "xhttp-user-"} {
 			if actual := identities[prefix+strconv.FormatInt(u.ID, 10)+"@local"]; actual != "" && actual != u.UUID {
 				return nil, 0, errors.New("statistics credential revision mismatch")
+			}
+			if u.DeviceAccess != nil {
+				for _, d := range u.DeviceAccess.Devices {
+					if actual := identities[prefix+"device-"+d.ID+"@local"]; actual != "" && actual != d.UUID {
+						return nil, 0, errors.New("statistics device revision mismatch")
+					}
+				}
 			}
 		}
 	}

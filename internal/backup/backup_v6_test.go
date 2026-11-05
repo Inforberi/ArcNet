@@ -8,6 +8,7 @@ import (
 
 func TestV6PreservesPackagesAndRejectsInvalidAccounting(t *testing.T) {
 	s := sample()
+	s.Version = 6
 	u := s.Users[0]
 	s = s.WithUsage(usage.State{Packages: []usage.Package{{UserID: u.ID, QuotaBytes: 1000, Upload: 100, Download: 200, Period: 1, Version: 1}}, Checkpoints: []usage.Counter{{UserID: u.ID, Identity: u.UUID, Stream: "vless-reality", Epoch: "fixture", StartedAt: 1, ObservedAt: 100, Upload: 100, Download: 200}}, Debits: []usage.Debit{{UserID: u.ID, Period: 1, At: 60, Upload: 100, Download: 200}}})
 	blob, err := Encrypt(s, "backup-password-long-enough")

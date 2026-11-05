@@ -44,6 +44,7 @@ export interface ConnectionProfile {
 }
 
 export interface VPNUser {
+  devices_managed: boolean;
   id: number;
   name: string;
   uuid: string;

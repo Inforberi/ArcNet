@@ -123,7 +123,7 @@ try {
   const preview = await api('POST', '/api/backup/preview', {password: 'browser-test-backup-password', archive: archive.content});
   assert.equal(preview.status(), 200);
   const summary = await preview.json();
-  assert.equal(summary.version, 6); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
+  assert.equal(summary.version, 7); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
 
   const sections = [['/', 'Обзор'], ['/users', 'Пользователи'], ['/vpn', 'Подключения'], ['/nodes', 'Серверы'], ['/routing', 'Маршруты'], ['/security', 'Безопасность'], ['/events', 'Журнал'], ['/backup', 'Импорт и экспорт']];
   for (const theme of ['dark', 'light']) {

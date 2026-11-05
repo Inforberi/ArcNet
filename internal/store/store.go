@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/db"
+	"github.com/arcvpn/arcvpn/internal/devices"
 	"github.com/arcvpn/arcvpn/internal/routes"
 	"github.com/arcvpn/arcvpn/internal/routingprofile"
 	"github.com/arcvpn/arcvpn/internal/usage"
@@ -20,12 +21,14 @@ var ErrConflict = errors.New("conflict")
 
 type Store struct{ DB *db.DB }
 type User struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	UUID         string `json:"uuid"`
-	Enabled      bool   `json:"enabled"`
-	CreatedAt    int64  `json:"created_at"`
-	Subscription string `json:"-"`
+	DevicesManaged bool            `json:"devices_managed"`
+	DeviceAccess   *devices.Record `json:"-"`
+	ID             int64           `json:"id"`
+	Name           string          `json:"name"`
+	UUID           string          `json:"uuid"`
+	Enabled        bool            `json:"enabled"`
+	CreatedAt      int64           `json:"created_at"`
+	Subscription   string          `json:"-"`
 }
 type Reality struct {
 	Address string `json:"address"`
@@ -53,7 +56,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			`CREATE TABLE IF NOT EXISTS node_enrollments(hash TEXT PRIMARY KEY,name TEXT NOT NULL,expires INTEGER NOT NULL)`,
 			`CREATE INDEX IF NOT EXISTS node_enrollments_exp ON node_enrollments(expires)`,
 			`CREATE TABLE IF NOT EXISTS managed_nodes(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL DEFAULT 0,version TEXT NOT NULL DEFAULT '',xray_state TEXT NOT NULL DEFAULT 'unknown',memory_total TEXT NOT NULL DEFAULT '0',memory_available TEXT NOT NULL DEFAULT '0',load_1 TEXT NOT NULL DEFAULT '0',uptime_seconds TEXT NOT NULL DEFAULT '0')`,
-			packagesSchema, checkpointsSchema, debitsSchema, profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema, telemetrySchema, telemetryTimeIndex,
+			packagesSchema, checkpointsSchema, debitsSchema, devicesSchema, deviceTokensSchema, profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema, telemetrySchema, telemetryTimeIndex,
 		}
 		for _, q := range statements {
 			if err := tx.Exec(q); err != nil {
@@ -411,10 +414,27 @@ func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reali
 }
 
 func (s *Store) ReplaceFullStateWithUsage(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile, accounting *usage.State) error {
+	return s.ReplaceFullStateWithDevices(ctx, reality, users, profiles, creds, nodes, budget, policies, routingProfiles, accounting, nil)
+}
+func (s *Store) ReplaceFullStateWithDevices(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile, accounting *usage.State, deviceState *devices.State) error {
+	return s.replaceFullStateWithDevices(ctx, reality, users, profiles, creds, nodes, budget, policies, routingProfiles, accounting, deviceState, false)
+}
+
+// RollbackFullStateWithDevices accepts the pre-apply snapshot owned by App.
+// New credentials introduced by a failed import must not survive compensation.
+// Normal portable restore always uses ReplaceFullStateWithDevices instead.
+func (s *Store) RollbackFullStateWithDevices(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile, accounting *usage.State, deviceState *devices.State) error {
+	return s.replaceFullStateWithDevices(ctx, reality, users, profiles, creds, nodes, budget, policies, routingProfiles, accounting, deviceState, true)
+}
+func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile, accounting *usage.State, deviceState *devices.State, rollback bool) error {
 	if budget != nil && (*budget < 50 || *budget > 1024) {
 		return ErrInvalidLogBudget
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		previousDevices, err := readDevices(tx)
+		if err != nil {
+			return err
+		}
 		previousUsage, usageErr := readUsageState(tx)
 		if usageErr != nil {
 			return usageErr
@@ -488,6 +508,12 @@ func (s *Store) ReplaceFullStateWithUsage(ctx context.Context, reality *Reality,
 			if err := replaceRoutingProfiles(tx, *routingProfiles); err != nil {
 				return err
 			}
+		}
+		if rollback {
+			previousDevices = nil
+		}
+		if err := replaceDevices(tx, deviceState, previousDevices, oldIdentities); err != nil {
+			return err
 		}
 		return replaceUsageState(tx, accounting, previousUsage, oldIdentities)
 	})

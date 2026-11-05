@@ -150,6 +150,7 @@ exit 1
 	legacy := saved
 	legacy.Version = 1
 	legacy.Usage = nil
+	legacy.Devices = nil
 	legacy.Protocols = nil
 	legacy.Credentials = nil
 	legacy.Nodes = nil

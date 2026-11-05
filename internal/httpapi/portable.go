@@ -184,6 +184,7 @@ func (s *Server) backupPreview(w http.ResponseWriter, r *http.Request) {
 	summary["routes"] = len(snapshot.Routes)
 	summary["current_routes"] = len(current.Routes)
 	summary["usage_included"] = snapshot.Usage != nil
+	summary["devices_included"] = snapshot.Devices != nil
 	summary["routes_replaced"] = snapshot.Version >= 4
 	summary["routing_profiles"] = len(snapshot.RoutingProfiles)
 	summary["current_routing_profiles"] = len(current.RoutingProfiles)

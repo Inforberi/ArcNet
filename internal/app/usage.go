@@ -26,7 +26,7 @@ func (a *App) effectiveUsers(ctx context.Context, users []store.User) ([]store.U
 			result[i].Enabled = false
 		}
 	}
-	return result, nil
+	return a.xrayUsers(ctx, result)
 }
 func (a *App) collectUsageLocked(ctx context.Context) error {
 	r, err := a.Store.ReadReality(ctx)
@@ -37,6 +37,10 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 		return errors.New("local Xray is disabled")
 	}
 	users, err := a.Store.ListUsers(ctx)
+	if err != nil {
+		return err
+	}
+	users, err = a.xrayUsers(ctx, users)
 	if err != nil {
 		return err
 	}
@@ -66,7 +70,14 @@ func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
 			allowed = append(allowed, u.UUID)
 		}
 	}
-	blob, _ := json.Marshal(allowed)
+	deviceState, err := a.Store.DeviceState(ctx)
+	if err != nil {
+		return err
+	}
+	blob, _ := json.Marshal(struct {
+		Allowed []string
+		Devices any
+	}{allowed, deviceState})
 	digest := sha256.Sum256(blob)
 	key := hex.EncodeToString(digest[:])
 	if !force && key == a.usageApplied {
@@ -143,6 +154,13 @@ func (a *App) SaveUserPackage(ctx context.Context, id, quota, expires, version i
 }
 
 func (a *App) UserAllowed(ctx context.Context, id int64) error {
+	devices, err := a.Store.UserDevices(ctx, id)
+	if err != nil {
+		return err
+	}
+	if devices.Version > 0 {
+		return store.ErrNotFound
+	}
 	allowed, _, err := a.Store.UserAccess(ctx, id)
 	if err != nil {
 		return err

@@ -336,6 +336,10 @@ func (s *Store) CheckPackageCoverage(ctx context.Context, quota, expires int64) 
 	})
 }
 func (s *Store) HasRestrictedPackages(ctx context.Context, trafficOnly bool) (bool, error) {
+	managed, err := s.HasManagedDevices(ctx)
+	if err != nil || managed {
+		return managed, err
+	}
 	items, err := s.Packages(ctx)
 	if err != nil {
 		return false, err
