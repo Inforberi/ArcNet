@@ -199,3 +199,9 @@ ECH не считается включённым или поддержанным
 - [Cloudflare: открытый SNI и назначение ECH](https://www.cloudflare.com/learning/ssl/what-is-encrypted-sni/).
 - [Ubuntu Server: рекомендации по защите](https://ubuntu.com/server/docs/explanation/security/security_suggestions/).
 - [Ubuntu: сетевой firewall](https://documentation.ubuntu.com/security/security-features/network/firewall/).
+
+## Дополнение пользователя: дашборд и серверный CLI
+
+Обязателен дашборд сервера панели и подключённых серверов: реальные ресурсы, история, свежесть и раздельная доступность агента/service/VPN/маршрута, удобный мобильный выбор и поиск. Без тяжёлого обязательного мониторинга. Контрольный профиль пользователя: 512 МиБ RAM, 1 vCPU; minimum устанавливается только измерениями полного runtime.
+
+Обязательны команды на сервере для просмотра безопасных настроек, сброса пароля и отзыва сессий; 2FA сбрасывается отдельным явным действием, VPN credentials сохраняются. Локальная реализация и проверки этого блока завершены: [результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md). Это не закрывает Geo/runtime/client failover/installation или внешние VPS gates остальных пунктов плана.

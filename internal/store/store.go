@@ -52,7 +52,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			`CREATE TABLE IF NOT EXISTS node_enrollments(hash TEXT PRIMARY KEY,name TEXT NOT NULL,expires INTEGER NOT NULL)`,
 			`CREATE INDEX IF NOT EXISTS node_enrollments_exp ON node_enrollments(expires)`,
 			`CREATE TABLE IF NOT EXISTS managed_nodes(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL DEFAULT 0,version TEXT NOT NULL DEFAULT '',xray_state TEXT NOT NULL DEFAULT 'unknown',memory_total TEXT NOT NULL DEFAULT '0',memory_available TEXT NOT NULL DEFAULT '0',load_1 TEXT NOT NULL DEFAULT '0',uptime_seconds TEXT NOT NULL DEFAULT '0')`,
-			profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema,
+			profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema, telemetrySchema, telemetryTimeIndex,
 		}
 		for _, q := range statements {
 			if err := tx.Exec(q); err != nil {
@@ -441,6 +441,9 @@ func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reali
 			}
 		}
 		if nodes != nil {
+			if err := tx.Exec("DELETE FROM telemetry_samples WHERE node_id<>'local'"); err != nil {
+				return err
+			}
 			if err := tx.Exec("DELETE FROM managed_nodes"); err != nil {
 				return err
 			}
@@ -474,20 +477,5 @@ func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reali
 // ResetAdminPassword is a local recovery operation. Revoking every active
 // administrative session is part of the same transaction as changing the hash.
 func (s *Store) ResetAdminPassword(ctx context.Context, hash string) error {
-	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		rows, err := tx.Query("SELECT username FROM admins LIMIT 1")
-		if err != nil {
-			return err
-		}
-		if len(rows) == 0 {
-			return ErrNotFound
-		}
-		if err := tx.Exec("UPDATE admins SET hash=?", hash); err != nil {
-			return err
-		}
-		if err := tx.Exec("DELETE FROM admin_mfa"); err != nil {
-			return err
-		}
-		return tx.Exec("DELETE FROM sessions")
-	})
+	return s.RecoverAdmin(ctx, hash, true)
 }

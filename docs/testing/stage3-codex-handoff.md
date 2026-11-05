@@ -23,7 +23,7 @@ python3 tests/react_e2e.py
 
 - Установить из готового релиза, проверить `frontend-check`, `journalctl`, systemd unit `arcvpn-update.service`: `RuntimeDirectory=arcvpn-update`, запись lock при `ProtectSystem=strict`, отсутствие произвольных команд от Go-панели.
 - Проверить настоящий Certbot `--ip-address`, порт 80, короткий сертификат, продление, права ключей, HTTPS **без** `-k`; панель недоступна по незащищённому внешнему HTTP.
-- TOTP: настройка, подтверждение, отклонение повтора, инвалидирование сессий, CLI `admin-reset`.
+- TOTP: настройка, подтверждение, отклонение повтора, инвалидирование сессий, CLI `admin-reset` (сохраняет активную MFA); удаление MFA только с явным `--reset-2fa`, оба пути и отзыв сессий проверить на VPS.
 - UFW: перед активированием зафиксировать SSH custom port, проверить rescue console и snap. Из UI открыть/закрыть только VPN-порт, проверить чужие правила, отсутствие глобального enable/reset, rollback и отсутствие lockout.
 - Журналы: `journalctl --namespace=arcvpn --disk-usage`, смена budget 50↔200, доступ к панели, отсутствие изменений в SSH/global journald, рестарт службы, удаление старых файлов журнала панели.
 - Backup: зашифрованный snapshot, SHA/файловые права, таймер, миграция на второй чистый VPS, смена IPv4 и перепривязка ссылок/агентов, тест отказа Xray при restore и отката.

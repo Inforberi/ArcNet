@@ -1,3 +1,7 @@
+## 2026-11-05 — дашборд серверов и локальное восстановление доступа
+
+Добавлены лёгкие ресурсы/история панели и нод, раздельные health-состояния, мобильный UI и безопасные CLI settings/password/session команды. SQL aggregate заменил полное чтение пользователей в overview; ограничен одновременный login KDF. Активная MFA при reset пароля сохраняется по умолчанию. Linux tests/vet/race, frontend10 tests/build, embedded React и Chromium dashboard/profile/routing regression PASS. UI backend испытан под 512 МиБ/1vCPU; это не VPN minimum. Geo/cascade/client failover и внешняя приёмка остаются открыты. [Точные результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md).
+
 ## 2026-11-05 — проверенные локальные профили/SNI и контракт клиентского failover
 
 - После отправки `c25da9d` добавлены SNI picker нового VLESS/XHTTP и диагностический UI для выбранной ноды; автоматический подбор не перезаписывает ручное поле и не мигрирует действующие конфигурации.

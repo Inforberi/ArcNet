@@ -192,16 +192,14 @@ func heartbeat(ctx context.Context, client *http.Client, c Configuration) error 
 	m := metrics.Read()
 	state := "unknown"
 	svcCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	for _, unit := range []string{"arcvpn-node-xray.service"} {
-		if err := exec.CommandContext(svcCtx, "systemctl", "is-active", "--quiet", unit).Run(); err == nil {
-			state = "active"
-			break
-		}
-	}
-	cancel()
-	if state != "active" {
+	output, _ := exec.CommandContext(svcCtx, "systemctl", "is-active", "arcvpn-node-xray.service").Output()
+	switch strings.TrimSpace(string(output)) {
+	case "active":
+		state = "active"
+	case "inactive", "failed":
 		state = "inactive"
 	}
+	cancel()
 	b, err := json.Marshal(store.NodeHeartbeat{Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
 	if err != nil {
 		return err
@@ -443,6 +441,8 @@ func contactDelay(consecutiveFailures int) time.Duration {
 // preceding cycle completes, so a slow controller cannot pile up goroutines.
 func Run(ctx context.Context, c Configuration, configPath string, report func(error)) {
 	client := Client()
+	telemetry := metrics.NewSampler(filepath.Dir(configPath))
+	var nextTelemetry time.Time
 	rotateAfter := time.Now().Add(24 * time.Hour)
 	if c.RotatedAt > 0 {
 		deadline := time.Unix(c.RotatedAt, 0).Add(24 * time.Hour)
@@ -462,6 +462,12 @@ func Run(ctx context.Context, c Configuration, configPath string, report func(er
 		if err := heartbeat(requestCtx, client, c); err != nil {
 			report(errors.New("agent heartbeat unavailable"))
 			return false
+		}
+		if !time.Now().Before(nextTelemetry) {
+			nextTelemetry = time.Now().Add(metrics.AgentInterval)
+			if err := sendTelemetry(requestCtx, client, c, telemetry); err != nil {
+				report(errors.New("agent resource telemetry unavailable"))
+			}
 		}
 		if err := PollAndApply(requestCtx, client, c, ""); err != nil {
 			report(err)

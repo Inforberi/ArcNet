@@ -201,6 +201,9 @@ func (s *Store) RemoveNode(ctx context.Context, id string) error {
 		if err := requireNodeWithoutRoutes(tx, id); err != nil {
 			return err
 		}
+		if err := tx.Exec("DELETE FROM telemetry_samples WHERE node_id=?", id); err != nil {
+			return err
+		}
 		return tx.Exec("DELETE FROM managed_nodes WHERE id=?", id)
 	})
 }

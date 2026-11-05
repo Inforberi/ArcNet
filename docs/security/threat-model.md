@@ -70,3 +70,9 @@
 ### Дополнение 0.6.2: подмена SSH stage и ложные подтверждения
 
 Модель угроз включает root-owned конечные файлы, полученные из SSH user-writable staging: проверка подписи только на контроллере не предотвращает TOCTOU-подмену staged binary на VPS перед запуском. Install/upgrade теперь сверяют SHA-256 **в root-owned конечной локации до исполнения**; в качестве ожидаемых хешей используются байты уже верифицированного Ed25519 release. При неоднозначной потере SSH-ответа запрещён оптимистический `success`: применяется read-only state reconciliation по marker, digest, systemd и managed paths, иначе состояние требует расследования. Нельзя считать HTTPS `/healthz` с VPS внешним VPN-probe. Административный drain не отзывает уже сохранённые VPN credentials.
+
+## 2026-11-05: локальное recovery и resource telemetry
+
+[ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md): recovery только через локальную service identity, root-wrapper drops privileges до DB; активная MFA сохраняется по умолчанию, pending enrollment отменяется, отдельный reset-2fa явный. Пароль/отзыв сессий/MFA/audit атомарны. Настройки проецируются без hashes/keys/tokens; process argv не исполняется и не печатается целиком. Wrapper не принимает произвольные systemd units. Password KDF одновременно выполняется максимум один на Server, без уменьшения стоимости хеша; это ограничитель, не полная защита от DoS.
+
+Telemetry — bounded bearer v1 от конкретной ноды, clock/range/rate checks, ограниченная retention. Authenticated node может лгать о ресурсах: эти данные не VPN proof/ACK и не влияют на публикацию. DB identity restore/отзыв убирает старые наблюдения. Нет сетевых target-проб на каждый dashboard GET, GET не пишет observations, private API no-store; worker один и ограничен lifecycle. Полная VM/VPS приёмка остаётся внешним gate.

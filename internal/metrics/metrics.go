@@ -9,19 +9,22 @@ import (
 )
 
 type System struct {
-	UptimeSeconds   int64   `json:"uptime_seconds"`
-	MemoryTotal     uint64  `json:"memory_total"`
-	MemoryAvailable uint64  `json:"memory_available"`
-	Load1           float64 `json:"load_1"`
-	CPUPercent      float64 `json:"cpu_percent"`
-	DiskFree        uint64  `json:"disk_free"`
+	UptimeSeconds   int64    `json:"uptime_seconds"`
+	MemoryTotal     uint64   `json:"memory_total"`
+	MemoryAvailable uint64   `json:"memory_available"`
+	Load1           float64  `json:"load_1"`
+	CPUPercent      *float64 `json:"cpu_percent"`
+	DiskFree        *uint64  `json:"disk_free"`
 }
 
 func Read() System {
 	var s System
 	if b, e := os.ReadFile("/proc/uptime"); e == nil {
-		v, _ := strconv.ParseFloat(strings.Fields(string(b))[0], 64)
-		s.UptimeSeconds = int64(v)
+		fields := strings.Fields(string(b))
+		if len(fields) > 0 {
+			v, _ := strconv.ParseFloat(fields[0], 64)
+			s.UptimeSeconds = int64(v)
+		}
 	}
 	if b, e := os.ReadFile("/proc/loadavg"); e == nil {
 		f := strings.Fields(string(b))

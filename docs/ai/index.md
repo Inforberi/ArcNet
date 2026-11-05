@@ -1,3 +1,12 @@
+## 2026-11-05: дашборд и локальный recovery
+
+[Релиз](../release-0.7.0-stage5-dashboard-recovery.md), [результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md), [ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md).
+
+- `internal/metrics/sampler.go`, `internal/store/{telemetry,user_counts}.go`, `internal/httpapi/dashboard.go`, `internal/nodeagent/telemetry.go` — bounded resources и отдельные состояния, не VPN proof.
+- `frontend/src/pages/Overview.tsx`, `frontend/src/features/dashboard/{model.ts,TrafficChart.tsx}` — адаптивный дашборд, история/поиск/fleet.
+- `cmd/arcvpn/recovery.go`, `internal/store/recovery.go`, `deploy/arcvpn-menu.sh` — safe settings/password/session CLI; [инструкция](../ops/local-admin-recovery.md).
+- Тесты рядом с пакетами, `frontend/tests/dashboard.test.ts`, `tests/dashboard_e2e.mjs`; настоящий локальный API, синтетические reports, не реальные VPS.
+
 ## 2026-11-05: профили трафика, backup v5 и диагностика SNI
 
 Актуальное продолжение: [объём](../release-0.7.0-stage5-profiles-and-targets.md), [результаты](../testing/local-results/stage5-2026-11-05-profiles-targets.md), [ADR-005](../adr/005-traffic-profiles-and-target-diagnostics.md).

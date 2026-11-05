@@ -13,11 +13,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/app"
@@ -32,16 +33,19 @@ import (
 )
 
 type Server struct {
-	App              *app.App
-	log              *slog.Logger
-	limiter          loginLimiter
-	assets           fs.FS
-	publicURL        string
-	logRotator       *logging.Rotator
-	targetCatalogKey ed25519.PublicKey
-	targetSlots      chan struct{}
-	targetChecker    targetcheck.Checker
-	bootstrapSlots   chan struct{} // bounded simultaneous outbound SSH installations
+	App                  *app.App
+	log                  *slog.Logger
+	limiter              loginLimiter
+	assets               fs.FS
+	publicURL            string
+	logRotator           *logging.Rotator
+	targetCatalogKey     ed25519.PublicKey
+	targetSlots          chan struct{}
+	loginSlots           chan struct{}
+	targetChecker        targetcheck.Checker
+	telemetry            *metrics.Sampler
+	telemetryWriteFailed atomic.Bool
+	bootstrapSlots       chan struct{} // bounded simultaneous outbound SSH installations
 }
 type loginAttempt struct {
 	Count int
@@ -53,7 +57,11 @@ type loginLimiter struct {
 }
 
 func New(a *app.App, logger *slog.Logger) *Server {
-	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), targetChecker: targetcheck.Checker{Guard: publicnet.New()}}
+	directory := "."
+	if a != nil && a.Store != nil && a.Store.DB != nil {
+		directory = filepath.Dir(a.Store.DB.Path())
+	}
+	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), loginSlots: make(chan struct{}, 1), targetChecker: targetcheck.Checker{Guard: publicnet.New()}, telemetry: metrics.NewSampler(directory)}
 }
 
 // WithLogRotator enables per-application log budgeting from the web panel.
@@ -156,6 +164,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/security/mfa/confirm", s.mustAuth(s.mfaConfirm, true))
 	mux.HandleFunc("POST /api/security/mfa/disable", s.mustAuth(s.mfaDisable, true))
 	mux.HandleFunc("POST /api/logout", s.mustAuth(s.logout, true))
+	mux.HandleFunc("GET /api/servers/{id}/telemetry", s.mustAuth(s.serverTelemetry, false))
+	mux.HandleFunc("POST /api/nodes/telemetry", s.nodeTelemetry)
 	mux.HandleFunc("GET /api/overview", s.mustAuth(s.overview, false))
 	mux.HandleFunc("POST /api/nodes/ssh/inspect", s.mustAuth(s.nodeSSHInspect, true))
 	mux.HandleFunc("POST /api/nodes/ssh/preflight", s.mustAuth(s.nodeSSHPreflight, true))
@@ -369,6 +379,18 @@ func (s *Server) throttle(ip string) bool {
 	s.limiter.attempts[ip] = v
 	return v.Count <= 8
 }
+
+// Password work is bounded independently of IP rate limits, protecting small
+// hosts from concurrent KDF allocations without weakening the password hash.
+func (s *Server) verifyLoginPassword(password, stored string) (bool, bool) {
+	select {
+	case s.loginSlots <- struct{}{}:
+		defer func() { <-s.loginSlots }()
+		return auth.VerifyPassword(password, stored), false
+	default:
+		return false, true
+	}
+}
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if !sameOrigin(r) {
 		fail(w, 403, "Forbidden origin")
@@ -400,7 +422,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "Internal error")
 		return
 	}
-	if !auth.VerifyPassword(input.Password, stored) {
+	verified, busy := s.verifyLoginPassword(input.Password, stored)
+	if busy {
+		w.Header().Set("Retry-After", "1")
+		fail(w, 429, "Проверка входа уже выполняется. Повторите через секунду")
+		return
+	}
+	if !verified {
 		fail(w, 401, "Неверные учётные данные")
 		return
 	}
@@ -440,6 +468,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) mustAuth(next func(http.ResponseWriter, *http.Request), mutating bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		c, err := r.Cookie("arcvpn_session")
 		if err != nil || len(c.Value) > 256 {
 			fail(w, 401, "Требуется вход")
@@ -478,38 +507,35 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]bool{"ok": true})
 }
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
-	users, err := s.App.Store.ListUsers(r.Context())
+	total, active, err := s.App.Store.UserCounts(r.Context())
 	if err != nil {
-		fail(w, 500, "Internal error")
+		fail(w, 500, "Не удалось прочитать количество пользователей")
 		return
 	}
-	active := 0
-	for _, u := range users {
-		if u.Enabled {
-			active++
-		}
+	fleet, err := s.dashboardFleet(r.Context())
+	if err != nil {
+		fail(w, 500, "Не удалось получить состояние серверов")
+		return
 	}
-	_, conferr := s.App.Store.ReadReality(r.Context())
-	core := "not-configured"
-	if conferr == nil {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := exec.CommandContext(ctx, "systemctl", "is-active", s.App.Core.Service).Run(); err == nil {
+	core := "unknown"
+	if len(fleet) > 0 {
+		switch fleet[0].Xray {
+		case "active":
 			core = "online"
-		} else {
+		case "inactive", "failed":
 			core = "stopped"
+		case "not-configured":
+			core = "not-configured"
+		case "unverified":
+			core = "unverified"
 		}
-	}
-	nodes, err := s.App.Store.ListNodes(r.Context())
-	if err != nil {
-		fail(w, 500, "Не удалось получить состояние нод")
-		return
 	}
 	mode := "standalone"
-	if len(nodes) > 0 {
+	if len(fleet) > 1 {
 		mode = "standalone + telemetry"
 	}
-	respond(w, 200, map[string]any{"system": metrics.Read(), "users": len(users), "enabled_users": active, "xray": core, "nodes": 1 + len(nodes), "mode": mode})
+	sample := s.telemetry.Sample()
+	respond(w, 200, map[string]any{"system": sample, "users": total, "enabled_users": active, "xray": core, "nodes": len(fleet), "mode": mode, "servers": fleet, "sampled_at": time.Now().Unix()})
 }
 func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 	users, err := s.App.Store.ListUsers(r.Context())

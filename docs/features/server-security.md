@@ -78,3 +78,7 @@
 10. Частичный сбой восстановления резервной копии не выдаётся за успешное восстановление.
 
 Модель угроз и границы доверия: [../security/threat-model.md](../security/threat-model.md). Ограничения контейнеров: [../references/sources.md](../references/sources.md).
+
+## Локальное восстановление — продолжение 2026-11-05
+
+Реализованы [команды settings/password/session](../ops/local-admin-recovery.md): без чтения старого пароля, default сохраняет активную 2FA, отдельное явное удаление второго фактора, атомарный отзыв сессий и безопасный audit. KDF admission limit и no-store защищают границы нового мониторинга. [Проверки/ограничения](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md); это не приёмка SSH/UFW/systemd или всех настроек сервера.

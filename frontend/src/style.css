@@ -250,3 +250,16 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 .target-result {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid var(--stroke);border-radius:8px}
 .target-result>div {min-width:0;overflow-wrap:anywhere}
 @media(max-width:480px){.target-result{align-items:stretch;flex-direction:column}}
+.dashboard-toolbar,.dashboard-fleet-filter{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.dashboard-toolbar .field{min-width:220px;max-width:100%;flex:0 1 360px}.dashboard-fleet-filter .field{flex:1 1 220px}
+.dashboard-status-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0;overflow-wrap:anywhere}
+.dashboard-health{display:grid;gap:14px}.dashboard-health>div{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.dashboard-health strong{overflow-wrap:anywhere}
+.dashboard-fleet{display:grid;gap:10px}.fleet-server{display:grid;grid-template-columns:minmax(160px,1.3fr) repeat(3,minmax(110px,1fr)) minmax(160px,1.2fr);align-items:center;gap:12px;border:1px solid var(--stroke);border-radius:var(--radius);padding:14px;min-width:0}
+.fleet-server.selected{border-color:var(--accent)}.fleet-server>div{min-width:0;overflow-wrap:anywhere}.fleet-server small{display:block;color:var(--muted)}.fleet-server .button{max-width:100%;white-space:normal;text-align:left;padding:0;min-height:32px}
+.traffic-chart{min-width:0}.traffic-chart svg{display:block;width:100%;height:180px;overflow:visible;touch-action:pan-y}.traffic-chart path{fill:none;stroke-width:2;vector-effect:non-scaling-stroke}.traffic-chart .chart-grid{stroke:var(--stroke);stroke-width:1}.chart-received{stroke:var(--accent)}.chart-sent{stroke:var(--green)}.chart-cursor{stroke:var(--muted);stroke-dasharray:3 3}.traffic-legend{font-variant-numeric:tabular-nums;font-size:13px}.traffic-legend>span:first-child{color:var(--accent)}.traffic-legend>span:nth-child(2){color:var(--green)}.traffic-axis{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+@media(max-width:1100px){.fleet-server{grid-template-columns:repeat(2,minmax(0,1fr))}.fleet-server>div:first-child{grid-column:1/-1}}
+@media(max-width:480px){.dashboard-toolbar .field{min-width:0;flex-basis:100%}.dashboard-health>div{align-items:flex-start}.dashboard-health strong{max-width:100%}.fleet-server{padding:12px;gap:14px 8px}.traffic-chart svg{height:140px}}
+
+.fleet-server .badge{white-space:normal;max-width:100%}
+
+.metrics .metric{min-width:0}.metric .value,.metric .description{overflow-wrap:anywhere}

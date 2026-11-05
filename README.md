@@ -1,6 +1,8 @@
 **Решение от 2026-11-05 — текущих VPN-протоколов достаточно:** VLESS + REALITY TCP, VLESS + REALITY XHTTP, Hysteria2, WireGuard и AmneziaWG 3.1. **Этап 6 отложен**: AnyTLS, Trojan, TUIC, Shadowsocks 2022, экспертный режим и расширенные overrides сейчас не разрабатываются. Это не означает успешной VPS/E2E приёмки протоколов. [Запись решения](docs/planning/protocol-scope-freeze-2026-11-05.md).
 # ArcVPN 0.7.0 — база этапа 5 (не production)
 
+**Последнее локальное продолжение 2026-11-05:** добавлены [экономный дашборд серверов](docs/features/dashboard-and-telemetry.md) и [команды settings/password/session recovery](docs/ops/local-admin-recovery.md). Контрольный профиль пользователя — 512 МиБ/1 vCPU; [протокол локальных проверок](docs/testing/local-results/stage5-2026-11-05-dashboard-recovery.md) не заменяет VPS/VPN acceptance. После обновлённой установки: `sudo arcvpn settings`, `sudo arcvpn password reset`, для утраченной 2FA — явный `--reset-2fa`.
+
 **Актуально 2026-11-05:** добавлены draft-only RoutePolicy, проверка графа и симуляция отказов, SQLite/API/React редактор маршрутов. Продолжение: интерактивные стрелки, форма/таблица-карточки на мобильных, защита зависимых нод и encrypted backup v4. Настоящие typecheck/Vite build и новый Chromium UI/API E2E проверены; полный внешний VPN gate остаётся открытым. **Каскады и failover на реальном Xray ещё не реализованы.** Этап 4 также не принят на реальных VPS.
 
 Текущий блок: [результат UI/backup](docs/release-0.7.0-stage5-routing-ui.md), [фактические проверки](docs/testing/local-results/stage5-2026-11-05-routing-ui.md).

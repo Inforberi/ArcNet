@@ -158,6 +158,15 @@ func run() error {
 	if dataDir == "" {
 		dataDir = "/var/lib/arcvpn"
 	}
+	if os.Args[1] == "admin-reset" || os.Args[1] == "settings" || os.Args[1] == "admin-revoke-sessions" {
+		if err := checkRecoveryPermissions(dataDir); err != nil {
+			return err
+		}
+		info, err := os.Lstat(filepath.Join(dataDir, "panel.sqlite"))
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 {
+			return errors.New("local controller database is missing or unsafe; recovery does not create a new installation")
+		}
+	}
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
 	}
@@ -168,8 +177,10 @@ func run() error {
 	defer database.Close()
 	st := &store.Store{DB: database}
 	ctx := context.Background()
-	if err := st.Migrate(ctx); err != nil {
-		return err
+	if os.Args[1] != "settings" {
+		if err := st.Migrate(ctx); err != nil {
+			return err
+		}
 	}
 	switch os.Args[1] {
 	case "backup-create":
@@ -216,22 +227,18 @@ func run() error {
 		fmt.Println("Encrypted backup written:", path)
 		return nil
 	case "admin-reset":
-		if err := checkRecoveryPermissions(dataDir); err != nil {
+		return resetAdministrator(ctx, st, os.Args[2:], os.Stdin, os.Stdout)
+	case "admin-revoke-sessions":
+		if len(os.Args) != 2 {
+			return errors.New("admin-revoke-sessions does not accept arguments")
+		}
+		if err := st.RevokeAdminSessions(ctx); err != nil {
 			return err
 		}
-		pwd, err := auth.Secret(24)
-		if err != nil {
-			return err
-		}
-		hash, err := auth.HashPassword(pwd)
-		if err != nil {
-			return err
-		}
-		if err := st.ResetAdminPassword(ctx, hash); err != nil {
-			return err
-		}
-		fmt.Printf("New administrator password: %s\nAll active sessions revoked. Save the password securely.\n", pwd)
+		fmt.Println("Все административные сессии завершены. VPN-подключения не изменены.")
 		return nil
+	case "settings":
+		return showLocalSettings(ctx, st, os.Args[2:], os.Stdout)
 	case "admin-init":
 		flagset := flag.NewFlagSet("admin-init", flag.ContinueOnError)
 		username := flagset.String("username", "admin", "administrator login")
@@ -347,6 +354,9 @@ func run() error {
 		}
 		exitCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
+		telemetryDone := make(chan struct{})
+		go func() { defer close(telemetryDone); api.RunTelemetry(exitCtx) }()
+		defer func() { stop(); <-telemetryDone }()
 		errs := make(chan error, 1)
 		go func() {
 			if *cert != "" {
@@ -389,7 +399,7 @@ func run() error {
 }
 func splitHostPort(s string) (string, string, error) { return net.SplitHostPort(s) }
 func help() {
-	fmt.Println("arcvpn: serve | admin-init | admin-reset | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
+	fmt.Println("arcvpn: serve | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
 }
 
 // runHelper is intended ONLY for the root-owned systemd socket-activated unit.
@@ -567,10 +577,10 @@ func parseSystemdState(output []byte, cmdErr error) (string, error) {
 	return "", errors.New("cannot determine systemd service state")
 }
 
-// Only local root or the dedicated ArcVPN account may rotate the administrator password.
+// The root-operated wrapper drops privileges before opening the database.
 func checkRecoveryPermissions(dir string) error {
 	if os.Geteuid() == 0 {
-		return errors.New("run recovery as arcvpn user (not root): sudo -u arcvpn /opt/arcvpn/bin/arcvpn-core admin-reset")
+		return errors.New("use sudo arcvpn for local management; the core must run as the arcvpn service user")
 	}
 	identity, err := user.Current()
 	if err != nil {
