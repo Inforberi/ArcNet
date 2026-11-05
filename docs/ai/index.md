@@ -1,3 +1,11 @@
+## 2026-11-05: подписка мониторинга и простые формы
+
+- `internal/store/monitoring.go`, `internal/httpapi/monitoring.go`, `internal/nodeagent/telemetry.go` — сохраняемый cadence5, SSE hub, отдельный agent lifecycle; тесты рядом.
+- `internal/httpapi/connection_defaults.go`, `frontend/src/features/connections/ConnectionForms.tsx`, `frontend/src/shared/ui.tsx` — trusted defaults, composition/Advanced, ручные drafts.
+- `frontend/src/features/dashboard/Monitoring.tsx`, `frontend/src/app/Layout.tsx` — одна подписка, fallback/offline/online/watchdog.
+- `tests/monitoring_e2e.mjs`, `tests/run-monitoring-browser.sh` — UI/API fixtures, не VPN.
+- [ADR-007](../adr/007-live-monitoring-and-simple-connection-forms.md), [результаты](../testing/local-results/stage5-2026-11-05-live-monitoring.md), [пакеты/устройства/каскады: остаток](../planning/simple-operation-and-user-packages-2026-11-05.md).
+
 ## 2026-11-05: дашборд и локальный recovery
 
 [Релиз](../release-0.7.0-stage5-dashboard-recovery.md), [результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md), [ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md).

@@ -43,6 +43,8 @@ type Server struct {
 	targetSlots          chan struct{}
 	loginSlots           chan struct{}
 	targetChecker        targetcheck.Checker
+	monitoring           *monitoringHub
+	serviceCache         serviceSnapshot
 	telemetry            *metrics.Sampler
 	telemetryWriteFailed atomic.Bool
 	bootstrapSlots       chan struct{} // bounded simultaneous outbound SSH installations
@@ -61,7 +63,7 @@ func New(a *app.App, logger *slog.Logger) *Server {
 	if a != nil && a.Store != nil && a.Store.DB != nil {
 		directory = filepath.Dir(a.Store.DB.Path())
 	}
-	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), loginSlots: make(chan struct{}, 1), targetChecker: targetcheck.Checker{Guard: publicnet.New()}, telemetry: metrics.NewSampler(directory)}
+	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), loginSlots: make(chan struct{}, 1), targetChecker: targetcheck.Checker{Guard: publicnet.New()}, monitoring: newMonitoringHub(), telemetry: metrics.NewSampler(directory)}
 }
 
 // WithLogRotator enables per-application log budgeting from the web panel.
@@ -166,6 +168,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/logout", s.mustAuth(s.logout, true))
 	mux.HandleFunc("GET /api/servers/{id}/telemetry", s.mustAuth(s.serverTelemetry, false))
 	mux.HandleFunc("POST /api/nodes/telemetry", s.nodeTelemetry)
+	mux.HandleFunc("GET /api/monitoring/events", s.mustAuth(s.monitoringStream, false))
+	mux.HandleFunc("GET /api/settings/monitoring", s.mustAuth(s.monitoringSettings, false))
+	mux.HandleFunc("PUT /api/settings/monitoring", s.mustAuth(s.monitoringSave, true))
 	mux.HandleFunc("GET /api/overview", s.mustAuth(s.overview, false))
 	mux.HandleFunc("POST /api/nodes/ssh/inspect", s.mustAuth(s.nodeSSHInspect, true))
 	mux.HandleFunc("POST /api/nodes/ssh/preflight", s.mustAuth(s.nodeSSHPreflight, true))
@@ -245,6 +250,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/protocols/{kind}", s.mustAuth(s.protocolDelete, true))
 	mux.HandleFunc("GET /api/users/{id}/connections", s.mustAuth(s.userConnections, false))
 	mux.HandleFunc("GET /api/users/{id}/connections/{kind}/export", s.mustAuth(s.userConnectionExport, false))
+	mux.HandleFunc("GET /api/vpn/defaults", s.mustAuth(s.connectionDefaults, false))
 	mux.HandleFunc("GET /api/vpn", s.mustAuth(s.vpn, false))
 	mux.HandleFunc("POST /api/vpn", s.mustAuth(s.vpnCreate, true))
 	mux.HandleFunc("GET /api/events", s.mustAuth(s.events, false))

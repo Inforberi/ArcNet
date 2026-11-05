@@ -1,3 +1,7 @@
+## 2026-11-05 — live monitoring и простые формы подключения
+
+Сохраняемый default5, SSE авторизованного layout, fallback/offline/online/watchdog, bounded hub и agent resource lifecycle отдельно от apply; совместимость 204/404. Trusted defaults API и композиция `ConnectionForms`/`Advanced`, автоматические target-пробы, сохранение ручных drafts. Go test/vet/race, frontend build/tests, browser checks — [фактические результаты](../testing/local-results/stage5-2026-11-05-live-monitoring.md). Уточнены требования пользовательского пакета ГБ и устройств, runtime не добавлен. Каскады/лимиты/VPS остаются незавершёнными.
+
 ## 2026-11-05 — дашборд серверов и локальное восстановление доступа
 
 Добавлены лёгкие ресурсы/история панели и нод, раздельные health-состояния, мобильный UI и безопасные CLI settings/password/session команды. SQL aggregate заменил полное чтение пользователей в overview; ограничен одновременный login KDF. Активная MFA при reset пароля сохраняется по умолчанию. Linux tests/vet/race, frontend10 tests/build, embedded React и Chromium dashboard/profile/routing regression PASS. UI backend испытан под 512 МиБ/1vCPU; это не VPN minimum. Geo/cascade/client failover и внешняя приёмка остаются открыты. [Точные результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md).

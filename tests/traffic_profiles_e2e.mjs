@@ -82,8 +82,10 @@ try {
  await page.getByRole('heading', {name: 'Новый профиль маршрутизации', exact: true}).waitFor();
  assert.equal((await (await api('GET', '/api/routing-profiles')).json()).items.length, 1);
  await page.getByRole('button', {name: 'Закрыть', exact: true}).click();
- // SNI catalogue validation uses the actual API without connecting externally.
+ // SNI catalogue validation uses the actual API. Automatic bounded diagnostics
+ // may run when opening the new-connection form; no VPN traffic is tested.
  await page.goto(origin + '/vpn');
+ await page.locator('summary').getByText('Расширенные настройки', {exact: true}).click();
  await page.getByText('Свой список SNI', {exact: true}).click();
  await page.getByLabel('Кандидаты, по одному на строке', {exact: true}).fill('metadata.internal');
  await page.getByRole('button', {name: 'Заменить каталог кандидатов', exact: true}).click();
@@ -92,7 +94,7 @@ try {
  listing = await (await api('GET', '/api/routing-profiles')).json(); saved = listing.items[0];
  assert.equal((await api('DELETE', `/api/routing-profiles/${saved.id}`, {expected_version: saved.version})).status(), 200);
  assert.deepEqual(errors, []);
- console.log('PASS traffic profiles: actual CRUD/import/export/list preview/off/CAS/draft retention, 5 widths × 2 themes, SNI SSRF rejection; no real VPN or external target probe.');
+ console.log('PASS traffic profiles: actual CRUD/import/export/list preview/off/CAS/draft retention, 5 widths × 2 themes, SNI SSRF rejection; no real VPN.');
 } catch (error) {
  await page.screenshot({path: 'tests/screenshots/traffic-profiles/failure.png', fullPage: true}).catch(() => {}); throw error;
 } finally {await context.close(); await browser.close();}

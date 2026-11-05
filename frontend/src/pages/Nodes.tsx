@@ -93,8 +93,8 @@ function NodeUpgradeWizard({node,onClose}:{node:Node;onClose:()=>void}) {
 
 export default function Nodes(){
   const cache=useQueryClient();
-  const nodes=useQuery({queryKey:['nodes'],queryFn:()=>api<NodeList>('/api/nodes'),refetchInterval:15000});
-  const operations=useQuery({queryKey:['node-bootstraps'],queryFn:()=>api<{items:Bootstrap[]}>('/api/nodes/ssh/operations'),refetchInterval:5000});
+  const nodes=useQuery({queryKey:['nodes'],queryFn:()=>api<NodeList>('/api/nodes')});
+  const operations=useQuery({queryKey:['node-bootstraps'],queryFn:()=>api<{items:Bootstrap[]}>('/api/nodes/ssh/operations')});
   const [sniOpen,setSniOpen]=useState(false);
   const [sniNode,setSniNode]=useState('local');
   const [view,setView]=useState<'table'|'diagram'>('table');

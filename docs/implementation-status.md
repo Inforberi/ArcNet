@@ -1,3 +1,5 @@
+> **Продолжение live monitoring:** default5, сохраняемый interval UI, SSE и формы с defaults локально проверены. [Результаты](testing/local-results/stage5-2026-11-05-live-monitoring.md). Учёт гигабайтов пользователя, device enforcement, первый любой протокол и каскадный runtime **не реализованы**; [план](planning/simple-operation-and-user-packages-2026-11-05.md).
+
 > **Scope freeze 2026-11-05:** текущих пяти вариантов VPN-подключения достаточно; этап 6 отложен без разработки. Код поддерживаемых профилей присутствует, но реальный E2E статус не подтверждён. [Зафиксированное решение](planning/protocol-scope-freeze-2026-11-05.md).
 # Текущий статус — 2026-11-05
 

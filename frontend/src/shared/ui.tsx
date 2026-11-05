@@ -13,3 +13,6 @@ export function PageHeading({title,description,actions}:{title:string;descriptio
 export function Empty({children}:{children:ReactNode}){return <div className="empty">{children}</div>}
 export function Notice({children}:{children:ReactNode}){return <div className="notice">{children}</div>}
 export function Loading(){return <div className="empty">Загрузка…</div>}
+export function Advanced({title='Расширенные настройки',children}:{title?:string;children:ReactNode}){
+  return <details className="profile-advanced" onInvalidCapture={event => {event.currentTarget.open = true;}}><summary>{title}</summary><div className="profile-settings">{children}</div></details>;
+}

@@ -127,3 +127,25 @@ func TestTelemetryRecomputesRatesAndResetsOnInterfaceChange(t *testing.T) {
 		t.Fatal("interface replacement produced a false network spike")
 	}
 }
+
+func TestTelemetryAcceptsFiveSecondCadenceWithoutUnboundedWrites(t *testing.T) {
+	state, done := createControlTestStore(t)
+	defer done()
+	ctx := context.Background()
+	node, _ := createControlTestNode(t, state)
+	now := time.Now().Unix()
+	write := func(at int64) error {
+		return state.DB.WithTx(ctx, func(tx *db.Tx) error {
+			return writeTelemetry(tx, node, metrics.Snapshot{SampledAt: at, CPUs: 1}, at, true)
+		})
+	}
+	if err := write(now - 10); err != nil {
+		t.Fatal(err)
+	}
+	if err := write(now - 6); !errors.Is(err, ErrTelemetryRateLimit) {
+		t.Fatal("sub-five-second write accepted", err)
+	}
+	if err := write(now - 5); err != nil {
+		t.Fatal("five-second report rejected", err)
+	}
+}

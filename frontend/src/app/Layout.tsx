@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { applyTheme, readTheme } from '../shared/theme';
 import { api, setCSRF } from '../shared/api';
+import {MonitoringProvider} from '../features/dashboard/Monitoring';
 import { Button } from '../shared/ui';
 
 type NavItem = { url: string; label: string; icon: string };
@@ -126,7 +127,7 @@ export default function Layout() {
         </aside>
         <main className="main" id="main-content" tabIndex={-1}>
           {logoutError && <p className="error" role="alert">{logoutError}</p>}
-          <Outlet />
+          <MonitoringProvider><Outlet /></MonitoringProvider>
         </main>
       </div>
     </>

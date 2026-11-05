@@ -2,13 +2,13 @@ import {useEffect, useRef, useState} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {api} from '../../shared/api';
 import {Badge, Button, Field, Loading} from '../../shared/ui';
-import {candidateKey, usableResult, type Candidate, type TargetJob} from './model';
+import {candidateKey, usableResult, type Candidate, type TargetJob, type RecommendationState} from './model';
 
 type CatalogReply = {catalog: {version: number; candidates: Candidate[]; source: string}; signed_update_enabled: boolean};
 type Node = {id: string; name: string; supported: boolean; online: boolean};
 const message = (error: unknown) => error instanceof Error ? error.message : 'Не удалось выполнить проверку';
 
-export default function TargetPicker({nodeID = 'local', sameName = false, onSelect, onRecommend}: {nodeID?: string; sameName?: boolean; onSelect?: (candidate: Candidate) => void; onRecommend?: (candidate: Candidate) => void}) {
+export default function TargetPicker({nodeID = 'local', sameName = false, automatic = false, onSelect, onRecommend, onStatus}: {nodeID?: string; sameName?: boolean; automatic?: boolean; onSelect?: (candidate: Candidate) => void; onRecommend?: (candidate: Candidate) => void; onStatus?: (state: RecommendationState) => void}) {
   const cache = useQueryClient();
   const catalog = useQuery({queryKey: ['target-catalog'], queryFn: () => api<CatalogReply>('/api/targets/catalog'), staleTime: 60000});
   const nodes = useQuery({queryKey: ['target-nodes'], queryFn: () => api<{items: Node[]}>('/api/targets/nodes'), staleTime: 15000});
@@ -21,13 +21,33 @@ export default function TargetPicker({nodeID = 'local', sameName = false, onSele
   const [now, setNow] = useState(Date.now() / 1000);
   const latestNode = useRef(nodeID); latestNode.current = nodeID;
   const recommendation = useRef(onRecommend); recommendation.current = onRecommend;
+  const statusCallback = useRef(onStatus); statusCallback.current = onStatus;
   const candidates = catalog.data?.catalog.candidates ?? [];
   const keys = selected ?? candidates.slice(0, 4).map(candidateKey);
   const node = nodes.data?.items.find(item => item.id === nodeID);
   const running = !!job && ['queued', 'running'].includes(job.state) && job.expires_at > now;
   const pending = useQuery({queryKey: ['target-job', job?.id], queryFn: () => api<TargetJob>(`/api/targets/checks/${encodeURIComponent(job!.id)}`), enabled: running, refetchInterval: running ? 2000 : false});
-  useEffect(() => {if (!job) return; const timer = window.setInterval(() => setNow(Date.now() / 1000), 1000); return () => window.clearInterval(timer);}, [job?.id]);
   useEffect(() => {setJob(undefined); setError('');}, [nodeID]);
+  const auto = useQuery({
+    queryKey: ['target-auto-check', nodeID, catalog.data?.catalog.version, sameName],
+    queryFn: () => api<TargetJob>('/api/targets/check', 'POST', {node_id: nodeID, candidates: candidates.filter(candidate => !sameName || candidate.host === candidate.sni).slice(0, 4)}),
+    enabled: automatic && !!catalog.data && candidates.some(candidate => !sameName || candidate.host === candidate.sni) && !!node?.online && !!node.supported,
+    staleTime: 600000, gcTime: 600000, retry: false, refetchOnWindowFocus: false,
+  });
+  const report = job ?? auto.data;
+  const best = report?.report?.recommended;
+  const state: RecommendationState = catalog.isPending || nodes.isPending || auto.isFetching || running ? 'checking'
+    : catalog.isError || nodes.isError || auto.isError ? 'failed'
+    : !node?.online || !node.supported ? 'unavailable'
+    : best && usableResult(report, nodeID, best) && (!sameName || best.host === best.sni) ? 'ready' : 'failed';
+  useEffect(() => {if (automatic) statusCallback.current?.(state);}, [automatic, state]);
+  useEffect(() => {
+    if (!automatic || !auto.data || auto.data.node_id !== nodeID) return;
+    setJob(current => current ?? auto.data);
+    const best = auto.data.report?.recommended;
+    if (best && usableResult(auto.data, nodeID, best) && (!sameName || best.host === best.sni)) recommendation.current?.(best);
+  }, [auto.data, automatic, nodeID, sameName]);
+  useEffect(() => {if (!job) return; const timer = window.setInterval(() => setNow(Date.now() / 1000), 1000); return () => window.clearInterval(timer);}, [job?.id]);
   useEffect(() => {
     const result = pending.data;
     if (result && result.id === job?.id && result.node_id === nodeID) {
@@ -62,7 +82,8 @@ export default function TargetPicker({nodeID = 'local', sameName = false, onSele
     <p className="muted">Выберите до четырёх кандидатов. Проверим сертификат, TLS 1.3, HTTP/2 и три замера TCP+TLS с выбранного сервера.</p>
     {catalog.isPending ? <Loading/> : catalog.isError ? <p role="alert" className="error">{message(catalog.error)}</p> : <>
       <div className="target-candidates">{candidates.map(candidate => <label key={candidateKey(candidate)}><input type="checkbox" checked={keys.includes(candidateKey(candidate))} disabled={busy || running || (!keys.includes(candidateKey(candidate)) && keys.length >= 4)} onChange={event => setSelected(event.target.checked ? [...keys, candidateKey(candidate)] : keys.filter(key => key !== candidateKey(candidate)))}/><span>{candidate.host}{candidate.sni !== candidate.host && <small>SNI: {candidate.sni}</small>}</span></label>)}</div>
-      <Button type="button" disabled={busy || running || !keys.length || !node?.online || !node.supported} onClick={() => void check()}>{busy || running ? 'Проверяем…' : 'Проверить и подобрать'}</Button>
+      <Button type="button" disabled={busy || running || auto.isFetching || !keys.length || !node?.online || !node.supported} onClick={() => void check()}>{busy || running || auto.isFetching ? 'Проверяем…' : 'Проверить и подобрать'}</Button>
+      {auto.isError && <p className="error" role="alert">Автоподбор не завершён: {message(auto.error)}. Можно повторить проверку или указать SNI вручную.</p>}
       {node && (!node.online || !node.supported) && <p className="muted">Нужен доступный агент с поддержкой SNI-проверок.</p>}
       {nodes.isError && <p className="error" role="alert">{message(nodes.error)}</p>}
       {job && <div aria-live="polite">

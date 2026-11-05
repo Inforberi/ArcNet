@@ -441,8 +441,10 @@ func contactDelay(consecutiveFailures int) time.Duration {
 // preceding cycle completes, so a slow controller cannot pile up goroutines.
 func Run(ctx context.Context, c Configuration, configPath string, report func(error)) {
 	client := Client()
-	telemetry := metrics.NewSampler(filepath.Dir(configPath))
-	var nextTelemetry time.Time
+	telemetryCtx, stopTelemetry := context.WithCancel(ctx)
+	telemetryDone := make(chan struct{})
+	go func() { defer close(telemetryDone); runTelemetry(telemetryCtx, client, configPath, report) }()
+	defer func() { stopTelemetry(); <-telemetryDone }()
 	rotateAfter := time.Now().Add(24 * time.Hour)
 	if c.RotatedAt > 0 {
 		deadline := time.Unix(c.RotatedAt, 0).Add(24 * time.Hour)
@@ -462,12 +464,6 @@ func Run(ctx context.Context, c Configuration, configPath string, report func(er
 		if err := heartbeat(requestCtx, client, c); err != nil {
 			report(errors.New("agent heartbeat unavailable"))
 			return false
-		}
-		if !time.Now().Before(nextTelemetry) {
-			nextTelemetry = time.Now().Add(metrics.AgentInterval)
-			if err := sendTelemetry(requestCtx, client, c, telemetry); err != nil {
-				report(errors.New("agent resource telemetry unavailable"))
-			}
 		}
 		if err := PollAndApply(requestCtx, client, c, ""); err != nil {
 			report(err)

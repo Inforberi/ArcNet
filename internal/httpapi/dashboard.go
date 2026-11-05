@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/metrics"
@@ -41,19 +42,55 @@ type fleetItem struct {
 	Memory   *float64 `json:"memory_percent"`
 }
 
+type serviceSnapshot struct {
+	sync.Mutex
+	name  string
+	state string
+	until time.Time
+}
+
+func (s *Server) serviceState(ctx context.Context, name string) string {
+	s.serviceCache.Lock()
+	defer s.serviceCache.Unlock()
+	if s.serviceCache.name == name && time.Now().Before(s.serviceCache.until) {
+		return s.serviceCache.state
+	}
+	call, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	output, _ := exec.CommandContext(call, "/usr/bin/systemctl", "is-active", name).Output()
+	state := strings.TrimSpace(string(output))
+	switch state {
+	case "active", "inactive", "failed", "activating", "deactivating":
+	default:
+		state = "unknown"
+	}
+	if ctx.Err() == nil {
+		s.serviceCache.name, s.serviceCache.state, s.serviceCache.until = name, state, time.Now().Add(5*time.Second)
+	}
+	return state
+}
+
 // One bounded collector is owned by the serve lifecycle. It keeps history when
 // no browser is open; there is no goroutine or polling loop per administrator.
 func (s *Server) RunTelemetry(ctx context.Context) {
-	ticker := time.NewTicker(metrics.CollectionInterval)
-	defer ticker.Stop()
-	for {
+	defer s.monitoring.once.Do(func() { close(s.monitoring.done) })
+	for ctx.Err() == nil {
 		call, cancel := context.WithTimeout(ctx, 5*time.Second)
 		s.telemetryWriteFailed.Store(s.App.Store.RecordLocalTelemetry(call, s.telemetry.Sample()) != nil)
+		n, err := s.App.Store.MonitoringSeconds(call)
+		if err != nil {
+			n = store.DefaultMonitoringSeconds
+		}
 		cancel()
+		s.monitoring.notify()
+		timer := time.NewTimer(time.Duration(n) * time.Second)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return
-		case <-ticker.C:
+		case <-s.monitoring.wake:
+			timer.Stop()
+		case <-timer.C:
 		}
 	}
 }
@@ -75,14 +112,7 @@ func localService(ctx context.Context, s *Server) (string, string, error) {
 	if s.App.Core.Service == "" {
 		return "unknown", reality.Address, nil
 	}
-	call, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	output, _ := exec.CommandContext(call, "/usr/bin/systemctl", "is-active", s.App.Core.Service).Output()
-	switch state := strings.TrimSpace(string(output)); state {
-	case "active", "inactive", "failed", "activating", "deactivating":
-		return state, reality.Address, nil
-	}
-	return "unknown", reality.Address, nil
+	return s.serviceState(ctx, s.App.Core.Service), reality.Address, nil
 }
 func (s *Server) localDashboard(ctx context.Context) (serverDashboard, bool, error) {
 	snapshot := s.telemetry.Sample()
@@ -230,12 +260,21 @@ func (s *Server) nodeTelemetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, store.ErrTelemetryRateLimit) {
-		w.Header().Set("Retry-After", "10")
+		w.Header().Set("Retry-After", "5")
 		fail(w, 429, "Telemetry rate limited")
 		return
 	}
 	if err != nil {
 		fail(w, 400, "Invalid or unavailable telemetry")
+		return
+	}
+	if r.Header.Get("X-ArcVPN-Telemetry") == "2" {
+		n, err := s.App.Store.MonitoringSeconds(r.Context())
+		if err != nil {
+			fail(w, 503, "Monitoring settings unavailable")
+			return
+		}
+		respond(w, 200, map[string]int{"interval_seconds": n})
 		return
 	}
 	w.WriteHeader(204)

@@ -60,7 +60,7 @@ func writeTelemetry(tx *db.Tx, nodeID string, snapshot metrics.Snapshot, now int
 		if err != nil {
 			return err
 		}
-		minimumInterval := int64(10)
+		minimumInterval := int64(5)
 		if !strict {
 			minimumInterval = int64(metrics.CollectionInterval / time.Second)
 		}

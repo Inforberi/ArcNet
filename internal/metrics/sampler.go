@@ -16,8 +16,8 @@ import (
 )
 
 const CacheInterval = 5 * time.Second
-const CollectionInterval = 30 * time.Second
-const AgentInterval = 60 * time.Second
+const CollectionInterval = 5 * time.Second
+const AgentInterval = 5 * time.Second
 const FreshForSeconds = 180
 
 // Snapshot uses null for unavailable or not-yet-measurable values. These are

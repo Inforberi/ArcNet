@@ -4,6 +4,7 @@ import {Link} from 'react-router';
 import {api} from '../shared/api';
 import {Badge, Button, Field, Loading, Notice, PageHeading, Panel} from '../shared/ui';
 import {ageText, formatBytes, formatPercent, needsAttention, percentUsed, rateText, statusText, type FleetOverview, type ServerDetail} from '../features/dashboard/model';
+import {MonitoringControls} from '../features/dashboard/Monitoring';
 import TrafficChart from '../features/dashboard/TrafficChart';
 
 function Metric({name, value, note, percent}: {name: string; value: string; note: string; percent: number | null}) {
@@ -16,9 +17,9 @@ export default function Overview() {
  const [filter, setFilter] = useState('');
  const [attention, setAttention] = useState(false);
  const [visibleCount, setVisibleCount] = useState(20);
- const overview = useQuery({queryKey: ['overview'], queryFn: () => api<FleetOverview>('/api/overview'), refetchInterval: 30000, refetchIntervalInBackground: false});
- const details = useQuery({queryKey: ['server-telemetry', selected], queryFn: () => api<ServerDetail>(`/api/servers/${encodeURIComponent(selected)}/telemetry?history=0`), refetchInterval: 30000, refetchIntervalInBackground: false});
- const history = useQuery({queryKey: ['server-history', selected], queryFn: () => api<ServerDetail>(`/api/servers/${encodeURIComponent(selected)}/telemetry?history=1`), refetchInterval: 60000, refetchIntervalInBackground: false});
+ const overview = useQuery({queryKey: ['overview'], queryFn: () => api<FleetOverview>('/api/overview')});
+ const details = useQuery({queryKey: ['server-telemetry', selected], queryFn: () => api<ServerDetail>(`/api/servers/${encodeURIComponent(selected)}/telemetry?history=0`)});
+ const history = useQuery({queryKey: ['server-history', selected], queryFn: () => api<ServerDetail>(`/api/servers/${encodeURIComponent(selected)}/telemetry?history=1`)});
  const data = details.data; const server = data?.server; const snapshot = server?.telemetry?.snapshot;
  const now = Math.floor(Math.max(overview.data ? overview.data.sampled_at + (Date.now() - overview.dataUpdatedAt) / 1000 : 0, details.data ? details.data.sampled_at + (Date.now() - details.dataUpdatedAt) / 1000 : 0)) || Math.floor(Date.now() / 1000);
  const fresh = !!server && !details.isError && !server.stale && !!server.telemetry && now - server.telemetry.received_at <= (data?.telemetry_fresh_for ?? 180);
@@ -32,6 +33,7 @@ export default function Overview() {
  const shown = fleet.filter(item => (!attention || needsAttention(item)) && `${item.name} ${item.address}`.toLocaleLowerCase('ru').includes(filter.toLocaleLowerCase('ru')));
  return <>
   <PageHeading title="Обзор" description="Ресурсы серверов и отдельные статусы агента, Xray и VPN" actions={<Button onClick={() => {void overview.refetch(); void details.refetch(); void history.refetch();}} disabled={overview.isFetching || details.isFetching}>Обновить</Button>}/>
+  <MonitoringControls/>
   <div className="dashboard-toolbar"><label className="field"><span>Сервер на дашборде</span><select aria-label="Сервер на дашборде" value={selected} onChange={event => setSelected(event.target.value)}><option value="local">Сервер панели</option>{fleet.filter(item => item.id !== 'local').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="muted">{overview.data ? `Серверов: ${overview.data.nodes} · пользователей включено: ${overview.data.enabled_users} из ${overview.data.users}` : 'Получаем состояние инфраструктуры'}</p></div>
   {overview.isError && <Notice>{overview.error.message}</Notice>}
   {details.isError && <Notice>{details.error.message} <Button onClick={() => setSelected('local')}>Открыть сервер панели</Button></Notice>}

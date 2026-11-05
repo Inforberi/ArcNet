@@ -1,5 +1,7 @@
 # Дашборд сервера панели и подключённых нод
 
+Актуальное продолжение: [подписка и интервал 5 секунд](../adr/007-live-monitoring-and-simple-connection-forms.md).
+
 Дата: 2026-11-05. Реализовано в исходниках; [ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md), [локальные результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md). Приёмка реальных VPS/VPN отсутствует.
 
 ## Что показывает UI
@@ -19,17 +21,18 @@
 
 - GET `/api/overview` — совместимые общие поля плюс `servers` и `sampled_at`; количество пользователей через SQL aggregate без чтения credentials. `system` теперь содержит nullable реальные показатели, а не placeholder CPU/disk.
 - GET `/api/servers/{id}/telemetry?history=0|1` — выбранный сервер, snapshot, состояния и опциональная история. `local` — панель. По умолчанию история включена; текущий UI исключает её из частого snapshot polling. Требуется админ-сессия; `Cache-Control: no-store`. GET не сохраняет наблюдения в DB.
-- POST `/api/nodes/telemetry` — optional wire v1 `{version,node_id,snapshot}` с bearer. Проверяются identity, размер/метаданные/диапазоны/часы ±300 секунд и rate limit; `local` запрещён. К status/probe/ACK/publish доступа нет. Контроллер пересчитывает remote rate из counters/epoch/interfaces, первый отчёт не создаёт скорость.
+- POST `/api/nodes/telemetry` — optional wire v1 `{version,node_id,snapshot}` с bearer. Проверяются identity, размер/метаданные/диапазоны/часы ±300 секунд и rate limit не чаще 5 секунд; `local` запрещён. Optional header `X-ArcVPN-Telemetry: 2` возвращает JSON с `interval_seconds`; без header сохраняется ответ 204. К status/probe/ACK/publish доступа нет. Контроллер пересчитывает remote rate из counters/epoch/interfaces, первый отчёт не создаёт скорость.
+- GET/PUT `/api/settings/monitoring` — общая сохраняемая частота, PUT требует CSRF; GET `/api/monitoring/events` — same-origin SSE с сессией, refresh/keepalive/unauthorized, без credentials в URL.
 - Старый heartbeat wire не меняется. Новый агент терпит 404 старого контроллера; старый агент остаётся с частичными memory/load/uptime данными, CPU/disk/network не заполняются нулями. Ошибка systemctl даёт unknown, а не доказанный stopped.
 
 ## Экономные настройки
 
 Контрольный профиль пользователя — **512 МиБ / 1 vCPU**. Это не заявленный minimum полного VPN.
 
-- Один lifecycle worker на контроллер: каждые 30 секунд, cache 5 секунд, без collector/subprocess на вкладку. Agent resource report — примерно раз в минуту успешного цикла, heartbeat отдельно с 20-секундной базой и существующим jitter/backoff.
+- Один lifecycle worker на контроллер: по сохраняемой настройке 5/10/15/30/60 секунд (по умолчанию 5), cache 5 секунд, без collector на вкладку; systemctl-state кешируется на 5 секунд. Resource report нового агента — отдельный цикл по настройке контроллера, не блокируется apply/target checks. Heartbeat отдельно с прежней базой 20 секунд и jitter/backoff. Старые агенты не получают новый cadence автоматически без обновления бинарника.
 - Resource freshness 180 секунд, heartbeat freshness 75 секунд. CPU/network требуют двух подходящих снимков. Никаких target/VPN-проб на каждое открытие дашборда.
 - Один record/minute/node, 120 минут, глобальный cap 32768 строк; rate-limited writes, purge при новом bucket. История не копируется в VPN-state backup и удаляется при замене/отзыве identity. В metrics audit/log не пишется каждое измерение.
-- UI snapshot/fleet раз в 30 секунд, история раз в минуту; скрытая вкладка не опрашивается. Только выбранный сервер получает history; до 20 карточек за одно раскрытие. Без новой chart library, Redis, Prometheus или Node.js на VPS.
+- UI snapshot/fleet — по общей SSE-подписке с coalesced refresh (по умолчанию 5 секунд), резервный опрос при обрыве; история раз в минуту. Скрытая вкладка закрывает подписку и не опрашивает данные. Только выбранный сервер получает history; до 20 карточек за одно раскрытие. Без новой chart library, Redis, Prometheus или Node.js на VPS.
 - Ошибка записи истории не превращает известные текущие показатели в нули; флаг доступности истории выводится отдельно. Worker завершается до закрытия DB.
 
 Полная долговременная VPN-нагрузка, performance per-user accounting, cgroup-aware dashboard, реальная fleet и bare-VPS systemd/network acceptance ещё не подтверждены. Не считать локальный UI/container benchmark выполнением этих gates.
