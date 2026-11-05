@@ -46,7 +46,7 @@ func PublicIP(ip netip.Addr) bool {
 	return ip.Is4() || netip.MustParsePrefix("2000::/3").Contains(ip)
 }
 func Hostname(host string) bool {
-	if len(host) > 253 || !strings.Contains(host, ".") || host != strings.ToLower(host) || strings.HasSuffix(host, ".") {
+	if len(host) > 253 || !strings.Contains(host, ".") || strings.ContainsAny(host, ":/@?#[]") || host != strings.ToLower(host) || strings.HasSuffix(host, ".") {
 		return false
 	}
 	if _, err := netip.ParseAddr(host); err == nil {

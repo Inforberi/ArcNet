@@ -31,6 +31,8 @@ export default function RoutingProfiles() {
   const file = useRef<HTMLInputElement>(null);
   const listFile = useRef<HTMLInputElement>(null);
   const candidate = (): RoutingProfile => ({...draft, proxy: textEntries(texts.proxy), direct: textEntries(texts.direct), block: textEntries(texts.block)});
+  const checkFingerprint = useRef('');
+  checkFingerprint.current = JSON.stringify({profile: candidate(), address: address.trim()});
   const dirty = JSON.stringify(candidate()) !== initial && initial !== '';
   const change = (value: Partial<RoutingProfile>) => {setDraft(current => ({...current, ...value})); setDecision(null); setError('');};
   const edit = (profile: RoutingProfile) => {
@@ -52,7 +54,7 @@ export default function RoutingProfiles() {
     onSuccess: () => {setMessage('Профиль удалён из панели. Уже импортированные клиентские профили не отзываются автоматически.'); void profiles.refetch();},
     onError: error => setError(explainError(error)),
   });
-  const check = useMutation({mutationFn: () => api<Decision>('/api/routing-profiles/check', 'POST', {profile: candidate(), address: address.trim()}), onSuccess: setDecision, onError: error => setError(explainError(error))});
+  const check = useMutation({mutationFn: (payload: {profile: RoutingProfile; address: string}) => api<Decision>('/api/routing-profiles/check', 'POST', payload), onSuccess: (result, payload) => {if (JSON.stringify(payload) === checkFingerprint.current) setDecision(result);}, onError: error => setError(explainError(error))});
   const busy = save.isPending || importing;
   const importProfile = async (selected?: File) => {
     if (!selected) return;
@@ -69,7 +71,8 @@ export default function RoutingProfiles() {
     try {
       if (selected.size > 256 * 1024) throw new Error('Размер списка — не более 256 КБ');
       const result = await api<{entries: string[]; duplicates: number}>('/api/routing-profiles/list-preview', 'POST', {text: await selected.text()});
-      const existing = textEntries(texts[group]);
+      const baseline = await api<{entries: string[]}>('/api/routing-profiles/list-preview', 'POST', {text: texts[group]});
+      const existing = baseline.entries;
       const combined = [...new Set([...existing, ...result.entries])];
       setTexts(current => ({...current, [group]: combined.join('\n')})); setDecision(null);
       setMessage(`В форму добавлено ${combined.length - existing.length} записей. Дубликаты пропущены; сохраните профиль отдельно.`);
@@ -108,7 +111,7 @@ export default function RoutingProfiles() {
           {draft.enabled ? <>
             <div className="routing-group-tabs" role="group" aria-label="Списки маршрутизации">{(['proxy', 'direct', 'block'] as Action[]).map(action => <Button type="button" key={action} aria-pressed={group === action} variant={group === action ? 'primary' : 'default'} onClick={() => setGroup(action)}>{actionTitles[action]} <small>{textEntries(texts[action]).length}</small></Button>)}</div>
             {group === 'direct' && <p className="muted">Клиентский прямой выход использует IP устройства. На сервере прямой выход имеет другой смысл; здесь задаётся намерение профиля.</p>}
-            <label className="field"><span>{actionTitles[group]} — домены, IP и Geo-категории</span><textarea className="routing-list-input" rows={6} value={texts[group]} placeholder={'example.com\n203.0.113.0/24\ngeosite:ru'} onChange={event => {setTexts(current => ({...current, [group]: event.target.value})); setDecision(null); setError('');}}/><small>По одной записи в строке. Домен включает поддомены; full:example.com — только точное имя. Категории Geo проверяются отдельно в клиенте.</small></label>
+            <label className="field"><span>{actionTitles[group]} — домены, IP и Geo-категории</span><textarea aria-label={`${actionTitles[group]} — домены, IP и Geo-категории`} className="routing-list-input" rows={6} maxLength={256 * 1024} value={texts[group]} placeholder={'example.com\n203.0.113.0/24\ngeosite:ru'} onChange={event => {setTexts(current => ({...current, [group]: event.target.value})); setDecision(null); setError('');}}/><small>По одной записи в строке. Домен включает поддомены; full:example.com — только точное имя. Категории Geo проверяются отдельно в клиенте.</small></label>
             <input ref={listFile} hidden type="file" aria-label="Импорт списка адресов" accept="text/plain,.txt,.list" onChange={event => void importList(event.target.files?.[0])}/>
             <Button type="button" onClick={() => listFile.current?.click()}>Добавить список из файла</Button>
             {message && <p role="status">{message}</p>}
@@ -121,7 +124,7 @@ export default function RoutingProfiles() {
             <Field label="DNS через VPN (HTTPS)" type="url" required value={draft.remote_dns} onChange={event => change({remote_dns: event.target.value})}/>
             <Field label="DNS для прямого выхода (HTTPS)" type="url" required value={draft.direct_dns} onChange={event => change({direct_dns: event.target.value})}/>
           </div></details>
-          <details className="profile-advanced"><summary>Проверить адрес</summary><div className="profile-settings"><Field label="Домен или IP для проверки" value={address} onChange={event => {setAddress(event.target.value); setDecision(null);}}/><Button type="button" disabled={check.isPending || !address.trim()} onClick={() => check.mutate()}>Проверить правило</Button>{decision && <div role="status"><strong>{decision.action ? actionTitles[decision.action] : 'Нужны DNS или геоданные'}</strong><p>{decision.reason}{decision.matched ? `: ${decision.matched}` : ''}</p>{decision.pending.length > 0 && <p className="muted">Не проверено: {decision.pending.join(', ')}</p>}<small>Модель правил, без реального VPN-запроса.</small></div>}</div></details>
+          <details className="profile-advanced"><summary>Проверить адрес</summary><div className="profile-settings"><Field label="Домен или IP для проверки" value={address} onChange={event => {setAddress(event.target.value); setDecision(null);}}/><Button type="button" disabled={check.isPending || !address.trim()} onClick={() => check.mutate({profile: candidate(), address: address.trim()})}>Проверить правило</Button>{decision && <div role="status"><strong>{decision.action ? actionTitles[decision.action] : 'Нужны DNS или геоданные'}</strong><p>{decision.reason}{decision.matched ? `: ${decision.matched}` : ''}</p>{decision.pending.length > 0 && <p className="muted">Не проверено: {decision.pending.join(', ')}</p>}<small>Модель правил, без реального VPN-запроса.</small></div>}</div></details>
           {error && <p className="error" role="alert">{error}</p>}
           {conflict && <p className="notice" role="alert">Ваши правки остаются в форме. {latest ? <Button type="button" onClick={() => {setInitial(''); setDraft(latest); setTexts({proxy: latest.proxy.join('\n'), direct: latest.direct.join('\n'), block: latest.block.join('\n')}); setInitial(JSON.stringify(latest)); setConflict(false); setError(''); setDecision(null);}}>Загрузить серверную версию</Button> : <Button type="button" onClick={() => {change(withoutMetadata(candidate())); setConflict(false);}}>Сохранить новым профилем</Button>}</p>}
         </fieldset>

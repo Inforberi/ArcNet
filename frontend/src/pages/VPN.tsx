@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type VPNConfig, type ProtocolProfile, type ProtocolKind, type ProtocolHealth } from '../shared/api';
+import TargetPicker from '../features/targets/TargetPicker';
 import { Badge, Button, Field, PageHeading, Panel, Loading, Notice } from '../shared/ui';
 
 const catalog: {kind: ProtocolKind; name: string; description: string; port: number}[] = [
@@ -93,8 +94,9 @@ export default function VPN() {
             <Field label="Публичный IP VPS" required value={address} onChange={e => setAddress(e.target.value)} />
             <Field label="TCP-порт" type="number" required min={1} max={65535} value={port} onChange={e => setPort(Number(e.target.value))} />
           </div>
+          <TargetPicker sameName onSelect={candidate => setTarget(candidate.host)} onRecommend={candidate => setTarget(current => current.trim() ? current : candidate.host)}/>
           <Field label="Reality target и SNI" required placeholder="www.cloudflare.com" value={target} onChange={e => setTarget(e.target.value)} />
-          <Notice>Target должен поддерживать корректный TLS. Панель не обещает автоматически подобрать доступный из всех сетей target. Не занимай порт HTTPS-панели.</Notice>
+          <Notice>Подбор заполняет пустое поле лучшим прошедшим проверку кандидатом. Ручной ввод сохраняется. Проверка target не подтверждает доступность VPN из сети пользователя.</Notice>
           <div className="form-actions"><Button type="submit" variant="primary" disabled={setup.isPending}>Создать и активировать</Button></div>
         </form>
       </Panel>
@@ -146,6 +148,7 @@ export default function VPN() {
             <Field label={kind === 'vless-xhttp' ? 'TCP-порт' : 'UDP-порт'} type="number" required value={extraPort} min={1} max={65535} onChange={e => setExtraPort(Number(e.target.value))} />
           </div>
           {kind === 'vless-xhttp' && <>
+            <TargetPicker onSelect={candidate => {setExtraTarget(candidate.host); setSni(candidate.sni);}}/>
             <Field label="Reality target (если пусто — как у основного VLESS)" value={extraTarget} placeholder={vpn.data.target ?? 'example.com'} onChange={e => setExtraTarget(e.target.value)} />
             <Field label="SNI" value={sni} placeholder="Если пусто, используем target" onChange={e => setSni(e.target.value)} />
           </>}

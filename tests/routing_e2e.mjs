@@ -40,6 +40,7 @@ try {
   }
   const [a, b, c] = registered;
   await page.goto(`${origin}/routing`);
+  await page.getByRole('button', {name: 'Серверы и каскады', exact: true}).click();
   await page.getByLabel('Название маршрута', {exact: true}).fill('Browser cascade');
   await page.locator(`.react-flow__node[data-id="${a.node_id}"]`).waitFor();
   // Exercise an actual pointer gesture, not a direct call to the model.
@@ -122,7 +123,7 @@ try {
   const preview = await api('POST', '/api/backup/preview', {password: 'browser-test-backup-password', archive: archive.content});
   assert.equal(preview.status(), 200);
   const summary = await preview.json();
-  assert.equal(summary.version, 4); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
+  assert.equal(summary.version, 5); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
 
   const sections = [['/', 'Обзор'], ['/users', 'Пользователи'], ['/vpn', 'Подключения'], ['/nodes', 'Серверы'], ['/routing', 'Маршруты'], ['/security', 'Безопасность'], ['/events', 'Журнал'], ['/backup', 'Импорт и экспорт']];
   for (const theme of ['dark', 'light']) {
@@ -136,6 +137,7 @@ try {
         assert((await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 1, `overflow ${theme}/${width}/${route}`);
       }
       await page.goto(`${origin}/routing`, {waitUntil: 'networkidle'});
+      await page.getByRole('button', {name: 'Серверы и каскады', exact: true}).click();
       if (width <= 680) assert.equal(await page.getByRole('button', {name: 'Таблица', exact: true}).getAttribute('aria-pressed'), 'true');
       await page.getByRole('button', {name: 'Редактировать', exact: true}).click();
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -150,11 +152,12 @@ try {
   assert.deepEqual(errors, [], 'JavaScript errors');
   listing = await (await api('GET', '/api/routes')).json(); saved = listing.items.find(item => item.id === saved.id);
   await page.goto(`${origin}/routing`);
+  await page.getByRole('button', {name: 'Серверы и каскады', exact: true}).click();
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', {name: 'Удалить черновик', exact: true}).click();
   await page.getByText('Черновик удалён.', {exact: true}).waitFor();
   assert.equal((await api('DELETE', `/api/nodes/${a.node_id}`)).status(), 200);
-  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v4 preview; 8 pages × 5 widths × 2 themes; no JS errors. VPN NOT TESTED.');
+  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v5 preview; 8 pages × 5 widths × 2 themes; no JS errors. VPN NOT TESTED.');
 } catch (error) {
   await page.screenshot({path: path.join(screenshots, "failure.png"), fullPage: true}).catch(() => {});
   console.error("Browser errors:", errors);

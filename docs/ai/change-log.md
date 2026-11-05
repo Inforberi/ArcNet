@@ -1,3 +1,12 @@
+## 2026-11-05 — проверенные локальные профили/SNI и контракт клиентского failover
+
+- После отправки `c25da9d` добавлены SNI picker нового VLESS/XHTTP и диагностический UI для выбранной ноды; автоматический подбор не перезаписывает ручное поле и не мигрирует действующие конфигурации.
+- Signed feed: независимый ключ, подпись, expiry и watermark предотвращают replay даже после ручной замены каталога. Агент проверяет wire v1, identity, expiry и digest; нет root/shell или ложного VPN proof.
+- Исправлены stale check response формы и найденная настоящим Chromium дедупликация `example.com` / `domain:example.com`; собственный import/export профилей, CAS, выключение без потери списков и backup v5 покрыты тестами.
+- Linux full Go tests/vet/targeted race, frontend tsc/Vite/7 tests, embedded frontend-check, новый traffic-profile E2E и прежний routing regression E2E — PASS. [Точные команды/ошибки/результаты](../testing/local-results/stage5-2026-11-05-profiles-targets.md).
+- Уточнена требуемая клиентская иерархия failover с параллельными диагностическими раундами: протокол текущего сервера, затем другой сервер; runtime/совместимость Happ ещё не реализованы/не проверены. Сохранены stage4 VPS и stage5 runtime gates, никакого VPN PASS.
+- [Feature](../features/traffic-profiles-and-targets.md), [ADR-005](../adr/005-traffic-profiles-and-target-diagnostics.md), карта путей и current-task обновлены; полный source archive сопровождается SHA-256 manifest.
+
 ## 2026-11-05 — установка без домена и политика журналов; реализация UX в работе
 
 - Уточнён согласованный план: проверяемая установка одной командой, IP TLS `shortlived` (160 часов), необязательный домен и безопасное позднее переключение, проверка renewal/last-good, отдельные размер/retention журналов без истории посещений и секретов. Добавлены `SYS-04`, `SEC-04`, `OPS-04`; установщик этим блоком не изменён.

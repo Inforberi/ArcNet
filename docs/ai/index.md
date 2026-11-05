@@ -1,3 +1,15 @@
+## 2026-11-05: профили трафика, backup v5 и диагностика SNI
+
+Актуальное продолжение: [объём](../release-0.7.0-stage5-profiles-and-targets.md), [результаты](../testing/local-results/stage5-2026-11-05-profiles-targets.md), [ADR-005](../adr/005-traffic-profiles-and-target-diagnostics.md).
+
+- `internal/routingprofile/profile.go`, `internal/store/routing_profiles.go`, `internal/app/routing_profiles.go`, `internal/httpapi/routing_profiles.go` — отдельные traffic profiles, CAS, pure model, импорт/экспорт без runtime.
+- `frontend/src/pages/Routing.tsx`, `frontend/src/features/routing-profiles/{model.ts,RoutingProfiles.tsx}`, `frontend/src/shared/Dialog.tsx` — базовый список/мобильный редактор; `frontend/src/features/routing/RoutePaths.tsx` — прежний граф/форма физических путей, отдельно lazy.
+- `internal/publicnet/publicnet.go`, `internal/targetcheck/{check.go,catalog.go}`, `internal/store/target_checks.go`, `internal/httpapi/target_checks.go`, `internal/nodeagent/target_checks.go` — SSRF boundary, typed ограниченные TLS/HTTP пробы, signed feed/expiry/anti-replay; это не VPN proof.
+- `frontend/src/features/targets/{model.ts,TargetPicker.tsx}`, `frontend/src/pages/{VPN,Nodes}.tsx` — подбор для нового подключения и per-node диагностика; старый SNI не меняется автоматически.
+- `internal/backup/backup.go`, `internal/app/backup.go`, `internal/httpapi/portable.go`, `frontend/src/pages/Backup.tsx` — backup v5 с профилями, legacy preservation и preview.
+- `tests/traffic_profiles_e2e.mjs`, дополненные `tests/routing_e2e.mjs`, `frontend/tests/traffic-profiles.test.ts` и тесты рядом с Go пакетами — реальные локальные проверки.
+- [Клиентский failover](../features/client-auto-switching.md) пока только контракт: не путать с существующей симуляцией `internal/routes`.
+
 ## План дальнейшего UX и автоматизации — 2026-11-05
 
 Уточнение установки: [одна команда, домен по желанию, IP TLS 160 часов и журналы](../planning/ux-and-safe-automation-2026-11-05.md#уточнение-установка-одной-командой-необязательный-домен-и-журналы); требования `SYS-04 / SEC-04 / OPS-04`. Реальные существующие точки: `install.sh` (Certbot/timer/deploy-hook/namespace), `cmd/arcvpn/journal_helper.go`, `internal/logging/rotate.go`, `internal/store/settings.go`. Требования шире текущей реализации и не закрыты внешней приёмкой.

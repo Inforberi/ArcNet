@@ -4,7 +4,7 @@ import {api} from '../shared/api';
 import {Button,Field,Notice,PageHeading,Panel} from '../shared/ui';
 
 type ExportReply={filename:string;content:string};
-type Preview={version:number;created_at:number;users:number;current_users:number;protocols:number;current_protocols:number;nodes:number;current_nodes:number;routes:number;current_routes:number;routes_replaced:boolean;log_budget_mb?:number;vpn_configured:boolean;vpn_address?:string;vpn_port?:number};
+type Preview={version:number;created_at:number;users:number;current_users:number;protocols:number;current_protocols:number;nodes:number;current_nodes:number;routes:number;current_routes:number;routes_replaced:boolean;routing_profiles:number;current_routing_profiles:number;routing_profiles_replaced:boolean;log_budget_mb?:number;vpn_configured:boolean;vpn_address?:string;vpn_port?:number};
 const maxArchiveSize=10*1024*1024;
 
 function download(content:string,filename:string):void{
@@ -31,7 +31,7 @@ export default function Backup(){
   catch(e){setError(e instanceof Error?e.message:'Ошибка проверки архива')}finally{setImportBusy(false)}
  }
  async function restore(){if(!preview || !preview.vpn_configured)return;
-  if(!window.confirm(`Заменить ${preview.current_protocols} протоколов и ${preview.current_users} пользователей данными из архива (${preview.protocols} протоколов, ${preview.users} пользователей)? ${preview.routes_replaced ? `Черновики маршрутов: ${preview.current_routes} → ${preview.routes}.` : "Существующие черновики маршрутов сохраняются; несовместимые ссылки на ноды заблокируют импорт."}`))return;
+  if(!window.confirm(`Заменить ${preview.current_protocols} протоколов и ${preview.current_users} пользователей данными из архива (${preview.protocols} протоколов, ${preview.users} пользователей)? ${preview.routes_replaced ? `Черновики маршрутов: ${preview.current_routes} → ${preview.routes}. Профили правил: ${preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются"}.` : "Существующие черновики маршрутов сохраняются; несовместимые ссылки на ноды заблокируют импорт."}`))return;
   setImportBusy(true);setError('');try{await api('/api/backup/import','POST',{archive,password:importPassword,new_address:newAddress.trim(),confirm:'REPLACE_ARCVPN_STATE'});await queryClient.invalidateQueries();setMessage('Восстановление завершено. Данные всех разделов обновлены.');setArchive('');setImportPassword('');setPreview(null)}
   catch(e){setError(e instanceof Error?e.message:'Ошибка восстановления')}finally{setImportBusy(false)}
  }
@@ -52,7 +52,7 @@ export default function Backup(){
    <Field label="Пароль архива" type="password" autoComplete="off" maxLength={1024} value={importPassword} onChange={e=>{setImportPassword(e.target.value);setPreview(null)}}/>
    <div className="flex wrap"><Button onClick={()=>void previewImport()} disabled={importBusy||!archive||!importPassword}>Проверить архив</Button>
     <Button variant="danger" onClick={()=>void restore()} disabled={importBusy||!preview?.vpn_configured}>Заменить VPN и пользователей</Button></div>
-   {preview&&<div className="notice" role="status">Архив: {preview.users} пользователей, {preview.protocols} дополнительных протоколов, {preview.nodes??0} нод, IP {preview.vpn_address??'не указан'}, порт {preview.vpn_port??'—'}. Сейчас: {preview.current_users} пользователей, {preview.current_nodes??0} нод. Архив v{preview.version}: {preview.routes_replaced ? `черновики маршрутов заменяются (${preview.current_routes} → ${preview.routes})` : `текущие черновики (${preview.current_routes}) сохраняются; отсутствующие ноды вызовут отказ импорта`}. В v3/v4 ноды и настройки заменяются; v1/v2 сохраняют текущие ноды. Внешняя проверка VPN после переноса обязательна.</div>}
+   {preview&&<div className="notice" role="status">Архив: {preview.users} пользователей, {preview.protocols} дополнительных протоколов, {preview.nodes??0} нод, IP {preview.vpn_address??'не указан'}, порт {preview.vpn_port??'—'}. Сейчас: {preview.current_users} пользователей, {preview.current_nodes??0} нод. Архив v{preview.version}: {preview.routes_replaced ? `черновики маршрутов заменяются (${preview.current_routes} → ${preview.routes})` : `текущие черновики (${preview.current_routes}) сохраняются; отсутствующие ноды вызовут отказ импорта`}. Профили правил: {preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются (архив до v5)"}. В v3–v5 ноды и настройки заменяются; v1/v2 сохраняют текущие ноды. Внешняя проверка VPN после переноса обязательна.</div>}
   </div></Panel>
  </>;
 }

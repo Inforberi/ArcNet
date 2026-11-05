@@ -8,15 +8,18 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 )
 
 const MaxCatalogBytes = 64 << 10
 const MaxCatalogCandidates = 64
 
 type Catalog struct {
-	Version    int64       `json:"version"`
-	Candidates []Candidate `json:"candidates"`
-	Source     string      `json:"source"`
+	Version     int64       `json:"version"`
+	Candidates  []Candidate `json:"candidates"`
+	Source      string      `json:"source"`
+	FeedVersion int64       `json:"feed_version,omitempty"`
+	ExpiresAt   int64       `json:"expires_at,omitempty"`
 }
 type SignedCatalog struct {
 	Payload   string `json:"payload"`
@@ -29,7 +32,7 @@ func DefaultCatalog() Catalog {
 	return Catalog{Version: 1, Source: "bundled-candidates", Candidates: []Candidate{{Host: "dl.google.com", SNI: "dl.google.com"}, {Host: "www.microsoft.com", SNI: "www.microsoft.com"}, {Host: "www.apple.com", SNI: "www.apple.com"}}}
 }
 func ValidateCatalog(c Catalog) (Catalog, error) {
-	if c.Version < 1 || len(c.Candidates) < 1 || len(c.Candidates) > MaxCatalogCandidates {
+	if c.Version < 1 || c.FeedVersion < 0 || c.ExpiresAt < 0 || len(c.Candidates) < 1 || len(c.Candidates) > MaxCatalogCandidates {
 		return Catalog{}, errors.New("каталог должен иметь версию и от 1 до 64 кандидатов")
 	}
 	normalized := []Candidate{}
@@ -91,6 +94,10 @@ func VerifyCatalog(blob []byte, key ed25519.PublicKey) (Catalog, error) {
 	if err := strictJSON(payload, &c); err != nil {
 		return Catalog{}, errors.New("некорректные данные каталога")
 	}
+	if c.FeedVersion != 0 || c.ExpiresAt <= time.Now().Unix() {
+		return Catalog{}, errors.New("подписанный каталог устарел или содержит некорректную версию источника")
+	}
+	c.FeedVersion = c.Version
 	return ValidateCatalog(c)
 }
 func strictJSON(blob []byte, out any) error {

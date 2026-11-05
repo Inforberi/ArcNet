@@ -19,6 +19,7 @@ const targetChecksSchema = `CREATE TABLE IF NOT EXISTS target_checks (id TEXT PR
 const targetCapabilitySchema = `CREATE TABLE IF NOT EXISTS target_capabilities (node_id TEXT PRIMARY KEY REFERENCES managed_nodes(id) ON DELETE CASCADE,last_seen INTEGER NOT NULL)`
 
 type TargetJob struct {
+	Version    int                     `json:"version"`
 	ID         string                  `json:"id"`
 	NodeID     string                  `json:"node_id"`
 	Candidates []targetcheck.Candidate `json:"candidates"`
@@ -37,6 +38,7 @@ type TargetNode struct {
 
 func targetJob(row db.Row) (TargetJob, error) {
 	var job TargetJob
+	job.Version = 1
 	job.ID = row["id"]
 	job.NodeID = row["node_id"]
 	job.State = row["state"]
@@ -97,7 +99,7 @@ func (s *Store) QueueTargetCheck(ctx context.Context, nodeID string, candidates 
 	body, _ := json.Marshal(normalized)
 	digest := sha256.Sum256(body)
 	now := time.Now().Unix()
-	job := TargetJob{ID: id, NodeID: nodeID, Candidates: normalized, Digest: hex.EncodeToString(digest[:]), State: "queued", CreatedAt: now, ExpiresAt: now + 120}
+	job := TargetJob{Version: 1, ID: id, NodeID: nodeID, Candidates: normalized, Digest: hex.EncodeToString(digest[:]), State: "queued", CreatedAt: now, ExpiresAt: now + 120}
 	err = s.DB.WithTx(ctx, func(tx *db.Tx) error {
 		if nodeID != "local" {
 			rows, e := tx.Query("SELECT n.id FROM managed_nodes n JOIN target_capabilities c ON c.node_id=n.id WHERE n.id=? AND n.last_seen>=? AND c.last_seen>=?", nodeID, strconv.FormatInt(now-75, 10), strconv.FormatInt(now-150, 10))
@@ -292,9 +294,32 @@ func (s *Store) SaveTargetCatalog(ctx context.Context, c targetcheck.Catalog, ex
 		if old.Version != expected {
 			return ErrConflict
 		}
-		if c.Version <= old.Version {
-			c.Version = old.Version + 1
+		if old.Version >= math.MaxInt64-1 {
+			return ErrConflict
 		}
+		if c.FeedVersion > 0 {
+			if c.ExpiresAt <= time.Now().Unix() {
+				return ErrConflict
+			}
+			watermark, err := tx.Query("SELECT value FROM settings WHERE key='target_catalog_feed_version'")
+			if err != nil {
+				return err
+			}
+			var previous int64
+			if len(watermark) > 0 {
+				previous, err = strconv.ParseInt(watermark[0]["value"], 10, 64)
+				if err != nil {
+					return err
+				}
+			}
+			if c.FeedVersion <= previous {
+				return ErrConflict
+			}
+			if err = tx.Exec("INSERT INTO settings(key,value) VALUES('target_catalog_feed_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", strconv.FormatInt(c.FeedVersion, 10)); err != nil {
+				return err
+			}
+		}
+		c.Version = old.Version + 1
 		body, e := json.Marshal(c)
 		if e != nil {
 			return e

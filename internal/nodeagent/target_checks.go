@@ -2,9 +2,13 @@ package nodeagent
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/arcvpn/arcvpn/internal/publicnet"
 	"github.com/arcvpn/arcvpn/internal/store"
@@ -25,8 +29,20 @@ func PollTargetChecks(ctx context.Context, client *http.Client, c Configuration)
 	if status != http.StatusOK || job == nil {
 		return fmt.Errorf("target check poll rejected: HTTP %d", status)
 	}
-	if job.NodeID != c.NodeID {
+	if job.Version != 1 || job.NodeID != c.NodeID || job.ExpiresAt <= time.Now().Unix() {
 		return fmt.Errorf("target check node mismatch")
+	}
+	normalized, err := targetcheck.Normalize(job.Candidates)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(normalized)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(payload)
+	if hex.EncodeToString(digest[:]) != job.Digest {
+		return fmt.Errorf("target check digest mismatch")
 	}
 	checker := targetcheck.Checker{Guard: publicnet.New()}
 	report, err := checker.Check(ctx, job.Candidates, c.NodeID)
