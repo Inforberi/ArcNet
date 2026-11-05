@@ -19,7 +19,9 @@ func TestV4EncryptedRoutingRoundTripAndLegacyVersions(t *testing.T) {
 	p.PrimaryExit = nodeID
 	p.Version = 7
 	p.UpdatedAt = 1700000000
-	snapshot := sample().WithManagement([]store.NodeIdentity{{ID: nodeID, Name: "Exit", TokenHash: strings.Repeat("a", 64), CreatedAt: 1700000000}}, 100).WithRoutes([]routes.Policy{p})
+	base := sample()
+	base.Version = 4
+	snapshot := base.WithManagement([]store.NodeIdentity{{ID: nodeID, Name: "Exit", TokenHash: strings.Repeat("a", 64), CreatedAt: 1700000000}}, 100).WithRoutes([]routes.Policy{p})
 	blob, err := Encrypt(snapshot, "backup-password-long-enough")
 	if err != nil {
 		t.Fatal(err)

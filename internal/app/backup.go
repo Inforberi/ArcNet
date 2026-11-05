@@ -8,6 +8,7 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/backup"
 	"github.com/arcvpn/arcvpn/internal/routes"
+	"github.com/arcvpn/arcvpn/internal/routingprofile"
 	"github.com/arcvpn/arcvpn/internal/store"
 )
 
@@ -40,14 +41,18 @@ func (a *App) exportLocked(ctx context.Context) (backup.Snapshot, error) {
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
+	routingProfiles, err := a.Store.RoutingProfiles(ctx)
+	if err != nil {
+		return backup.Snapshot{}, err
+	}
 	budget, err := a.Store.LogBudgetMB(ctx)
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
 	if v.Address == "" {
-		return backup.FromStore(nil, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies), nil
+		return backup.FromStore(nil, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles), nil
 	}
-	return backup.FromStore(&v, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies), nil
+	return backup.FromStore(&v, users).WithProtocols(profiles, creds).WithManagement(nodes, budget).WithRoutes(policies).WithRoutingProfiles(routingProfiles), nil
 }
 
 // RestoreState replaces only VPN state and rolls it back if applying Xray fails.
@@ -72,6 +77,7 @@ func (a *App) RestoreState(ctx context.Context, candidate backup.Snapshot) error
 	var importedNodes *[]store.NodeIdentity
 	var importedBudget *int
 	var importedRoutes *[]routes.Policy
+	var importedRoutingProfiles *[]routingprofile.Profile
 	if candidate.Version >= 3 {
 		importedNodes = &candidate.Nodes
 		importedBudget = candidate.LogBudgetMB
@@ -79,13 +85,16 @@ func (a *App) RestoreState(ctx context.Context, candidate backup.Snapshot) error
 	if candidate.Version >= 4 {
 		importedRoutes = &candidate.Routes
 	}
-	if err = a.Store.ReplaceFullStateWithRoutes(ctx, newVPN, newUsers, newProfiles, newCreds, importedNodes, importedBudget, importedRoutes); err != nil {
+	if candidate.Version >= 5 {
+		importedRoutingProfiles = &candidate.RoutingProfiles
+	}
+	if err = a.Store.ReplaceFullStateWithProfiles(ctx, newVPN, newUsers, newProfiles, newCreds, importedNodes, importedBudget, importedRoutes, importedRoutingProfiles); err != nil {
 		return err
 	}
 	if err = a.applyAll(ctx, *newVPN, newUsers); err != nil {
 		undoCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		dbErr := a.Store.ReplaceFullStateWithRoutes(undoCtx, oldVPN, oldUsers, oldProfiles, oldCreds, &old.Nodes, old.LogBudgetMB, &old.Routes)
+		dbErr := a.Store.ReplaceFullStateWithProfiles(undoCtx, oldVPN, oldUsers, oldProfiles, oldCreds, &old.Nodes, old.LogBudgetMB, &old.Routes, &old.RoutingProfiles)
 		if dbErr != nil {
 			return fmt.Errorf("Xray update failed (%v), database rollback also failed: %w", err, dbErr)
 		}

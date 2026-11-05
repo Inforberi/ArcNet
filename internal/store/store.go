@@ -11,6 +11,7 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/db"
 	"github.com/arcvpn/arcvpn/internal/routes"
+	"github.com/arcvpn/arcvpn/internal/routingprofile"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -51,7 +52,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			`CREATE TABLE IF NOT EXISTS node_enrollments(hash TEXT PRIMARY KEY,name TEXT NOT NULL,expires INTEGER NOT NULL)`,
 			`CREATE INDEX IF NOT EXISTS node_enrollments_exp ON node_enrollments(expires)`,
 			`CREATE TABLE IF NOT EXISTS managed_nodes(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL DEFAULT 0,version TEXT NOT NULL DEFAULT '',xray_state TEXT NOT NULL DEFAULT 'unknown',memory_total TEXT NOT NULL DEFAULT '0',memory_available TEXT NOT NULL DEFAULT '0',load_1 TEXT NOT NULL DEFAULT '0',uptime_seconds TEXT NOT NULL DEFAULT '0')`,
-			profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema,
+			profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema,
 		}
 		for _, q := range statements {
 			if err := tx.Exec(q); err != nil {
@@ -401,6 +402,10 @@ func (s *Store) ReplaceFullStateWithManagement(ctx context.Context, reality *Rea
 // replaces them, including an explicitly empty v4 list. Nodes and references
 // are validated and committed together; invalid legacy imports leave no changes.
 func (s *Store) ReplaceFullStateWithRoutes(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy) error {
+	return s.ReplaceFullStateWithProfiles(ctx, reality, users, profiles, creds, nodes, budget, policies, nil)
+}
+
+func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile) error {
 	if budget != nil && (*budget < 50 || *budget > 1024) {
 		return ErrInvalidLogBudget
 	}
@@ -456,6 +461,11 @@ func (s *Store) ReplaceFullStateWithRoutes(ctx context.Context, reality *Reality
 			}
 		} else if err := checkRoutes(tx, previous); err != nil {
 			return err
+		}
+		if routingProfiles != nil {
+			if err := replaceRoutingProfiles(tx, *routingProfiles); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

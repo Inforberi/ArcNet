@@ -1,6 +1,8 @@
 > **Решение по объёму от 2026-11-05:** набор VPN-протоколов заморожен на VLESS/REALITY TCP, VLESS/REALITY XHTTP, Hysteria2, WireGuard и AmneziaWG 3.1. Этап 6 (AnyTLS, Trojan, TUIC, Shadowsocks 2022, экспертные overrides) **отложен**, не принят и не является следующей задачей Codex. Приоритет — завершение/внешняя проверка уже заложенного функционала этапов 4–5. Подробно: [scope freeze](../planning/protocol-scope-freeze-2026-11-05.md).
 # Текущая работа: ArcVPN 0.7.0-stage5-foundation
 
+**Активная итерация 2026-11-05:** пользователь одобрил [UX/автоматизацию](../planning/ux-and-safe-automation-2026-11-05.md), включая одну команду установки, домен по желанию, IP TLS shortlived и ограниченные журналы. Тестового стенда нет; явно разрешена локальная реализация. В рабочем дереве начаты профили маршрутизации/API/UI/backup v5 и ограниченные SNI/TLS-пробы с агентом. Полный новый набор ещё НЕ проверен и не принят; предыдущий PASS ниже относится к предыдущему снимку. Последний targeted `go test ./internal/store ./internal/targetcheck ./internal/routingprofile ./internal/app` — exit 0, но в двух новых доменных пакетах ещё нет тестов. Серверная установка, автоматический выбор/применение SNI и реальный VPN этим не подтверждены.
+
 **Дата:** 2026-11-05. **Режим:** пользователь разрешил исправления целостности маршрутов, backup и интерактивный UI; разрешил коммит/отправку в `Inforberi/ArcNet`. Это не отменяет незакрытый статус этапа 4.
 
 Статус: `STAGE5_DRAFT_UI_IMPLEMENTED / GO_SOURCE_PASS / FRONTEND_BUILD_PASS / ROUTING_UI_E2E_PASS / XRAY_CASCADE_NOT_IMPLEMENTED / STAGE4_EXTERNAL_PENDING`.

@@ -467,6 +467,9 @@ func Run(ctx context.Context, c Configuration, configPath string, report func(er
 			report(err)
 			return false
 		}
+		if err := PollTargetChecks(requestCtx, client, c); err != nil {
+			report(errors.New("agent target check unavailable"))
+		}
 		if !time.Now().Before(rotateAfter) && c.PreviousSecret == "" {
 			// Limit further attempts even after failure, preventing repeated
 			// registration requests against a transiently degraded controller.

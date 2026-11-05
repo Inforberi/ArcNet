@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,19 +24,24 @@ import (
 	"github.com/arcvpn/arcvpn/internal/auth"
 	"github.com/arcvpn/arcvpn/internal/logging"
 	"github.com/arcvpn/arcvpn/internal/metrics"
+	"github.com/arcvpn/arcvpn/internal/publicnet"
 	"github.com/arcvpn/arcvpn/internal/store"
+	"github.com/arcvpn/arcvpn/internal/targetcheck"
 	"github.com/arcvpn/arcvpn/internal/xray"
 	"github.com/arcvpn/arcvpn/web"
 )
 
 type Server struct {
-	App            *app.App
-	log            *slog.Logger
-	limiter        loginLimiter
-	assets         fs.FS
-	publicURL      string
-	logRotator     *logging.Rotator
-	bootstrapSlots chan struct{} // bounded simultaneous outbound SSH installations
+	App              *app.App
+	log              *slog.Logger
+	limiter          loginLimiter
+	assets           fs.FS
+	publicURL        string
+	logRotator       *logging.Rotator
+	targetCatalogKey ed25519.PublicKey
+	targetSlots      chan struct{}
+	targetChecker    targetcheck.Checker
+	bootstrapSlots   chan struct{} // bounded simultaneous outbound SSH installations
 }
 type loginAttempt struct {
 	Count int
@@ -47,7 +53,7 @@ type loginLimiter struct {
 }
 
 func New(a *app.App, logger *slog.Logger) *Server {
-	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2)}
+	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), targetChecker: targetcheck.Checker{Guard: publicnet.New()}}
 }
 
 // WithLogRotator enables per-application log budgeting from the web panel.
@@ -167,6 +173,15 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/routes/{id}", s.mustAuth(s.routeUpdate, true))
 	mux.HandleFunc("DELETE /api/routes/{id}", s.mustAuth(s.routeDelete, true))
 	mux.HandleFunc("POST /api/routes/{id}/simulate", s.mustAuth(s.routeSimulate, true))
+	mux.HandleFunc("GET /api/routing-profiles", s.mustAuth(s.routingProfiles, false))
+	mux.HandleFunc("POST /api/routing-profiles", s.mustAuth(s.routingProfileSave, true))
+	mux.HandleFunc("PUT /api/routing-profiles/{id}", s.mustAuth(s.routingProfileSave, true))
+	mux.HandleFunc("DELETE /api/routing-profiles/{id}", s.mustAuth(s.routingProfileDelete, true))
+	mux.HandleFunc("POST /api/routing-profiles/check", s.mustAuth(s.routingProfileCheck, true))
+	mux.HandleFunc("POST /api/routing-profiles/import", s.mustAuth(s.routingProfileImport, true))
+	mux.HandleFunc("POST /api/routing-profiles/list-preview", s.mustAuth(s.routingListPreview, true))
+	mux.HandleFunc("GET /api/routing-profiles/{id}/export", s.mustAuth(s.routingProfileExport, false))
+
 	mux.HandleFunc("GET /api/nodes", s.mustAuth(s.nodeList, false))
 	mux.HandleFunc("POST /api/nodes/{id}/deploy", s.mustAuth(s.nodeDeploy, true))
 	mux.HandleFunc("POST /api/nodes/{id}/drain", s.mustAuth(s.nodeDrain, true))
@@ -177,6 +192,14 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/nodes/{id}/retry", s.mustAuth(s.nodeRetry, true))
 	mux.HandleFunc("POST /api/nodes/{id}/cancel", s.mustAuth(s.nodeCancel, true))
 	mux.HandleFunc("GET /api/nodes/poll", s.nodePoll)
+	mux.HandleFunc("GET /api/targets/catalog", s.mustAuth(s.targetCatalog, false))
+	mux.HandleFunc("POST /api/targets/catalog", s.mustAuth(s.targetCatalogImport, true))
+	mux.HandleFunc("GET /api/targets/nodes", s.mustAuth(s.targetNodes, false))
+	mux.HandleFunc("POST /api/targets/check", s.mustAuth(s.targetCheckStart, true))
+	mux.HandleFunc("GET /api/targets/checks/{id}", s.mustAuth(s.targetCheckGet, false))
+	mux.HandleFunc("GET /api/nodes/target-checks/poll", s.nodeTargetPoll)
+	mux.HandleFunc("POST /api/nodes/target-checks/report", s.nodeTargetReport)
+
 	mux.HandleFunc("POST /api/nodes/ack", s.nodeAck)
 	mux.HandleFunc("POST /api/nodes/rotate/begin", s.nodeRotateBegin)
 	mux.HandleFunc("POST /api/nodes/rotate/confirm", s.nodeRotateConfirm)

@@ -184,6 +184,9 @@ func (s *Server) backupPreview(w http.ResponseWriter, r *http.Request) {
 	summary["routes"] = len(snapshot.Routes)
 	summary["current_routes"] = len(current.Routes)
 	summary["routes_replaced"] = snapshot.Version >= 4
+	summary["routing_profiles"] = len(snapshot.RoutingProfiles)
+	summary["current_routing_profiles"] = len(current.RoutingProfiles)
+	summary["routing_profiles_replaced"] = snapshot.Version >= 5
 	respond(w, 200, summary)
 }
 func (s *Server) backupImport(w http.ResponseWriter, r *http.Request) {

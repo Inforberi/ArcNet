@@ -24,12 +24,13 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/routes"
+	"github.com/arcvpn/arcvpn/internal/routingprofile"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/xray"
 )
 
 const (
-	Version         = 4
+	Version         = 5
 	KDFIterations   = 210000
 	MaxArchiveBytes = 10 << 20
 	MaxUsers        = 10000
@@ -76,15 +77,16 @@ type Protocol struct {
 	Enabled    bool   `json:"enabled"`
 }
 type Snapshot struct {
-	Version     int                        `json:"version"`
-	CreatedAt   int64                      `json:"created_at"`
-	VPN         *VPN                       `json:"vpn"`
-	Users       []User                     `json:"users"`
-	Protocols   []Protocol                 `json:"protocols,omitempty"`
-	Credentials []store.ProtocolCredential `json:"credentials,omitempty"`
-	Nodes       []store.NodeIdentity       `json:"nodes,omitempty"`
-	LogBudgetMB *int                       `json:"log_budget_mb,omitempty"`
-	Routes      []routes.Policy            `json:"routes,omitempty"`
+	Version         int                        `json:"version"`
+	CreatedAt       int64                      `json:"created_at"`
+	VPN             *VPN                       `json:"vpn"`
+	Users           []User                     `json:"users"`
+	Protocols       []Protocol                 `json:"protocols,omitempty"`
+	Credentials     []store.ProtocolCredential `json:"credentials,omitempty"`
+	Nodes           []store.NodeIdentity       `json:"nodes,omitempty"`
+	LogBudgetMB     *int                       `json:"log_budget_mb,omitempty"`
+	Routes          []routes.Policy            `json:"routes,omitempty"`
+	RoutingProfiles []routingprofile.Profile   `json:"routing_profiles,omitempty"`
 }
 type Envelope struct {
 	Format     string `json:"format"`
@@ -148,11 +150,36 @@ func (s Snapshot) WithRoutes(policies []routes.Policy) Snapshot {
 	return s
 }
 
+func (s Snapshot) WithRoutingProfiles(profiles []routingprofile.Profile) Snapshot {
+	s.RoutingProfiles = make([]routingprofile.Profile, len(profiles))
+	for i, p := range profiles {
+		p.Order = append([]string{}, p.Order...)
+		p.Proxy = append([]string{}, p.Proxy...)
+		p.Direct = append([]string{}, p.Direct...)
+		p.Block = append([]string{}, p.Block...)
+		s.RoutingProfiles[i] = p
+	}
+	return s
+}
+
 func supportedVersion(v int) bool { return v >= 1 && v <= Version }
 
 func (s Snapshot) Validate() error {
 	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0)) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
 		return ErrInvalid
+	}
+	if (s.Version < 5 && len(s.RoutingProfiles) > 0) || len(s.RoutingProfiles) > routingprofile.MaxProfiles {
+		return ErrInvalid
+	}
+	profileIDs := map[string]bool{}
+	for _, p := range s.RoutingProfiles {
+		if !uuidPattern.MatchString(p.ID) || profileIDs[p.ID] || p.Version < 1 || p.Version >= math.MaxInt64-1 || p.UpdatedAt < 0 {
+			return ErrInvalid
+		}
+		profileIDs[p.ID] = true
+		if _, err := routingprofile.Normalize(p); err != nil {
+			return fmt.Errorf("%w: routing profile", ErrInvalid)
+		}
 	}
 	if s.LogBudgetMB != nil && (*s.LogBudgetMB < 50 || *s.LogBudgetMB > 1024) {
 		return ErrInvalid

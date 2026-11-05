@@ -263,6 +263,7 @@ func run() error {
 		coreConf := fs.String("xray-config", filepath.Join(dataDir, "xray.json"), "managed xray config")
 		coreService := fs.String("xray-service", "arcvpn-xray.service", "xray systemd unit name")
 		controlSocket := fs.String("control-socket", "", "privileged local Unix socket for service restart")
+		catalogKey := fs.String("sni-catalog-key", "", "independently pinned target catalog Ed25519 public key file")
 		webRoot := fs.String("web-root", "", "development React/Vite dist override (production uses embedded UI)")
 		legacyUI := fs.Bool("legacy-ui", false, "developer-only compatibility UI (loopback HTTP only)")
 		publicURL := fs.String("public-url", "", "public HTTPS origin for subscriptions")
@@ -318,6 +319,11 @@ func run() error {
 		defer rotator.Close()
 		logger := slog.New(slog.NewTextHandler(rotator, &slog.HandlerOptions{Level: slog.LevelInfo}))
 		api := httpapi.New(a, logger)
+		if *catalogKey != "" {
+			if err := api.WithTargetCatalogKey(*catalogKey); err != nil {
+				return fmt.Errorf("target catalog trust key: %w", err)
+			}
+		}
 		api.WithLogRotator(rotator)
 		if err := api.WithPublicURL(*publicURL); err != nil {
 			return err

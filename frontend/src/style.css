@@ -196,3 +196,47 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
   .route-policy-table td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);margin-bottom:5px}
   .route-policy-table .route-actions{display:grid;grid-template-columns:1fr}
 }
+
+/* Focused routing profiles and native accessible dialogs. */
+.routing-page-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}
+.routing-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.routing-intro h2{font-size:18px;margin:0}
+.routing-intro p{margin:8px 0}
+.inline-status{font-size:12px;color:var(--muted);margin:16px 0 20px;max-width:70ch}
+.routing-empty{border:1px dashed var(--stroke);border-radius:var(--radius);padding:28px 20px;text-align:center;margin:20px 0}
+.routing-empty h3{font-size:16px;margin:0 0 10px}
+.routing-profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.routing-profile-summary{border:1px solid var(--stroke);border-radius:var(--radius);padding:18px;background:var(--surface);min-width:0;overflow-wrap:anywhere}
+.routing-profile-summary h3{margin:0;font-size:16px}
+.routing-profile-summary .route-card-heading{flex-wrap:wrap}
+.profile-actions{margin-top:14px}
+.profile-actions summary,.profile-advanced summary{cursor:pointer;color:var(--muted);font-size:13px;padding:10px 0;min-height:40px}
+.profile-actions .flex{margin-top:8px}
+.app-dialog{padding:0;border:1px solid var(--stroke);border-radius:14px;background:var(--surface);color:var(--text);width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:var(--shadow)}
+.app-dialog::backdrop{background:#080b10b8}
+.dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--stroke);position:sticky;top:0;background:var(--surface);z-index:2}
+.dialog-heading h2{font-size:18px;margin:0}
+.dialog-body{padding:20px;display:grid;gap:18px;min-width:0}
+.dialog-footer{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding:14px 20px max(14px,env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--stroke);z-index:2}
+.routing-enable{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--stroke);background:var(--surface2);border-radius:9px;padding:14px}
+.routing-enable small{display:block;color:var(--muted);font-size:12px;margin-top:5px;max-width:45ch}
+.routing-enable input{width:23px;height:23px;accent-color:var(--accent);flex-shrink:0}
+.routing-group-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.routing-group-tabs .button{flex:1 1 140px}
+.routing-group-tabs small{margin-left:6px;opacity:.8}
+.routing-list-input{width:100%;max-width:100%;resize:vertical;min-height:120px;font:13px/1.65 ui-monospace,monospace;padding:12px;border:1px solid var(--stroke);border-radius:8px;background:var(--bg);color:var(--text)}
+.profile-advanced{border-top:1px solid var(--stroke)}
+.profile-settings{display:grid;gap:14px;padding:12px 0}
+.routing-order{margin:0;padding-left:22px}
+.routing-order li{padding:5px 0}
+.routing-order li>span{display:inline-block;min-width:140px}
+.routing-order .flex{display:inline-flex;gap:5px}
+@media(max-width:680px){
+ .routing-intro>.flex{width:100%}.routing-intro>.flex>.button{flex:1 1 140px}
+ .routing-profile-grid{grid-template-columns:1fr}.routing-page-tabs .button{flex:1}
+ .app-dialog{width:100%;max-width:none;max-height:100dvh;min-height:100dvh;margin:0;border:0;border-radius:0}
+ .dialog-heading,.dialog-body,.dialog-footer{padding-left:16px;padding-right:16px}
+ .dialog-heading h2{font-size:17px}.dialog-footer .button{flex:1 1 120px}
+ .routing-group-tabs .button{flex:1 1 90px;padding:10px 7px;font-size:12px}
+ .routing-order li>span{min-width:115px}
+}
