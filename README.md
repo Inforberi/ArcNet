@@ -1,83 +1,76 @@
-**Решение от 2026-11-05 — текущих VPN-протоколов достаточно:** VLESS + REALITY TCP, VLESS + REALITY XHTTP, Hysteria2, WireGuard и AmneziaWG 3.1. **Этап 6 отложен**: AnyTLS, Trojan, TUIC, Shadowsocks 2022, экспертный режим и расширенные overrides сейчас не разрабатываются. Это не означает успешной VPS/E2E приёмки протоколов. [Запись решения](docs/planning/protocol-scope-freeze-2026-11-05.md).
-# ArcVPN 0.7.0 — база этапа 5 (не production)
+# ArcVPN · ArcNet
 
-**Последнее локальное продолжение 2026-11-05:** добавлены [экономный дашборд серверов](docs/features/dashboard-and-telemetry.md) и [команды settings/password/session recovery](docs/ops/local-admin-recovery.md). Контрольный профиль пользователя — 512 МиБ/1 vCPU; [протокол локальных проверок](docs/testing/local-results/stage5-2026-11-05-dashboard-recovery.md) не заменяет VPS/VPN acceptance. После обновлённой установки: `sudo arcvpn settings`, `sudo arcvpn password reset`, для утраченной 2FA — явный `--reset-2fa`.
+Лёгкая VPN-панель с веб-интерфейсом: пользователи, подключения, пакеты трафика, отдельные доступы устройств и управление серверами. Backend — Go + SQLite, интерфейс — React/TypeScript. Redis, PostgreSQL и Docker для работы панели не требуются.
 
-**Актуально 2026-11-05:** добавлены draft-only RoutePolicy, проверка графа и симуляция отказов, SQLite/API/React редактор маршрутов. Продолжение: интерактивные стрелки, форма/таблица-карточки на мобильных, защита зависимых нод и encrypted backup v4. Настоящие typecheck/Vite build и новый Chromium UI/API E2E проверены; полный внешний VPN gate остаётся открытым. **Каскады и failover на реальном Xray ещё не реализованы.** Этап 4 также не принят на реальных VPS.
+**Статус: preview, ветка 0.7.** Исходники, локальные тесты и интерфейс проверены; полная установка, обновление и восстановление на VPS ещё не приняты. Для знакомства используйте отдельный тестовый сервер.
 
-Текущий блок: [результат UI/backup](docs/release-0.7.0-stage5-routing-ui.md), [фактические проверки](docs/testing/local-results/stage5-2026-11-05-routing-ui.md).
+[Установка и обновление](docs/ops/install-and-update.md) · [Правила коротких рабочих блоков](docs/planning/short-work-blocks.md) · [Репозиторий](https://github.com/Inforberi/ArcNet) · [MIT](LICENSE)
 
-Начать с [результата stage5](docs/release-0.7.0-stage5-foundation.md), [чек-листа](docs/planning/stage5-checklist.md), [Codex handoff](docs/testing/stage5-codex-handoff.md) и [отчёта локальных тестов](docs/testing/local-results/stage5-2026-11-05-foundation.md). Для source-проверки: `./scripts/verify-stage5-source.sh`. `--full` выполняет `npm ci`, тесты модели, TypeScript и Vite build по добавленному `frontend/package-lock.json`. Go-скрипт предназначен для Linux с CGO/SQLite/QR libraries.
+## Возможности
 
----
+| Возможность | Текущее состояние |
+|---|---|
+| VLESS/REALITY TCP и XHTTP, Hysteria2, WireGuard | Реализованы локальные конфигурации и экспорт доступа; внешняя VPS-приёмка открыта |
+| Пакеты трафика | Общий расход/остаток ГБ, срок, журнал списаний, новый период; локальные Xray/Hysteria/WireGuard |
+| Устройства | Отдельные credentials, лимит активных доступов, отзыв; WireGuard keypair/IP и скачивание `.conf` |
+| Мониторинг | Общий интервал по умолчанию 5 секунд, выбор интервала, live-обновление интерфейса |
+| Резервные копии | Зашифрованный backup v9, чтение v1–v8, сохранение известных расходов и отзывов |
+| Администрирование | Сессии, 2FA, локальное восстановление доступа, подписанные обновления |
+| Удалённые ноды | Экспериментальное управление; распределённый учёт и исполнение лимитов не завершены |
+| Каскады и failover | Редактор и симуляция; реальный сетевой runtime не завершён |
 
-## Историческая точка: этап 4 (0.6.5)
+Лимит устройств считает выданные доступы: копию одного ключа невозможно надёжно отличить от отдельного физического устройства. При недоступном движке сохранение настроек не означает, что действующий трафик уже остановлен — интерфейс показывает ожидание применения.
 
-# ArcVPN 0.6.5-stage4 — полный исходный проект
+AmneziaWG не входит в стандартный установочный пакет и дальнейший план. Новые VPN-протоколы и произвольные экспертные overrides сейчас не добавляются.
 
-**Текущий статус (2026-11-04): `SOURCE_CHECKS_PASS / FRONTEND_BLOCKED / VPS_PENDING / STAGE4_NOT_ACCEPTED`.** Исходники и новые Go/security/fault-тесты пройдены, но это **не** принятый этап 4 и **не** production-релиз. Причина: без настоящего npm lockfile не выполнены React typecheck/build/E2E; необходимы реальные VPS и независимый VPN-клиент. Никаких заменений E2E на TS-синтаксис.
+## Быстрый старт
 
-**Читать в первую очередь:** [результат 0.6.5](docs/release-0.6.5-stage4-source-audit.md), [проверки](docs/testing/local-results/stage4-2026-11-04-0.6.5.md), [матрица каждого S4](docs/planning/stage4-traceability-0.6.5.md), [внешняя приёмка](docs/testing/stage4-codex-handoff.md), [инструкция](docs/ops/stage4-nodes.md). Ниже оставлена история прежних поставок; её версии не являются текущей точкой разработки.
+**Сервер:** чистый Debian 12+ или Ubuntu 22.04+, Linux x86_64, systemd, публичный IPv4 и доступ к SSH/консоли. Порт TCP/80 нужен для IP-сертификата, TCP/8443 — для панели по умолчанию. VPN-порты выбираются в панели. Требования к RAM/числу пользователей пока не подтверждены benchmark.
 
-## Исторический контекст: архив 0.6.3 (не актуальный релиз)
-
-**Статус на 2026-11-04:** этап 4 продолжен, но **не принят и не готов к production**. Go-тесты и статический анализ проходят; React typecheck/build и реальная установка на VPS с внешним VPN-handshake не подтверждены. Не устанавливать поверх действующей 3x-ui или production-системы.
-
-**Текущие документы:** [изменения 0.6.3](docs/release-0.6.3-stage4-continuation.md), [статус проекта](docs/implementation-status.md), [текущая задача](docs/ai/current-task.md), [чеклист этапа 4](docs/planning/stage4-checklist.md), [инструкция Codex / VPS](docs/testing/stage4-codex-handoff.md), [инструкция по нодам](docs/ops/stage4-nodes.md).
-
-Это **полные исходники**, включая Go backend, React/TypeScript frontend, агент, signed-release/SSH/CLI установку, удаление, rebind, upgrade, тесты и документацию. Это **не** полный бинарный релиз и **не** подтверждение клиентского VPN-подключения.
-
-## Поддерживаемые сейчас контуры по исходникам
-
-- Локальная панель: Go/SQLite, сессии, MFA, HTTPS, резервное копирование, протоколы и обновления из этапов 1–3; их внешний gate всё ещё открыт.
-- Удалённые ноды: enrollment, персональный node secret, HTTPS heartbeat/poll/ACK, ревизии Xray, last-good и ограниченный root-helper. Только управляемый VLESS Reality TCP inbound; не каскады (этап 5).
-- Установка: SSH wizard с pinning Ed25519 fingerprint, read-only preflight, подписанный ZIP агента/Xray, установка через stdin-токен. Альтернатива — локальный `arcvpn node-install` с заранее доверенным бинарником и отдельно подписанными файлами.
-- Обслуживание: `node-remove --mode detach|purge`, `node-rebind`, SSH uninstall и подписанное повышение версии узла, операции и статусы в журнале. SSH/firewall чужих служб не изменяются автоматически.
-
-## Локальный запуск разработки
+Готовых опубликованных [GitHub Releases](https://github.com/Inforberi/ArcNet/releases) пока нет. Архив исходников не является установочным пакетом. Сейчас пакет собирается на доверенной **Linux x86_64 машине сборки** с Go 1.26+, Node.js 22.12+, npm, GCC, `libsqlite3-dev` и `libqrencode4`:
 
 ```bash
-bash scripts/dev-local.sh
+git clone https://github.com/Inforberi/ArcNet.git
+cd ArcNet
+./scripts/build-release.sh
 ```
 
-Требуется окружение с Go, CGO/SQLite3, Node.js и npm dependencies. Скрипт запускает Go API на `127.0.0.1:8181` и Vite на `127.0.0.1:5173`; не устанавливает реальный VPN.
-
-## Локальные Go-проверки
+Результат — `dist/arcvpn-0.7.0-stage5-linux-amd64.tar.gz`. Node.js и Go нужны машине сборки; на целевом VPS они не требуются. Перенесите пакет на тестовый VPS, распакуйте в отдельный каталог и проверьте его:
 
 ```bash
-go test -count=1 ./...
-go vet ./...
-go build -o /tmp/arcvpn-dev ./cmd/arcvpn
-bash -n install.sh scripts/*.sh deploy/*.sh
+mkdir -p arcvpn-install
+tar -xzf arcvpn-0.7.0-stage5-linux-amd64.tar.gz -C arcvpn-install
+cd arcvpn-install
+sha256sum -c dist/SHA256SUMS
+sudo bash install.sh
 ```
 
-Фактические результаты: [протокол продолжения](docs/testing/local-results/stage4-2026-11-04-0.6.3.md). Проверка синтаксиса TSX не равна React typecheck.
+Установщик создаёт пользователя и службы ArcVPN, устанавливает зависимости, Xray/Hysteria/WireGuard tools и запрашивает сертификат. Это изменяет ОС. SSH не отключается; выключенный UFW автоматически не включается. Существующая установка не перезаписывается: для неё используйте обновление.
 
-## Production-сборка и внешняя приёмка
+После установки сохраните напечатанные URL/логин/пароль, войдите в панель, включите 2FA, создайте VPN-подключение и пользователя. Основные значения предлагаются автоматически, редкие параметры доступны в расширенных настройках. Инструкция по проверке первого подключения — в [руководстве](docs/ops/install-and-update.md).
 
-В исходном архиве **нет реального `frontend/package-lock.json`**: npm registry был недоступен (`EAI_AGAIN`). На сетевой доверенной Linux amd64 CI-машине:
+## Обновление и восстановление
+
+Перед обновлением сохраните зашифрованный backup вне VPS и согласованный снимок установки. В панели: **Безопасность → Обновления** — загрузите подписанный `update.zip`, проверьте версию и подтвердите применение. Требуется заранее доверенный публичный ключ издателя. Неподписанный архив или ключ из самого недоверенного обновления не подходят.
+
+Текущий updater меняет core и явно включённые бинарники движков; установочные shell-скрипты, systemd units и настройки ОС автоматически не мигрирует. Изменение этих файлов требует отдельной инструкции релиза. Откат бинарника не гарантирует откат изменений БД. Повторный запуск `install.sh` не является обновлением. [Подробная процедура и сборка подписанного пакета](docs/ops/install-and-update.md#обновление-существующей-установки).
 
 ```bash
-cd frontend
-npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-npm ci
-npm run typecheck
-npm run build
-cd ..
-ARCVPN_BUILD_VERSION=0.6.5-stage4 ./scripts/build-release.sh
-./dist/arcvpn-linux-amd64 frontend-check
-python3 tests/react_e2e.py
+sudo arcvpn settings
+sudo arcvpn status
+sudo arcvpn password reset
+sudo arcvpn sessions revoke
+sudo arcvpn logs panel
 ```
 
-Сохранить lockfile в репозитории, закрепить verified Xray amd64, подписать agent+Xray на доверенной release-машине и только затем запускать проверки из `docs/testing/stage4-codex-handoff.md` на чистом VPS. После выполнения испытаний зафиксировать действительные результаты в `docs/testing/external-results/`.
+Обычный сброс пароля сохраняет 2FA; при её утрате используется отдельный `sudo arcvpn password reset --reset-2fa`. [Подробнее о восстановлении](docs/ops/local-admin-recovery.md).
 
-## Ключевые ограничения
+## Участие в разработке
 
-`agent online` и `Xray active` не доказывают доступность VPN, `vpn_probe=unknown` и `published=false` до независимого тестирования. Подписанный ZIP удостоверяет происхождение файлов относительно trust anchor, **но не совместимость бинарников**. Нет mTLS, проверенного на реальном Xray внешнего VPN probe, готового UI E2E, безопасного автоматического SSH/firewall hardening и подтверждённого восстановления после реального обрыва SSH во время обновления.
+Начните с [текущей задачи](https://github.com/Inforberi/ArcNet/blob/main/docs/ai/current-task.md) и [AGENTS.md](https://github.com/Inforberi/ArcNet/blob/main/AGENTS.md). Один рабочий блок — одна конкретная задача; проверяются затронутые контракты. Полные race/E2E/VM-прогоны выполняются отдельным блоком приёмки, а не после каждой правки README или формы. Обязательные проверки безопасности не отключаются; непроверенное помечается `NOT RUN`.
 
-Исторические handoff документы: [этап 3 (0.5.1)](docs/release-0.5.1-stage3-code-handoff.md), [этап 4 (0.6.0)](docs/release-0.6.0-stage4-source.md). Актуальное состояние — **0.6.5-stage4**, не исторические версии.
+Для локального интерфейса: `bash scripts/dev-local.sh` — это development API/Vite, не установка работающего VPN. Точные результаты предыдущих испытаний сохранены в [docs/testing/local-results](https://github.com/Inforberi/ArcNet/tree/main/docs/testing/local-results), незакрытые VPS-критерии — в [handoff](https://github.com/Inforberi/ArcNet/blob/main/docs/testing/stage4-codex-handoff.md).
 
+## Лицензия
 
-## Изменения 0.6.3: тест с независимого клиента
-
-Добавлена **возможность** внешнего теста VLESS/REALITY. На доверенной независимой Linux-машине необходимо установить проверенный Xray и Go CLI ArcVPN этой версии, подготовить приватный файл 0600 с тестовой ссылкой. В админке «Серверы» → «Тестовые ссылки» → «Создать одноразовый допуск», затем выполнить CLI `arcvpn node-probe --link-file ... --xray ... --controller ... --node-id ... --revision ... --digest ... --report-token-stdin` с **реальными значениями из панели**, не передавая токен или VLESS-ссылку в аргументах. Оператор должен самостоятельно контролировать место выполнения. Проба проверяет единственный HTTPS endpoint через VPN, не является криптографическим подтверждением места запуска, не публикует ноду автоматически. Детальная инструкция: [stage4-nodes.md](docs/ops/stage4-nodes.md).
+Исходники ArcVPN доступны публично по [MIT License](LICENSE), Copyright © 2026 Inforberi. Зависимости и отдельно распространяемые Xray/Hysteria/WireGuard-компоненты сохраняют собственные лицензии. MIT проекта не заменяет их условия.

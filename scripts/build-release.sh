@@ -34,20 +34,17 @@ mkdir -p dist
 rm -rf web/react-dist
 trap 'rm -rf "$ROOT/web/react-dist"' EXIT
 cp -a frontend/dist web/react-dist
-ARCVPN_BUILD_VERSION="${ARCVPN_BUILD_VERSION:-0.6.5-stage4}"
-[[ "$ARCVPN_BUILD_VERSION" =~ ^0\.6\.[0-9]+(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Unsupported node release version; use 0.6.x' >&2; exit 65; }
+ARCVPN_BUILD_VERSION="${ARCVPN_BUILD_VERSION:-0.7.0-stage5}"
+[[ "$ARCVPN_BUILD_VERSION" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Unsupported panel release version; use 0.6.x or 0.7.x' >&2; exit 65; }
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags arcvpn_embed_react -trimpath -buildvcs=false -ldflags="-s -w -X github.com/arcvpn/arcvpn/internal/nodeagent.Version=$ARCVPN_BUILD_VERSION" -o dist/arcvpn-linux-amd64 ./cmd/arcvpn
 ./dist/arcvpn-linux-amd64 frontend-check
-echo '[5/5] Build compatible AmneziaWG 3.1 components from pinned upstream tags'
-"$ROOT/scripts/build-amneziawg.sh"
-sha256sum dist/arcvpn-linux-amd64 \
-  dist/awg-linux-amd64 \
-  dist/awg-quick-linux-amd64 \
-  dist/amneziawg-go-linux-amd64 \
-  dist/sources/amneziawg-tools-v3.1.20260812.tar.gz \
-  dist/sources/amneziawg-go-v3.1.20260828.tar.gz \
-  dist/AMNEZIAWG-SOURCES.txt > dist/SHA256SUMS
-(cd "$ROOT" && sha256sum --status -c dist/SHA256SUMS)
+echo '[5/5] Package the installer and verified runtime'
+# Legacy compatibility only; not part of the default supported scope.
+ARCVPN_WITH_AMNEZIAWG="${ARCVPN_WITH_AMNEZIAWG:-0}"
+[[ "$ARCVPN_WITH_AMNEZIAWG" == 0 || "$ARCVPN_WITH_AMNEZIAWG" == 1 ]] || { echo 'ARCVPN_WITH_AMNEZIAWG must be 0 or 1' >&2; exit 65; }
+if [[ "$ARCVPN_WITH_AMNEZIAWG" == 1 ]]; then "$ROOT/scripts/build-amneziawg.sh"; fi
+printf '%s\n' "$ARCVPN_BUILD_VERSION" > dist/VERSION
+ARCVPN_WITH_AMNEZIAWG="$ARCVPN_WITH_AMNEZIAWG" "$ROOT/scripts/package-release.sh"
 printf '\nRelease build complete: dist/arcvpn-linux-amd64 (React embedded)\n'
 printf 'The installer verifies the embedded React frontend before changing the VPS.\n'
 printf 'CGO requires libsqlite3.so.0 and libqrencode.so.4 on the runtime VPS.\n'

@@ -170,3 +170,6 @@
 - `internal/engines/wireguard_stats.go`, `quick.go`, `cmd/arcvpn/main.go` — root receipt, fixed stats RPC, bounded public transfer collector.
 - `internal/store/usage.go`, `internal/app/usage.go`, `internal/backup/backup.go` — per-source freshness, общий пакет, backup v9; тесты рядом.
 - [ADR-011](../adr/011-wireguard-traffic-and-devices.md). AmneziaWG исключён пользователем из следующего объёма; runtime VPS acceptance остаётся открытым.
+## Публичный вход и упаковка
+
+`README.md`, `LICENSE`, `docs/ops/install-and-update.md` — актуальный пользовательский вход, MIT, clean install/signed update и явные ограничения. `docs/planning/short-work-blocks.md` — обязательный процесс коротких задач/достаточных проверок. `scripts/package-release.sh` — явный список artifacts и установочный tar.gz; `tests/release_packaging.sh` — быстрый макет целостности/исключения секретов, не настоящий build/установка. `build-release.sh` по умолчанию 0.7 без обязательной сборки AmneziaWG, installer определяет legacy extras по manifest.

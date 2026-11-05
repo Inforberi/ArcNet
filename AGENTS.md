@@ -1,3 +1,5 @@
+> **Рабочий процесс 2026-11-06:** короткие ограниченные блоки по [docs/planning/short-work-blocks.md](docs/planning/short-work-blocks.md). Для docs — проверка ссылок/команд/diff; не запускать Go/frontend/race/E2E по умолчанию. Для кода — только достаточные затронутые проверки, широкая release/VM-приёмка отдельно. Не повторять неизменённый PASS, не ослаблять security gates. AmneziaWG исключён из дальнейшего объёма прямым решением пользователя; старые данные не удалять.
+
 > **Обязательное ограничение scope (2026-11-05):** не начинать этап 6 и не добавлять AnyTLS, Trojan, TUIC, Shadowsocks 2022 или экспертные overrides без нового прямого решения пользователя. Достаточный текущий набор: VLESS/REALITY TCP, VLESS/REALITY XHTTP, Hysteria2, WireGuard, AmneziaWG 3.1. Не выдавать исходную реализацию за подтверждённый VPN-трафик. См. `docs/planning/protocol-scope-freeze-2026-11-05.md`.
 # АКТУАЛЬНЫЙ ИСТОЧНИК: ArcVPN 0.7.0-stage5-foundation · 2026-11-05
 

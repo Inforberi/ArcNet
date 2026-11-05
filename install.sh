@@ -35,6 +35,10 @@ EXPECTED_BIN_SHA="$(awk '$2=="dist/arcvpn-linux-amd64"||$2=="arcvpn-linux-amd64"
 [[ "$EXPECTED_BIN_SHA" =~ ^[0-9a-f]{64}$ ]] || err "Missing valid binary SHA256"
 ACTUAL_BIN_SHA="$(sha256sum "$ROOT/dist/arcvpn-linux-amd64" | awk '{print $1}')"
 [[ "$EXPECTED_BIN_SHA" == "$ACTUAL_BIN_SHA" ]] || err "Packaged Go binary digest mismatch"
+# Default releases do not require AmneziaWG. A legacy bundle must still be complete.
+WITH_AWG=0
+if grep -qE '^[0-9a-f]{64}  dist/(awg-linux-amd64|awg-quick-linux-amd64|amneziawg-go-linux-amd64)$' "$ROOT/dist/SHA256SUMS"; then
+ WITH_AWG=1
 # Reject incomplete AWG3.1 releases before any package/service changes.
 for name in awg awg-quick amneziawg-go; do
  file="dist/${name}-linux-amd64"
@@ -47,6 +51,7 @@ for name in amneziawg-tools-v3.1.20260812 amneziawg-go-v3.1.20260828; do
  grep -qE "^[0-9a-f]{64}  $file$" "$ROOT/dist/SHA256SUMS" || err "Missing checksum entry: $file"
 done
 [[ -s "$ROOT/dist/AMNEZIAWG-SOURCES.txt" ]] || err 'Missing AWG licensing/source notice'
+fi
 [[ -d /run/systemd/system ]] || err "systemd must be running"
 [[ ! -e "$SYSTEMD/arcvpn-panel.service" ]] || err "Existing ArcVPN installation detected; install.sh does not overwrite existing data."
 for bin in curl python3 ss systemctl;do command -v "$bin" >/dev/null || { apt-get update -qq;apt-get install -y curl python3 iproute2 ca-certificates;break;};done
@@ -92,6 +97,7 @@ else
 fi
 install -m 0755 "$ROOT/deploy/arcvpn-tunnel-net.sh" "$OPT/bin/arcvpn-tunnel-net"
 info "Verified embedded React/Vite frontend"
+if [[ "$WITH_AWG" == 1 ]]; then
 # AmneziaWG dependencies are built into the release on a trusted CI runner,
 # so a 1 GB VPS does not need Git, Go or a compiler, and no PPA is added.
 # All files must have matching SHA256 entries in the release manifest.
@@ -110,6 +116,7 @@ for src in "$ROOT"/dist/sources/amneziawg-{tools-v3.1.20260812,go-v3.1.20260828}
 done
 install -m 0644 "$ROOT/dist/AMNEZIAWG-SOURCES.txt" "$OPT/AMNEZIAWG-SOURCES.txt"
 info "Installed pinned AmneziaWG 3.1 userspace tools and daemon"
+fi
 info "Installing verified Xray release"
 XRAY_VERSION="${ARCVPN_XRAY_VERSION:-}"
 if [[ -z "$XRAY_VERSION" ]];then

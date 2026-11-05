@@ -175,3 +175,10 @@ TrafficStats collector с private loopback/проверкой процесса, 
 ## WireGuard — отдельные peer/IP и учёт
 
 Индивидуальные WG keys/IP, резервирование в прежней подсети, device `.conf` download, исключение legacy/revoked peers, public transfer stats через fixed root helper, per-source freshness и общий пакет, backup v9/legacy restore без ротации локальных keys. AmneziaWG не расширяется и исключён из дальнейшего плана по прямому решению пользователя. VM/VPS/kernel приёмка не заявлена. [Контракт](../adr/011-wireguard-traffic-and-devices.md).
+## 2026-11-06 — публичный README, MIT и короткие блоки
+
+README переписан как актуальный вход без устаревших lockfile/0.6.5 статусов. Добавлены MIT по прямому решению владельца, инструкция clean install/signed update/recovery, правила коротких рабочих блоков и обновления README в AGENTS. Анонимный GitHub API подтвердил public repository и отсутствие Releases; публикация релиза не выполнялась.
+
+Исправлена упаковка: build version 0.7, AmneziaWG не обязателен по умолчанию, installer принимает базовый manifest без AWG. Установочный tar.gz включает install/deploy/docs/license/version/checksums и optional public key; private keys/DB/unlisted files не включаются. Сохраняется строгая проверка полного legacy bundle, если он явно выбран.
+
+Проверки: `bash -n install.sh scripts/build-release.sh scripts/package-release.sh tests/release_packaging.sh` PASS; local Markdown links PASS; `tests/release_packaging.sh` в существующем Linux образе — PASS (0.48 s): состав, версия 0.7, исключение private/stale AWG, tampered installer rejection, incomplete legacy/unsafe version rejection. Это synthetic packaging fixture; настоящий release build, Go/frontend/race/E2E/VM/VPS не запускались в этом блоке. Signed updater не менялся; автоматическая миграция shell/systemd/ОС не заявлена.
