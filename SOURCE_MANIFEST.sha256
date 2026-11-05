@@ -16,10 +16,10 @@ eaa92d01b94408750bd865adf08949c268d9dcdad24e86e933814797defcac1f  ./cmd/arcvpn/n
 b02d737df87dc5e0e8542a3968103aff2942a55f37f9b143c0aa5e70c99e1e3c  ./docs/adr/002-node-reconciliation.md
 6efc849ffbd3fffc6ecbf0a0e407ba4fcba83c744445a5819fd429400c6a3f23  ./docs/adr/003-subscriptions-ip-only.md
 d07cc924026e8ef7c542c2ac23639c58492011a43a671852b0008595aa32f0cf  ./docs/adr/004-draft-routing-editor-and-backup.md
-bce3558963808d01fcc9f513127bdd73ac7babbe598fd2a7bb401cca1279443e  ./docs/ai/change-log.md
-271c2f650b4856a5f771223588f146da6da26f24cf9f3a1cd8ff8d658b665f18  ./docs/ai/current-task.md
+32d91a91aec28812c6c7dbaf9766db169216d8a8b30a83b35a88b75c59cc0078  ./docs/ai/change-log.md
+bf604e58165455d8d6c18e41b16132e371084be95d5ade802ccd5142561c6294  ./docs/ai/current-task.md
 81911c46040277e7d7864f0f4647f944dda36f2c2299223ecf2dad3c69e8daeb  ./docs/ai/decision-register.md
-4f7dd2fc9e463e9f8ba13bd4d092c5ea6f27ef706ac0884a53e98f8b05b08192  ./docs/ai/index.md
+01ec53f9540433ae9de2ef2781c81e969ef3d89316229f8359eea08081698445  ./docs/ai/index.md
 7d135112b0f19965be4b630630ce5063ae76008845efbd8965e0d68d944cfd17  ./docs/architecture/data-model.md
 0494dae5fcd8065d00be610a2571d8423e4c5b40cad907e28ca0201064d46a0e  ./docs/architecture/failover-client-reachability.md
 5c89744b1532a6b7a66e05db82b44f94bea6797d633613b6fef4aee157d97b01  ./docs/architecture/go-structure.md
@@ -30,7 +30,7 @@ f3914a176d38f89fcec47e5eac6d89f27ee9971a541021b6837bafb8c747cb55  ./docs/archite
 45bac98ad65709692eace0bb5301ed1deb11719705decd2616f36fd4a1233616  ./docs/design/composition.md
 298ef516e18a0ae8e43f36fdfe101730c88430aa5e26a32c752fa8e087f20065  ./docs/design/design-system.md
 d18b42e680cdc5b6f49799686ac5764d553e16fbedd58fb593ac580f2bc617f1  ./docs/design/screens.md
-12cf7fcd74673fad798594eee9c1d360202ea5aa474005edea048912d82ff372  ./docs/design/topology-and-table.md
+865740899059146883f7072dfb0c61f2c355f72821bfe4865219ee9cd1a49507  ./docs/design/topology-and-table.md
 b102a783de24c25734b470f2e34809c3459eba88311c9c192115202f499e2c9b  ./docs/features/automation-and-advanced.md
 5bd633886e23bdb849e5b8372186c0f73fc3fa3131800446d84f5d9e55571989  ./docs/features/backup-and-migration.md
 2b09667a001b39afbb2c647609c0a98d67ddfaa2dafc25674a4e5b283af28002  ./docs/features/dashboard-and-telemetry.md
@@ -55,6 +55,7 @@ c9d6335bcea8ab2e56aba9e17081ed39069dff68d04173b0a4b6651f61b61c3c  ./docs/plannin
 dfe9ddeda6e63057df6b7a9e43649d4a7cbb4bd97223a27d8e9d8ccea77f7382  ./docs/planning/stage4-checklist.md
 4a341d363a90ed9ab81e113f4d85db43965e67b9e7cb6d280910098d8de294b5  ./docs/planning/stage4-traceability-0.6.5.md
 6ec0ead2e240e835c403313c2ef5a966836fee4ffc8973553b6dfcd5e67a1083  ./docs/planning/stage5-checklist.md
+ed69cdb16f2906520cff3830fbe07eb58e54c6eb4ff8cff66d719679607594a7  ./docs/planning/ux-and-safe-automation-2026-11-05.md
 a043d615c80d3f273b89a946cd59e1cd506d985fb16dd3f2aa35434ec36ec578  ./docs/product/requirements.md
 f5f14a8b615876af61079fd471d9fb8266b85aaa2708ef510ebde74ab2c3ff93  ./docs/product/user-flows.md
 6db6a5b2f5650918ad86bb19d1957d75efb958b7219fc20d9e225ac67ad0bb69  ./docs/product/vision.md

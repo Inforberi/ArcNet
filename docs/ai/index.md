@@ -1,3 +1,7 @@
+## План дальнейшего UX и автоматизации — 2026-11-05
+
+[Единый план](../planning/ux-and-safe-automation-2026-11-05.md): простые мастера, расширенные формы текущих функций, SNI/target каталог и per-node TCP/TLS проверка, полный lifecycle нод из UI, Geo-импорт, мобильный UX и измеримое сравнение с 3x-ui. Это требования, не новые программные пакеты или результаты VPN-проверок.
+
 ## Продолжение stage5: редактор и backup v4 (2026-11-05)
 
 - `frontend/src/features/routing/{model.ts,RouteCanvas.tsx}`, `frontend/src/pages/Routing.tsx` — единый черновик, интерактивные стрелки, форма, таблица; не runtime.

@@ -74,3 +74,7 @@ flowchart LR
 ## 6. Состояния для проверки
 
 `empty` (1 VPS, нет каскада), `standalone`, `2 VPS direct`, `2 VPS cascade`, `3 VPS with fallback`, `node offline`, `xray failed`, `route broken`, `subscription stale`, `SSE disconnected`, `permission denied`.
+
+## План упрощения — 2026-11-05
+
+Последовательные мастера, схема как дополнительное представление, мобильный сценарий без обязательного drag-and-drop и разделение обычных/расширенных форм описаны в [едином плане](../planning/ux-and-safe-automation-2026-11-05.md). Это целевое изменение UX, не новый статус реализации.
