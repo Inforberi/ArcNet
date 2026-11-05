@@ -7,7 +7,7 @@
 
 Продолжение: [редактор стрелок, целостность нод и backup v4](../release-0.7.0-stage5-routing-ui.md), [точные команды и ограничения](../testing/local-results/stage5-2026-11-05-routing-ui.md). Есть настоящий npm lockfile, TypeScript/Vite build и browser UI/API проверки; живой VPN не проверен. SNI/Geo и параллельная балансировка не добавлялись.
 
-**Новый план по запросу пользователя:** [UX, SNI-каталог с выбором по проверенной TCP/TLS задержке, безопасность, ноды из UI и Geo](../planning/ux-and-safe-automation-2026-11-05.md). Это план, не реализация: runtime/API/БД не изменены, нового VPN PASS нет. Структурированные расширенные настройки текущих возможностей допустимы в плане; stage6 и произвольные overrides остаются отложены.
+**Новый план по запросу пользователя:** [UX, SNI-каталог с выбором по проверенной TCP/TLS задержке, безопасность, ноды из UI и Geo](../planning/ux-and-safe-automation-2026-11-05.md). План дополнен моделью угроз оператора/DPI и VPS-хостера, автоматическим hardening с проверкой доступа/rollback и необязательными RU-шаблонами маршрутизации. Это план, не реализация: runtime/API/БД не изменены, нового VPN PASS нет. Структурированные расширенные настройки текущих возможностей допустимы в плане; stage6 и произвольные overrides остаются отложены.
 
 Уже создано: `internal/routes/{policy,simulate,diff}.go`, `internal/store/routes.go`, `internal/httpapi/routes.go`, API и React UI черновиков маршрутов. SQL миграция, проверки циклов, optimistic concurrency, симуляция failover без доступа к live VPN.
 
