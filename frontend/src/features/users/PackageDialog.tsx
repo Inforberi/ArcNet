@@ -10,7 +10,7 @@ export function UsageSummary({item, complete}: {item?: UserPackage; complete: bo
  const spent = item.upload_bytes + item.download_bytes;
  return <div><strong>{usageGB(spent)}{item.quota_bytes > 0 ? ` из ${usageGB(item.quota_bytes)}` : ' · без лимита'}</strong>
   {item.quota_bytes > 0 && <small className="muted">{item.incomplete ? 'По учёту осталось' : 'Осталось'} {usageGB(Math.max(0, item.quota_bytes - spent))}</small>}
-  {!complete && <small className="muted">Частичный учёт: локальные Xray и Hysteria2</small>}
+  {!complete && <small className="muted">Частичный учёт: локальные Xray, Hysteria2 и WireGuard</small>}
   {item.incomplete && <small className="muted">Есть разрыв между процессами VPN. Показан только подтверждённый расход.</small>}
  </div>;
 }
@@ -65,7 +65,7 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
    <UsageSummary item={initialValue} complete={status.complete_coverage}/>
    <label className="flex"><input type="checkbox" checked={unlimited} onChange={event => setUnlimited(event.target.checked)}/><span>Без ограничения трафика</span></label>
    {!unlimited && <Field label="Пакет, ГБ" aria-label="Пакет, ГБ" inputMode="decimal" required value={quota} onChange={event => setQuota(event.target.value)} description="1 ГБ = 1 000 000 000 байт. Считаем загрузку и отправку вместе."/>}
-   {unavailable && <Notice>Для конечного пакета нужны свежие счётчики и учёт всех выданных подключений. Поддержаны локальные Xray и Hysteria2; WG/AWG и ноды требуют отдельной интеграции.</Notice>}
+   {unavailable && <Notice>Для конечного пакета нужны свежие счётчики и учёт всех выданных подключений. Поддержаны локальные Xray, Hysteria2 и WireGuard; AmneziaWG и ноды не входят в поддержанный учёт.</Notice>}
    <Advanced>
     <Field label="Действует до" aria-label="Действует до" type="datetime-local" value={expires} onChange={event => setExpires(event.target.value)} description="Пусто — без срока. Время в часовом поясе вашего браузера."/>
     <label className="flex"><input type="checkbox" checked={reset} onChange={event => setReset(event.target.checked)}/><span>Начать новый период и обнулить расход пакета</span></label>
@@ -84,7 +84,7 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
   </form>
   <section className="dialog-body" aria-label="Последние списания"><strong>Последние списания</strong>
    {history.isError ? <Notice>{history.error.message}</Notice> : !history.data?.items.length ? <p className="muted">Подтверждённых списаний пока нет.</p> : history.data.items.map(row => <div className="kv" key={`${row.period}/${row.at}`}><span>{new Date(row.at * 1000).toLocaleString('ru-RU')} · период {row.period}</span><span>{usageGB(row.upload_bytes + row.download_bytes)}</span></div>)}
-   <small className="muted">До 60 последних минутных записей локальных Xray/Hysteria2. Это не денежные списания.</small>
+   <small className="muted">До 60 последних минутных записей локальных Xray/Hysteria2/WireGuard. Это не денежные списания.</small>
   </section>
  </Dialog>;
 }

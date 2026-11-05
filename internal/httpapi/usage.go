@@ -62,7 +62,7 @@ func (s *Server) userPackageSave(w http.ResponseWriter, r *http.Request) {
 	if err := s.App.SaveUserPackage(r.Context(), id, in.Quota, in.Expires, in.Version, in.Reset); err != nil {
 		switch {
 		case errors.Is(err, store.ErrUsageUnsupported):
-			fail(w, 409, "Для части подключений ещё нет учёта трафика или исполнения ограничений. Конечный пакет сейчас доступен только для локальных Xray и Hysteria2.")
+			fail(w, 409, "Для части подключений ещё нет учёта трафика или исполнения ограничений. Конечный пакет сейчас доступен только для локальных Xray, Hysteria2 и WireGuard.")
 		case errors.Is(err, store.ErrConflict):
 			fail(w, 409, "Пакет изменён. Обновите данные перед сохранением.")
 		case errors.Is(err, store.ErrNotFound):

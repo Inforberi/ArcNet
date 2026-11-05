@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -490,6 +491,16 @@ func runHelper() error {
 				action, unit = "status", "arcvpn-hysteria.service"
 			case "status wireguard\n":
 				action, unit = "status", "arcvpn-wireguard.service"
+			case "stats wireguard\n":
+				ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+				defer cancel()
+				report, err := engines.ReadWireGuardStats(ctx)
+				if err != nil {
+					_, _ = io.WriteString(conn, "error\n")
+				} else {
+					_ = json.NewEncoder(conn).Encode(report)
+				}
+				return
 			case "status amneziawg\n":
 				action, unit = "status", "arcvpn-amneziawg.service"
 			case "journal-budget status\n":

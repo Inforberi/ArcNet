@@ -4,9 +4,9 @@ import {api} from '../../shared/api';
 import Dialog from '../../shared/Dialog';
 import {Advanced,Button,Field,Loading,Notice} from '../../shared/ui';
 
-type Device={id:string;name:string;created_at:number;revoked_at:number};
+type Device={id:string;name:string;created_at:number;revoked_at:number;wireguard_address?:string};
 type Reply={items:Device[];managed:boolean;limit:number;version:number;active:number;supported:boolean;runtime_state:string};
-type Links={url:string;links:string[]};
+type Links={url:string;links:string[];wireguard_url?:string};
 
 export default function DevicesDialog({id,name,onClose}:{id:number;name:string;onClose:()=>void}) {
  const cache=useQueryClient();
@@ -40,7 +40,7 @@ export default function DevicesDialog({id,name,onClose}:{id:number;name:string;o
    <p className="muted">Каждому устройству — отдельный доступ. Копию одного ключа нельзя отличить от оригинала: лимит считает выданные доступы.</p>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}
    {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:data&&<>
-    {!data.supported&&<Notice>Отдельные доступы пока доступны для локальных Xray и Hysteria2 без удалённых нод и других активных движков.</Notice>}
+    {!data.supported&&<Notice>Отдельные доступы пока доступны для локальных Xray, Hysteria2 и WireGuard без удалённых нод и других активных движков.</Notice>}
     {data.managed&&!message&&data.runtime_state!=='applied'&&<Notice>Применение доступа VPN-службой пока не подтверждено. При ошибке панель повторит применение; старые соединения могут продолжать работать.</Notice>}
     {data.managed?<p>Активных доступов: {data.active} / {data.limit||'без ограничения'}. Общий ключ отключён.</p>:<Notice>При добавлении первого устройства общий ключ и прежняя подписка пользователя будут отключены. Подключите клиентов по новым индивидуальным подпискам.</Notice>}
     <form onSubmit={e=>{e.preventDefault();if(!data.managed&&!window.confirm('Отключить общий ключ и прежнюю подписку, перейти на отдельные доступы?'))return;void change('POST',{name:deviceName.trim()})}}>
@@ -49,9 +49,10 @@ export default function DevicesDialog({id,name,onClose}:{id:number;name:string;o
     </form>
     <div className="protocol-grid">{data.items.map(device=><div className="protocol-card" key={device.id}>
      <strong>{device.name}</strong><p className="muted">{device.revoked_at?'Доступ отозван':`Создан ${new Date(device.created_at*1000).toLocaleDateString('ru-RU')}`}</p>
+     {device.wireguard_address&&<p className="muted">WireGuard · {device.wireguard_address}</p>}
      {!device.revoked_at&&<div className="flex wrap"><Button disabled={busy} onClick={()=>void showLinks(device)}>Подписка</Button><Button variant="danger" disabled={busy} onClick={()=>{if(window.confirm(`Отозвать доступ «${device.name}»? Его подписка перестанет работать. Завершение VPN-соединений зависит от применения изменения службой.`))void change('DELETE',{},device.id)}}>Отозвать</Button></div>}
     </div>)}</div>
-    {links&&<div><Field label="Подписка устройства" value={links.url} readOnly onFocus={e=>e.target.select()}/><p className="muted">Ссылка содержит секрет доступа. Скопируйте её в VPN-клиент.</p>{links.links.map(link=><pre className="code" key={link}>{link}</pre>)}</div>}
+    {links&&<div><Field label="Подписка устройства" value={links.url} readOnly onFocus={e=>e.target.select()}/><p className="muted">Ссылка содержит секрет доступа. Скопируйте её в VPN-клиент.</p>{links.wireguard_url&&<a className="button inline-action" href={links.wireguard_url} download>Скачать WireGuard</a>}{links.links.map(link=><pre className="code" key={link}>{link}</pre>)}</div>}
     {data.managed&&<Advanced><form onSubmit={e=>{e.preventDefault();const value=Number(limit);if(!Number.isInteger(value)||value<0||value>100){setError('Укажите целое число от 0 до 100');return}if(!window.confirm(`Лимит доступов: ${data.limit||'без ограничения'} → ${value||'без ограничения'}. Уже выданные доступы автоматически не отзываются.`))return;void change('PUT',{limit:value})}}>
      <Field label="Лимит активных доступов" type="number" min={0} max={100} step={1} value={limit} onChange={e=>{setLimit(e.target.value);setLimitDirty(true)}}/><p className="muted">0 — без ограничения тарифа. Технический предел — 100 активных доступов на пользователя.</p>
      <Button type="submit" disabled={busy||!data.supported||Number(limit)===data.limit}>Сохранить лимит</Button>

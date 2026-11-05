@@ -159,7 +159,7 @@ func replaceUsageState(tx *db.Tx, incoming *usage.State, before usage.State, old
 			return err
 		}
 		if p.QuotaBytes > 0 {
-			unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
+			unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
 			if err != nil {
 				return err
 			}
@@ -230,7 +230,7 @@ func replaceUsageState(tx *db.Tx, incoming *usage.State, before usage.State, old
 	if err := tx.Exec("DELETE FROM traffic_debits WHERE rowid IN(SELECT rowid FROM traffic_debits ORDER BY bucket DESC LIMIT -1 OFFSET 65536)"); err != nil {
 		return err
 	}
-	if err := tx.Exec("DELETE FROM settings WHERE key IN('xray_accounting_last_success','hysteria_accounting_last_success')"); err != nil {
+	if err := tx.Exec("DELETE FROM settings WHERE key IN('xray_accounting_last_success','hysteria_accounting_last_success','wireguard_accounting_last_success')"); err != nil {
 		return err
 	}
 	return tx.Exec("INSERT INTO settings(key,value) VALUES('usage_runtime','unverified') ON CONFLICT(key) DO UPDATE SET value=excluded.value")

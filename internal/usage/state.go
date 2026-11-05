@@ -19,7 +19,7 @@ type State struct {
 }
 
 func (s State) Validate(identities map[int64]string) error {
-	if len(s.Packages) > 10000 || len(s.Checkpoints) > 30000 || len(s.Debits) > 65536 {
+	if len(s.Packages) > 10000 || len(s.Checkpoints) > 40000 || len(s.Debits) > 65536 {
 		return ErrInvalid
 	}
 	seen := map[int64]bool{}

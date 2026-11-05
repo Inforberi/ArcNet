@@ -87,3 +87,6 @@ Device ID — отдельный отзываемый credential, не аппа�
 ## Hysteria statistics — 2026-11-05
 
 Private loopback API `127.0.0.1:19823` требует случайный машинный secret. До HTTP Authorization проверяются systemd MainPID/InvocationID/start, UID и принадлежность LISTEN socket inode этому процессу; повтор после connect, затем сверка process/config после ответа. Proxy, redirect и clear counters запрещены. Private files, timeout/body bounds, per-source freshness и existing counter/restore safeguards сохраняются. Никаких новых root-команд или firewall изменений. [ADR-010](../adr/010-hysteria-traffic-and-devices.md).
+## WireGuard helper statistics
+
+Только фиксированный read-only RPC `stats wireguard`, никакого интерфейса/argv/path от браузера. Root helper читает только public-key/transfer, never dump/private-key. Root-owned epoch receipt привязан к boot/interface/config SHA; peer set/server key/revision и эпоха проверяются. При ошибке receipt после up выполняется bounded down. Socket parent root-owned, без group/other write; private peer keys не возвращаются stats API и не попадают в audit. Новый путь требует отдельного isolated VM rollback/systemd/kernel теста; source checks не являются его приёмкой. [ADR-011](../adr/011-wireguard-traffic-and-devices.md).

@@ -18,6 +18,9 @@ var uuid = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 var token = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 
 type Device struct {
+	WGPrivate string `json:"wg_private,omitempty"`
+	WGPublic  string `json:"wg_public,omitempty"`
+	WGAddress string `json:"wg_address,omitempty"`
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	UUID      string `json:"uuid"`
@@ -59,6 +62,17 @@ func (s State) Validate(identities map[int64]string) error {
 		}
 		seen[r.UserID] = true
 		for _, d := range r.Devices {
+			if err := ValidateWireGuard(d); err != nil {
+				return err
+			}
+			if d.WGPublic != "" {
+				for _, k := range []string{d.WGPublic, d.WGAddress} {
+					if keys[k] {
+						return ErrInvalid
+					}
+					keys[k] = true
+				}
+			}
 			if !uuid.MatchString(d.ID) || !uuid.MatchString(d.UUID) || !token.MatchString(d.Token) || !ValidName(d.Name) || d.CreatedAt < 1 || (d.RevokedAt != 0 && d.RevokedAt < d.CreatedAt) {
 				return ErrInvalid
 			}

@@ -172,3 +172,6 @@
 ## 2026-11-05 — Hysteria2: расход и отдельные доступы
 
 TrafficStats collector с private loopback/проверкой процесса, независимая freshness Xray/Hysteria, общий пакет/списания, individual device credentials/подписки, backup v8. Использованы существующие UI-компоненты и apply/retry; нет новых dependencies/privileged RPC. Настоящий loopback QUIC/TLS v2.13.0 подтвердил counters и отказ отозванному ключу после restart. Systemd/VPS gate остаётся открытым. [ADR-010](../adr/010-hysteria-traffic-and-devices.md).
+## WireGuard — отдельные peer/IP и учёт
+
+Индивидуальные WG keys/IP, резервирование в прежней подсети, device `.conf` download, исключение legacy/revoked peers, public transfer stats через fixed root helper, per-source freshness и общий пакет, backup v9/legacy restore без ротации локальных keys. AmneziaWG не расширяется и исключён из дальнейшего плана по прямому решению пользователя. VM/VPS/kernel приёмка не заявлена. [Контракт](../adr/011-wireguard-traffic-and-devices.md).

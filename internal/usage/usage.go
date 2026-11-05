@@ -23,7 +23,7 @@ type Counter struct {
 }
 
 func (c Counter) Validate() error {
-	if c.UserID < 1 || len(c.Identity) != 36 || (c.Stream != "vless-reality" && c.Stream != "vless-xhttp" && c.Stream != "hysteria2") || len(c.Epoch) < 1 || len(c.Epoch) > 128 || c.StartedAt < 1 || c.ObservedAt < 1 || c.Upload < 0 || c.Download < 0 || c.Upload > MaxBytes || c.Download > MaxBytes-c.Upload {
+	if c.UserID < 1 || len(c.Identity) != 36 || (c.Stream != "vless-reality" && c.Stream != "vless-xhttp" && c.Stream != "hysteria2" && c.Stream != "wireguard") || len(c.Epoch) < 1 || len(c.Epoch) > 128 || c.StartedAt < 1 || c.ObservedAt < 1 || c.Upload < 0 || c.Download < 0 || c.Upload > MaxBytes || c.Download > MaxBytes-c.Upload {
 		return ErrInvalid
 	}
 	return nil

@@ -138,11 +138,15 @@ func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change fun
 		} else {
 			state[index] = r
 		}
+		changed, err := ensureWireGuardDevices(tx, state)
+		if err != nil {
+			return err
+		}
 		if err := state.Validate(ids); err != nil {
 			return err
 		}
 		// Independent of UI/app guards, prevent a policy with an unmanaged bypass.
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
+		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
 		if err != nil {
 			return err
 		}
@@ -153,7 +157,17 @@ func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change fun
 		if len(unsupported) > 0 || len(nodes) > 0 {
 			return ErrUsageUnsupported
 		}
-		return saveDevices(tx, r)
+		for _, record := range state {
+			if record.UserID == id || changed[record.UserID] {
+				if record.UserID != id {
+					record.Version++
+				}
+				if err := saveDevices(tx, record); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 }
 
@@ -199,6 +213,13 @@ func replaceDevices(tx *db.Tx, incoming *devices.State, before devices.State, ol
 				if current.UUID != d.UUID || current.Token != d.Token {
 					return devices.ErrInvalid
 				}
+				if current.WGPrivate == "" {
+					r.Devices[i].WGPrivate = d.WGPrivate
+					r.Devices[i].WGPublic = d.WGPublic
+					r.Devices[i].WGAddress = d.WGAddress
+				} else if d.WGPrivate != "" && (current.WGPrivate != d.WGPrivate || current.WGPublic != d.WGPublic || current.WGAddress != d.WGAddress) {
+					return devices.ErrInvalid
+				}
 				if d.RevokedAt > current.RevokedAt {
 					r.Devices[i].RevokedAt = d.RevokedAt
 				}
@@ -218,11 +239,17 @@ func replaceDevices(tx *db.Tx, incoming *devices.State, before devices.State, ol
 	for _, r := range records {
 		next = append(next, r)
 	}
+	if _, err := ensureWireGuardDevices(tx, next); err != nil {
+		return err
+	}
+	if _, err := wireGuardClaims(tx, next); err != nil {
+		return err
+	}
 	if err := next.Validate(ids); err != nil {
 		return err
 	}
 	if len(next) > 0 {
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
+		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
 		if err != nil {
 			return err
 		}

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/arcvpn/arcvpn/internal/db"
+	"github.com/arcvpn/arcvpn/internal/devices"
 )
 
 // Protocol is a logical, local listener. Secret fields are deliberately hidden from API serialization.
@@ -143,7 +144,35 @@ func (s *Store) CredentialsForUser(ctx context.Context, id int64) ([]ProtocolCre
 }
 func (s *Store) SaveCredentials(ctx context.Context, items []ProtocolCredential) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		state, err := readDevices(tx)
+		if err != nil {
+			return err
+		}
+		used, err := wireGuardClaims(tx, state)
+		if err != nil {
+			return err
+		}
 		for _, c := range items {
+			if c.Kind == "wireguard" {
+				existing, err := tx.Query("SELECT user_id FROM protocol_credentials WHERE kind='wireguard' AND user_id=?", strconv.FormatInt(c.UserID, 10))
+				if err != nil {
+					return err
+				}
+				if len(existing) > 0 {
+					continue
+				}
+				if !devices.WireGuardAddress(c.Address) {
+					return devices.ErrInvalid
+				}
+				if used[c.Address] {
+					c.Address, err = freeWireGuardAddress(used)
+					if err != nil {
+						return err
+					}
+				} else {
+					used[c.Address] = true
+				}
+			}
 			if err := tx.Exec(`INSERT INTO protocol_credentials(user_id,kind,secret,private_key,public_key,address) VALUES(?,?,?,?,?,?)
             ON CONFLICT(user_id,kind) DO NOTHING`, strconv.FormatInt(c.UserID, 10), c.Kind, c.Secret, c.PrivateKey, c.PublicKey, c.Address); err != nil {
 				return err

@@ -59,13 +59,40 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 		return errors.Join(xrayErr, err)
 	}
 	var hysteriaErr error
+	var wireGuardErr error
 	for _, p := range profiles {
 		if p.Kind == protocols.Hysteria2 && p.Enabled {
 			_, hysteriaErr = a.collectHysteriaUsage(ctx, users, "")
-			break
+		}
+		if p.Kind == protocols.WireGuard && p.Enabled {
+			_, wireGuardErr = a.collectWireGuardUsage(ctx, users, "")
 		}
 	}
-	return errors.Join(xrayErr, hysteriaErr)
+	return errors.Join(xrayErr, hysteriaErr, wireGuardErr)
+}
+
+func (a *App) collectWireGuardUsage(ctx context.Context, users []store.User, previousEpoch string) (string, error) {
+	if a.Engines == nil {
+		return "", errors.New("WireGuard engine unavailable")
+	}
+	if _, err := os.Stat(filepath.Join(a.Engines.Dir, "arcwg.conf")); err != nil {
+		return "", errors.New("WireGuard configuration unavailable")
+	}
+	creds, err := a.Store.ListProtocolCredentials(ctx)
+	if err != nil {
+		return "", err
+	}
+	counters, at, err := a.Engines.WireGuardStatistics(ctx, users, creds)
+	if err != nil {
+		return "", err
+	}
+	if err := a.Store.RecordEngineUsage(ctx, "wireguard", counters, at, previousEpoch); err != nil {
+		return "", err
+	}
+	if len(counters) > 0 {
+		return counters[0].Epoch, nil
+	}
+	return "", nil
 }
 
 func (a *App) collectHysteriaUsage(ctx context.Context, users []store.User, previousEpoch string) (string, error) {

@@ -20,7 +20,9 @@ const debitsSchema = `CREATE TABLE IF NOT EXISTS traffic_debits(user_id INTEGER 
 const accountingLastSQL = `SELECT min(last) FROM (
  SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='xray_accounting_last_success'),'0') AS INTEGER) AS last
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='hysteria_accounting_last_success'),'0') AS INTEGER)
- WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1))`
+ WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1)
+ UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='wireguard_accounting_last_success'),'0') AS INTEGER)
+ WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='wireguard' AND enabled=1))`
 
 func readPackages(tx *db.Tx) (map[int64]usage.Package, error) {
 	rows, err := tx.Query("SELECT id,created_at,body FROM users LEFT JOIN user_packages ON users.id=user_packages.user_id ORDER BY id")
@@ -130,11 +132,11 @@ func (s *Store) recordUsage(ctx context.Context, counters []usage.Counter, obser
 }
 
 func (s *Store) RecordEngineUsage(ctx context.Context, source string, counters []usage.Counter, observedAt int64, previousEpoch string) error {
-	if source != "xray" && source != "hysteria" {
+	if source != "xray" && source != "hysteria" && source != "wireguard" {
 		return usage.ErrInvalid
 	}
 	for _, c := range counters {
-		if (c.Stream == "hysteria2") != (source == "hysteria") {
+		if (c.Stream == "hysteria2") != (source == "hysteria") || (c.Stream == "wireguard") != (source == "wireguard") {
 			return usage.ErrInvalid
 		}
 	}
@@ -343,7 +345,7 @@ func (s *Store) CheckPackageCoverage(ctx context.Context, quota, expires int64) 
 			return ErrUsageUnsupported
 		}
 		if quota > 0 {
-			rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
+			rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
 			if err != nil {
 				return err
 			}

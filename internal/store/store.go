@@ -123,7 +123,10 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.initializeNodeKey(ctx)
+	if err := s.initializeNodeKey(ctx); err != nil {
+		return err
+	}
+	return s.EnsureWireGuardDevices(ctx)
 }
 func (s *Store) HasAdmin(ctx context.Context) (bool, error) {
 	var yes bool

@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 8
+	Version         = 9
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -170,6 +170,15 @@ func supportedVersion(v int) bool { return v >= 1 && v <= Version }
 
 func (s Snapshot) Validate() error {
 	if s.Devices != nil {
+		if s.Version < 9 {
+			for _, r := range *s.Devices {
+				for _, d := range r.Devices {
+					if d.WGPrivate != "" || d.WGPublic != "" || d.WGAddress != "" {
+						return ErrInvalid
+					}
+				}
+			}
+		}
 		if s.Version < 7 {
 			return ErrInvalid
 		}
@@ -185,13 +194,20 @@ func (s Snapshot) Validate() error {
 				return ErrInvalid
 			}
 			for _, p := range s.Protocols {
-				if p.Enabled && p.Kind != protocols.XHTTP && (p.Kind != protocols.Hysteria2 || s.Version < 8) {
+				if p.Enabled && p.Kind != protocols.XHTTP && (p.Kind != protocols.Hysteria2 || s.Version < 8) && (p.Kind != protocols.WireGuard || s.Version < 9) {
 					return ErrInvalid
 				}
 			}
 		}
 	}
 	if s.Usage != nil {
+		if s.Version < 9 {
+			for _, c := range s.Usage.Checkpoints {
+				if c.Stream == "wireguard" {
+					return ErrInvalid
+				}
+			}
+		}
 		if s.Version < 8 {
 			for _, c := range s.Usage.Checkpoints {
 				if c.Stream == "hysteria2" {
@@ -312,6 +328,7 @@ func (s Snapshot) Validate() error {
 	}
 	pairs := map[string]bool{}
 	tunnelAddresses := map[string]bool{}
+	wireGuardPublics := map[string]bool{}
 	for _, c := range creds {
 		key := fmt.Sprintf("%d/%s", c.UserID, c.Kind)
 		if !ids[c.UserID] || !types[c.Kind] || pairs[key] {
@@ -330,16 +347,44 @@ func (s Snapshot) Validate() error {
 				return ErrInvalid
 			}
 		case protocols.WireGuard, protocols.AmneziaWG:
+			if c.Kind == protocols.WireGuard {
+				if wireGuardPublics[c.PublicKey] {
+					return ErrInvalid
+				}
+				wireGuardPublics[c.PublicKey] = true
+			}
 			if !validTunnelKeypair(c.PrivateKey, c.PublicKey) {
 				return ErrInvalid
 			}
 			address, e := protocols.AddressForUser(c.Kind, c.UserID)
+			if c.Kind == protocols.WireGuard && s.Version >= 9 {
+				address = c.Address
+				e = nil
+				if !devices.WireGuardAddress(address) {
+					return ErrInvalid
+				}
+			}
 			if e != nil || address != c.Address || tunnelAddresses[c.Kind+"/"+address] {
 				return ErrInvalid
 			}
 			tunnelAddresses[c.Kind+"/"+address] = true
 		default:
 			return ErrInvalid
+		}
+	}
+	if s.Devices != nil {
+		for _, r := range *s.Devices {
+			for _, d := range r.Devices {
+				if d.WGAddress != "" {
+					if tunnelAddresses["wireguard/"+d.WGAddress] {
+						return ErrInvalid
+					}
+					tunnelAddresses["wireguard/"+d.WGAddress] = true
+				}
+				if d.WGPublic != "" && wireGuardPublics[d.WGPublic] {
+					return ErrInvalid
+				}
+			}
 		}
 	}
 	for _, p := range profiles {

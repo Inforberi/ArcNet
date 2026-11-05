@@ -163,3 +163,10 @@
 - `internal/store/{usage,usage_backup,devices}.go`, `internal/app/{usage,protocols,devices}.go` — общий пакет/независимая freshness/coverage/apply/retry.
 - `internal/backup/backup_v8_test.go`, новые Hysteria tests в engines/protocols/store/httpapi, opt-in настоящий QUIC fixture `TestRealHysteriaAccountingAndRevokedDevice`.
 - [ADR-010](../adr/010-hysteria-traffic-and-devices.md); WG/AWG/remote accounting не закрыты.
+## WireGuard: отдельные peers и общий пакет
+
+- `internal/devices/wireguard.go`, `internal/store/wireguard_devices.go` — keypairs, pool validation/allocation/migration и restore preservation.
+- `internal/protocols/wireguard.go`, `internal/app/devices.go`, `internal/httpapi/devices.go` — allowlist, device `.conf` export, UI `DevicesDialog.tsx`.
+- `internal/engines/wireguard_stats.go`, `quick.go`, `cmd/arcvpn/main.go` — root receipt, fixed stats RPC, bounded public transfer collector.
+- `internal/store/usage.go`, `internal/app/usage.go`, `internal/backup/backup.go` — per-source freshness, общий пакет, backup v9; тесты рядом.
+- [ADR-011](../adr/011-wireguard-traffic-and-devices.md). AmneziaWG исключён пользователем из следующего объёма; runtime VPS acceptance остаётся открытым.

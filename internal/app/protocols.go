@@ -16,6 +16,9 @@ import (
 // applyXray includes every configured XHTTP listener in the same validated
 // Xray configuration as the original TCP Reality inbound.
 func (a *App) applyXray(ctx context.Context, reality store.Reality, users []store.User) error {
+	if err := a.Store.EnsureWireGuardDevices(ctx); err != nil {
+		return err
+	}
 	var deviceErr error
 	users, deviceErr = a.xrayUsers(ctx, users)
 	if deviceErr != nil {
@@ -23,6 +26,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	}
 	previousEpoch := ""
 	previousHysteriaEpoch, _ := a.collectHysteriaUsage(ctx, users, "")
+	previousWireGuardEpoch, _ := a.collectWireGuardUsage(ctx, users, "")
 	if counters, at, err := a.Core.Statistics(ctx, users, true); err == nil {
 		if err := a.Store.RecordUsage(ctx, counters, at); err != nil {
 			return err
@@ -80,6 +84,12 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	}
 	a.recordAppliedUsage(ctx, users, previousEpoch)
 	for _, p := range profiles {
+		if p.Kind == protocols.WireGuard && p.Enabled {
+			_, _ = a.collectWireGuardUsage(ctx, users, previousWireGuardEpoch)
+			break
+		}
+	}
+	for _, p := range profiles {
 		if p.Kind == protocols.Hysteria2 && p.Enabled {
 			observeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			// Type=simple can become active before its HTTP listener is ready.
@@ -119,7 +129,7 @@ func (a *App) ListProtocolProfiles(ctx context.Context) ([]store.Protocol, error
 func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, sni, target string) (store.Protocol, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if kind != protocols.XHTTP && kind != protocols.Hysteria2 {
+	if kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return store.Protocol{}, err
@@ -248,7 +258,7 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 	if err != nil {
 		return err
 	}
-	if enabled && kind != protocols.XHTTP && kind != protocols.Hysteria2 {
+	if enabled && kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return err

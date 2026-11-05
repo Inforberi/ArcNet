@@ -91,29 +91,8 @@ func (a *App) ChangeUserDevices(ctx context.Context, id, version int64, name, re
 func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	allowed, _, err := a.Store.UserAccess(ctx, id)
+	selected, err := a.authorizedDevice(ctx, id, deviceID)
 	if err != nil {
-		return nil, err
-	}
-	if !allowed {
-		return nil, store.ErrNotFound
-	}
-	r, err := a.Store.UserDevices(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	var selected *devices.Device
-	for i, d := range r.Devices {
-		if d.ID == deviceID && d.RevokedAt == 0 {
-			selected = &r.Devices[i]
-			break
-		}
-	}
-	if selected == nil {
-		return nil, store.ErrNotFound
-	}
-	// Fail closed if restored/configured state has an unsupported credential path.
-	if err := a.Store.CheckPackageCoverage(ctx, 1, 0); err != nil {
 		return nil, err
 	}
 	reality, err := a.Store.ReadReality(ctx)
@@ -144,4 +123,49 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 		}
 	}
 	return links, nil
+}
+
+func (a *App) authorizedDevice(ctx context.Context, id int64, deviceID string) (devices.Device, error) {
+	allowed, _, err := a.Store.UserAccess(ctx, id)
+	if err != nil {
+		return devices.Device{}, err
+	}
+	if !allowed {
+		return devices.Device{}, store.ErrNotFound
+	}
+	r, err := a.Store.UserDevices(ctx, id)
+	if err != nil {
+		return devices.Device{}, err
+	}
+	var selected *devices.Device
+	for i, d := range r.Devices {
+		if d.ID == deviceID && d.RevokedAt == 0 {
+			selected = &r.Devices[i]
+			break
+		}
+	}
+	if selected == nil {
+		return devices.Device{}, store.ErrNotFound
+	}
+	// Fail closed if restored/configured state has an unsupported credential path.
+	if err := a.Store.CheckPackageCoverage(ctx, 1, 0); err != nil {
+		return devices.Device{}, err
+	}
+	return *selected, nil
+}
+func (a *App) DeviceWireGuardConfig(ctx context.Context, id int64, deviceID string) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	d, err := a.authorizedDevice(ctx, id, deviceID)
+	if err != nil {
+		return "", err
+	}
+	p, err := a.Store.GetProtocol(ctx, protocols.WireGuard)
+	if err != nil {
+		return "", err
+	}
+	if !p.Enabled || d.WGPrivate == "" {
+		return "", store.ErrNotFound
+	}
+	return protocols.ClientTunnel(p, store.ProtocolCredential{UserID: id, Kind: protocols.WireGuard, PrivateKey: d.WGPrivate, PublicKey: d.WGPublic, Address: d.WGAddress})
 }

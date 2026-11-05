@@ -240,6 +240,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/users/{id}/devices/{device}", s.mustAuth(s.userDeviceChange, true))
 	mux.HandleFunc("GET /api/users/{id}/devices/{device}/links", s.mustAuth(s.userDeviceLinks, false))
 	mux.HandleFunc("GET /device/{token}", s.deviceSubscription)
+	mux.HandleFunc("GET /device/{token}/wireguard", s.deviceWireGuardExport)
 	mux.HandleFunc("PUT /api/users/{id}/package", s.mustAuth(s.userPackageSave, true))
 	mux.HandleFunc("GET /api/users/{id}/debits", s.mustAuth(s.userDebits, false))
 	mux.HandleFunc("GET /api/users", s.mustAuth(s.users, false))

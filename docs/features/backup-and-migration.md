@@ -55,3 +55,6 @@ Portable encrypted state переносит пакеты, период/расх�
 ## Backup v8 — Hysteria2
 
 В usage checkpoints добавлен stream `hysteria2`. Версии 1–7 читаются; новый stream под старой версией отвергается. Freshness Xray и Hysteria после restore сбрасывается; известный расход и отзывы доступа сохраняются по прежнему контракту. Локальный Hysteria stats key машинный, не portable. [ADR-010](../adr/010-hysteria-traffic-and-devices.md).
+## Backup v9 — WireGuard
+
+Device payload содержит WG keypair/IP, usage — stream wireguard. Архивы v1–v8 читаются; старый backup сохраняет уже известные локальные WG keys/IP устройств. После legacy import при наличии WG profile недостающие поля создаются автоматически. Cross-device/legacy коллизии IP/key отклоняются. Freshness всех источников после restore сбрасывается; root runtime receipt машинный и не переносится. [ADR-011](../adr/011-wireguard-traffic-and-devices.md).

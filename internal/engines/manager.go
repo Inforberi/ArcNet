@@ -184,12 +184,13 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 		changed[t.kind] = true
 	}
 	var applyErr error
+	_, receiptErr := os.Lstat("/run/arcvpn/wireguard-epoch.json")
 	for _, t := range all {
 		desired, present := wanted[t.kind]
 		old := prior[t.kind]
 		if !m.SkipRestart {
 			switch {
-			case present && desired.enabled && (changed[t.kind] || !old.active):
+			case present && desired.enabled && (changed[t.kind] || !old.active || (t.kind == protocols.WireGuard && os.IsNotExist(receiptErr))):
 				applyErr = m.control(ctx, "restart", t.command)
 			case (!present || !desired.enabled) && old.active:
 				applyErr = m.control(ctx, "stop", t.command)

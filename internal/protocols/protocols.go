@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/arcvpn/arcvpn/internal/auth"
+	"github.com/arcvpn/arcvpn/internal/devices"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/xray"
 )
@@ -295,6 +296,13 @@ func ClientTunnel(p store.Protocol, c store.ProtocolCredential) (string, error) 
 		return "", ErrInvalid
 	}
 	address, err := AddressForUser(p.Kind, c.UserID)
+	if p.Kind == WireGuard {
+		address = c.Address
+		err = nil
+		if !devices.WireGuardAddress(address) {
+			return "", ErrInvalid
+		}
+	}
 	if err != nil || c.Address != address {
 		return "", ErrInvalid
 	}

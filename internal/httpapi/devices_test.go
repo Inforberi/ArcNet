@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/store"
 )
 
@@ -37,6 +38,15 @@ func TestDevicesBrowserFixture(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := s.App.Store.SaveCredentials(ctx, []store.ProtocolCredential{{UserID: 1, Kind: "hysteria2", Secret: strings.Repeat("a", 43)}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if os.Getenv("ARCVPN_DEVICE_BROWSER_WIREGUARD") == "1" {
+		p, err := protocols.New(ctx, protocols.WireGuard, "198.51.100.25", 0, "", "", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.App.Store.UpsertProtocol(ctx, p); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -10,6 +10,7 @@ const context=await browser.newContext({viewport:{width:1440,height:1000}});
 await context.addCookies([{name:'arcvpn_session',value:'private-fixture-session',url:origin,httpOnly:true,sameSite:'Strict'}]);
 const page=await context.newPage();page.setDefaultTimeout(12000);
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
+let wireguardPath;
 const api=(method,path,data)=>context.request.fetch(origin+path,{method,data,headers:{'X-CSRF-Token':'fixture-csrf'}});
 await mkdir('tests/screenshots/devices',{recursive:true});
 try {
@@ -47,6 +48,13 @@ try {
   await dialog.getByText(/^hysteria2:\/\//).waitFor();
  }
  const devicePath=new URL(url).pathname;
+ if(process.env.ARCVPN_E2E_WIREGUARD==='1') {
+  const credentials=await (await api('GET',`/api/users/1/devices/${state.items[0].id}/links`)).json();
+  wireguardPath=new URL(credentials.wireguard_url).pathname;
+  const file=await context.request.get(origin+wireguardPath);assert.equal(file.status(),200);
+  const config=await file.text();assert(config.includes('PrivateKey = '));assert(config.includes('Address = 10.76.'));
+  assert.equal(await dialog.getByRole('link',{name:'Скачать WireGuard',exact:true}).getAttribute('href'),credentials.wireguard_url);
+ }
  assert.equal((await context.request.get(origin+devicePath)).status(),200);
  for(const theme of ['light','dark']) {
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
@@ -60,6 +68,7 @@ try {
  page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Отозвать',exact:true}).click();
  await dialog.getByText('Доступ отозван',{exact:true}).waitFor();
  assert.equal((await context.request.get(origin+devicePath)).status(),404);
+ if(wireguardPath)assert.equal((await context.request.get(origin+wireguardPath)).status(),404);
  await dialog.getByRole('button',{name:'Добавить устройство',exact:true}).click();
  await dialog.getByText('Устройство 2',{exact:true}).waitFor();
  state=await (await api('GET','/api/users/1/devices')).json();assert.equal(state.active,1);assert.equal(state.items.length,2);

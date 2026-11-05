@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/arcvpn/arcvpn/internal/devices"
 	"github.com/arcvpn/arcvpn/internal/store"
 )
 
@@ -41,6 +42,18 @@ func Render(p store.Protocol, users []store.User, credentials []store.ProtocolCr
 		fmt.Fprintf(&out, "[Interface]\nAddress = %s\nListenPort = %d\nPrivateKey = %s\n", address, p.Port, p.PrivateKey)
 		if p.Kind == AmneziaWG {
 			out.WriteString(awgSettings(p.ObfsKey))
+		}
+		if p.Kind == WireGuard {
+			for _, peer := range WireGuardPeers(users, credentials) {
+				if !peer.Enabled {
+					continue
+				}
+				if !devices.WireGuardAddress(peer.Address) || !validWGKey(peer.Public) {
+					return nil, ErrInvalid
+				}
+				fmt.Fprintf(&out, "\n[Peer]\nPublicKey = %s\nAllowedIPs = %s/32\n", peer.Public, peer.Address)
+			}
+			break
 		}
 		for _, c := range creds {
 			ip, err := AddressForUser(p.Kind, c.UserID)

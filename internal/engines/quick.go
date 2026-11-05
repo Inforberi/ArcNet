@@ -257,9 +257,20 @@ func RunQuickTunnel(ctx context.Context, action, kind string) error {
 		if err != nil {
 			return fmt.Errorf("tunnel %s failed: %w: %s", action, err, shortMessage(result))
 		}
+		if action == "up" {
+			if err := stampWireGuardEpoch(trustedDir, target); err != nil {
+				undo, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = exec.CommandContext(undo, quick, "down", target).Run()
+				return fmt.Errorf("WireGuard epoch unavailable: %w", err)
+			}
+		}
 	}
 	if action == "down" {
 		_ = os.Remove(target)
+		if kind == "wireguard" {
+			_ = os.Remove(filepath.Join(trustedDir, "wireguard-epoch.json"))
+		}
 	}
 	return nil
 }

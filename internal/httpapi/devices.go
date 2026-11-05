@@ -24,10 +24,11 @@ func (s *Server) userDevices(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Created int64  `json:"created_at"`
 		Revoked int64  `json:"revoked_at"`
+		Address string `json:"wireguard_address,omitempty"`
 	}
 	items := make([]item, 0, len(record.Devices))
 	for _, d := range record.Devices {
-		items = append(items, item{d.ID, d.Name, d.CreatedAt, d.RevokedAt})
+		items = append(items, item{d.ID, d.Name, d.CreatedAt, d.RevokedAt, d.WGAddress})
 	}
 	runtime, err := s.App.Store.AccountingState(r.Context())
 	if err != nil {
@@ -76,7 +77,7 @@ func (s *Server) userDeviceChange(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, devices.ErrLimit):
 			fail(w, 409, "Лимит доступов достигнут. Сначала отзовите лишние доступы или увеличьте лимит.")
 		case errors.Is(err, store.ErrUsageUnsupported):
-			fail(w, 409, "Отдельные доступы пока доступны только для локальных Xray и Hysteria2 без удалённых нод и других активных движков.")
+			fail(w, 409, "Отдельные доступы пока доступны только для локальных Xray, Hysteria2 и WireGuard без удалённых нод и других активных движков.")
 		case errors.Is(err, store.ErrConflict):
 			fail(w, 409, "Список изменён. Обновите данные перед повтором.")
 		default:
@@ -103,11 +104,42 @@ func (s *Server) userDeviceLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, d := range record.Devices {
 		if d.ID == r.PathValue("device") && d.RevokedAt == 0 {
-			respond(w, 200, map[string]any{"url": s.origin(r) + "/device/" + d.Token, "links": links})
+			wgURL := ""
+			profile, err := s.App.Store.GetProtocol(r.Context(), "wireguard")
+			if err != nil && !errors.Is(err, store.ErrNotFound) {
+				handleErr(w, err)
+				return
+			}
+			if err == nil && profile.Enabled && d.WGPrivate != "" {
+				wgURL = s.origin(r) + "/device/" + d.Token + "/wireguard"
+			}
+			respond(w, 200, map[string]any{"url": s.origin(r) + "/device/" + d.Token, "links": links, "wireguard_url": wgURL})
 			return
 		}
 	}
 	http.NotFound(w, r)
+}
+
+func (s *Server) deviceWireGuardExport(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	if len(token) != 43 {
+		http.NotFound(w, r)
+		return
+	}
+	id, deviceID, err := s.App.Store.DeviceByToken(r.Context(), token)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	config, err := s.App.DeviceWireGuardConfig(r.Context(), id, deviceID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="wireguard-device.conf"`)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte(config))
 }
 func (s *Server) deviceSubscription(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")

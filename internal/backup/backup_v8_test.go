@@ -10,6 +10,7 @@ import (
 
 func TestV8HysteriaCheckpointsRoundTripAndLegacyRejection(t *testing.T) {
 	s := sample()
+	s.Version = 8
 	u := s.Users[0]
 	s = s.WithUsage(usage.State{Checkpoints: []usage.Counter{{UserID: u.ID, Identity: u.UUID, Stream: "hysteria2", Epoch: "instance", StartedAt: 1, ObservedAt: 100, Upload: 10, Download: 20}}})
 	blob, err := Encrypt(s, "backup-password-long-enough")
