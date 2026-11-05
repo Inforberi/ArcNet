@@ -6,8 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/store"
 )
 
@@ -45,10 +48,48 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 		return err
 	}
 	counters, observed, err := a.Core.Statistics(ctx, users, true)
+	var xrayErr error
 	if err != nil {
-		return err
+		xrayErr = err
+	} else {
+		xrayErr = a.Store.RecordUsage(ctx, counters, observed)
 	}
-	return a.Store.RecordUsage(ctx, counters, observed)
+	profiles, err := a.Store.ListProtocols(ctx)
+	if err != nil {
+		return errors.Join(xrayErr, err)
+	}
+	var hysteriaErr error
+	for _, p := range profiles {
+		if p.Kind == protocols.Hysteria2 && p.Enabled {
+			_, hysteriaErr = a.collectHysteriaUsage(ctx, users, "")
+			break
+		}
+	}
+	return errors.Join(xrayErr, hysteriaErr)
+}
+
+func (a *App) collectHysteriaUsage(ctx context.Context, users []store.User, previousEpoch string) (string, error) {
+	if a.Engines == nil {
+		return "", errors.New("Hysteria engine is not configured")
+	}
+	if _, err := os.Stat(filepath.Join(a.Engines.Dir, "hysteria.yaml")); err != nil {
+		return "", errors.New("Hysteria configuration unavailable")
+	}
+	credentials, err := a.Store.ListProtocolCredentials(ctx)
+	if err != nil {
+		return "", err
+	}
+	counters, at, err := a.Engines.HysteriaStatistics(ctx, users, credentials)
+	if err != nil {
+		return "", err
+	}
+	if err := a.Store.RecordEngineUsage(ctx, "hysteria", counters, at, previousEpoch); err != nil {
+		return "", err
+	}
+	if len(counters) > 0 {
+		return counters[0].Epoch, nil
+	}
+	return "", nil
 }
 
 func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
@@ -88,7 +129,7 @@ func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
 		return errors.New("package access update could not be applied")
 	}
 	state := "applied"
-	if a.Core.SkipRestart {
+	if a.Core.SkipRestart || (a.Engines != nil && a.Engines.SkipRestart) {
 		state = "unverified"
 	}
 	if err := a.Store.SetAccountingState(ctx, state); err != nil {

@@ -84,3 +84,6 @@ Telemetry — bounded bearer v1 от конкретной ноды, clock/range/
 ## Device credentials — 2026-11-05
 
 Device ID — отдельный отзываемый credential, не аппаратная аттестация. Скопированные ключи не различаются. Переход отключает общий ключ; mutations session+CSRF+transaction CAS, token export отдельно от списочного API. Публичные `/device/{token}` ответы (включая ошибки) no-store; panic log содержит route pattern/type, не сырой URL/секрет. Audit не содержит ключей. Старый backup не отменяет местные отзывы; unmanaged UDP/remote paths блокируют режим. При неудачном apply прежний трафик может продолжаться; требуется VPS disconnect-проверка. [ADR-009](../adr/009-device-credentials.md).
+## Hysteria statistics — 2026-11-05
+
+Private loopback API `127.0.0.1:19823` требует случайный машинный secret. До HTTP Authorization проверяются systemd MainPID/InvocationID/start, UID и принадлежность LISTEN socket inode этому процессу; повтор после connect, затем сверка process/config после ответа. Proxy, redirect и clear counters запрещены. Private files, timeout/body bounds, per-source freshness и existing counter/restore safeguards сохраняются. Никаких новых root-команд или firewall изменений. [ADR-010](../adr/010-hysteria-traffic-and-devices.md).

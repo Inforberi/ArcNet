@@ -142,7 +142,7 @@ func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change fun
 			return err
 		}
 		// Independent of UI/app guards, prevent a policy with an unmanaged bypass.
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind<>'vless-xhttp' LIMIT 1")
+		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
 		if err != nil {
 			return err
 		}
@@ -222,7 +222,7 @@ func replaceDevices(tx *db.Tx, incoming *devices.State, before devices.State, ol
 		return err
 	}
 	if len(next) > 0 {
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind<>'vless-xhttp' LIMIT 1")
+		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
 		if err != nil {
 			return err
 		}

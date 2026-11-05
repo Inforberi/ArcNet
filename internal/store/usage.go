@@ -15,6 +15,13 @@ const packagesSchema = `CREATE TABLE IF NOT EXISTS user_packages(user_id INTEGER
 const checkpointsSchema = `CREATE TABLE IF NOT EXISTS traffic_checkpoints(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,stream TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(user_id,stream))`
 const debitsSchema = `CREATE TABLE IF NOT EXISTS traffic_debits(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,period INTEGER NOT NULL,bucket INTEGER NOT NULL,upload INTEGER NOT NULL,download INTEGER NOT NULL,PRIMARY KEY(user_id,period,bucket))`
 
+// Missing required sources contribute zero. A healthy Xray cannot make a stale
+// Hysteria observation fresh, and disabling Hysteria removes only its freshness gate.
+const accountingLastSQL = `SELECT min(last) FROM (
+ SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='xray_accounting_last_success'),'0') AS INTEGER) AS last
+ UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='hysteria_accounting_last_success'),'0') AS INTEGER)
+ WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1))`
+
 func readPackages(tx *db.Tx) (map[int64]usage.Package, error) {
 	rows, err := tx.Query("SELECT id,created_at,body FROM users LEFT JOIN user_packages ON users.id=user_packages.user_id ORDER BY id")
 	if err != nil {
@@ -78,7 +85,7 @@ func (s *Store) Packages(ctx context.Context) (map[int64]usage.Package, error) {
 func (s *Store) AccountingFresh(ctx context.Context) (bool, int64, error) {
 	var last int64
 	err := s.DB.Read(ctx, func(tx *db.Tx) error {
-		rows, err := tx.Query("SELECT value FROM settings WHERE key='xray_accounting_last_success'")
+		rows, err := tx.Query("SELECT (" + accountingLastSQL + ") AS value")
 		if err == nil && len(rows) > 0 {
 			last, _ = strconv.ParseInt(rows[0]["value"], 10, 64)
 		}
@@ -119,6 +126,18 @@ func (s *Store) RecordUsageAfterApply(ctx context.Context, counters []usage.Coun
 }
 
 func (s *Store) recordUsage(ctx context.Context, counters []usage.Counter, observedAt int64, previousEpoch string) error {
+	return s.RecordEngineUsage(ctx, "xray", counters, observedAt, previousEpoch)
+}
+
+func (s *Store) RecordEngineUsage(ctx context.Context, source string, counters []usage.Counter, observedAt int64, previousEpoch string) error {
+	if source != "xray" && source != "hysteria" {
+		return usage.ErrInvalid
+	}
+	for _, c := range counters {
+		if (c.Stream == "hysteria2") != (source == "hysteria") {
+			return usage.ErrInvalid
+		}
+	}
 	if len(counters) > 20000 || observedAt < 1 || observedAt > time.Now().Unix()+5 || observedAt < time.Now().Unix()-20 {
 		return usage.ErrInvalid
 	}
@@ -202,7 +221,7 @@ func (s *Store) recordUsage(ctx context.Context, counters []usage.Counter, obser
 				}
 			}
 		}
-		if err := tx.Exec("INSERT INTO settings(key,value) VALUES('xray_accounting_last_success',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", strconv.FormatInt(observedAt, 10)); err != nil {
+		if err := tx.Exec("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", source+"_accounting_last_success", strconv.FormatInt(observedAt, 10)); err != nil {
 			return err
 		}
 		if err := tx.Exec("DELETE FROM traffic_debits WHERE bucket<?", strconv.FormatInt(observedAt/60-90*1440, 10)); err != nil {
@@ -255,7 +274,7 @@ func (s *Store) UserAccess(ctx context.Context, id int64) (bool, string, error) 
 	allowed := false
 	reason := ""
 	err := s.DB.Read(ctx, func(tx *db.Tx) error {
-		rows, err := tx.Query("SELECT users.id,users.enabled,users.created_at,user_packages.body,(SELECT value FROM settings WHERE key='xray_accounting_last_success') AS source_last FROM users LEFT JOIN user_packages ON users.id=user_packages.user_id WHERE users.id=?", strconv.FormatInt(id, 10))
+		rows, err := tx.Query("SELECT users.id,users.enabled,users.created_at,user_packages.body,("+accountingLastSQL+") AS source_last FROM users LEFT JOIN user_packages ON users.id=user_packages.user_id WHERE users.id=?", strconv.FormatInt(id, 10))
 		if err != nil {
 			return err
 		}
@@ -324,7 +343,7 @@ func (s *Store) CheckPackageCoverage(ctx context.Context, quota, expires int64) 
 			return ErrUsageUnsupported
 		}
 		if quota > 0 {
-			rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind<>'vless-xhttp' LIMIT 1")
+			rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2') LIMIT 1")
 			if err != nil {
 				return err
 			}

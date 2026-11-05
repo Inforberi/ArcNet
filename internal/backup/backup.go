@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 7
+	Version         = 8
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -185,13 +185,20 @@ func (s Snapshot) Validate() error {
 				return ErrInvalid
 			}
 			for _, p := range s.Protocols {
-				if p.Enabled && p.Kind != protocols.XHTTP {
+				if p.Enabled && p.Kind != protocols.XHTTP && (p.Kind != protocols.Hysteria2 || s.Version < 8) {
 					return ErrInvalid
 				}
 			}
 		}
 	}
 	if s.Usage != nil {
+		if s.Version < 8 {
+			for _, c := range s.Usage.Checkpoints {
+				if c.Stream == "hysteria2" {
+					return ErrInvalid
+				}
+			}
+		}
 		if s.Version < 6 {
 			return ErrInvalid
 		}

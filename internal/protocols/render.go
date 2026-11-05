@@ -32,18 +32,7 @@ func Render(p store.Protocol, users []store.User, credentials []store.ProtocolCr
 	var out strings.Builder
 	switch p.Kind {
 	case Hysteria2:
-		// Restrict interpolation to known, validated paths and base64url secrets.
-		fmt.Fprintf(&out, "listen: 0.0.0.0:%d\ntls:\n  cert: %s\n  key: %s\n  sniGuard: dns-san\nauth:\n  type: userpass\n  userpass:\n", p.Port, p.TLSCert, p.TLSKey)
-		if len(creds) == 0 {
-			out.WriteString("    {}\n")
-		} else {
-			for _, c := range creds {
-				if len(c.Secret) < 32 || strings.ContainsAny(c.Secret, "\r\n:\"'") {
-					return nil, ErrInvalid
-				}
-				fmt.Fprintf(&out, "    u%d: %s\n", c.UserID, c.Secret)
-			}
-		}
+		return renderHysteria(p, users, credentials)
 	case WireGuard, AmneziaWG:
 		address := "10.76.0.1/16"
 		if p.Kind == AmneziaWG {

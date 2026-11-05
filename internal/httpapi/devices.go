@@ -76,7 +76,7 @@ func (s *Server) userDeviceChange(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, devices.ErrLimit):
 			fail(w, 409, "Лимит доступов достигнут. Сначала отзовите лишние доступы или увеличьте лимит.")
 		case errors.Is(err, store.ErrUsageUnsupported):
-			fail(w, 409, "Отдельные доступы пока доступны только для локального Xray без удалённых нод и других активных движков.")
+			fail(w, 409, "Отдельные доступы пока доступны только для локальных Xray и Hysteria2 без удалённых нод и других активных движков.")
 		case errors.Is(err, store.ErrConflict):
 			fail(w, 409, "Список изменён. Обновите данные перед повтором.")
 		default:

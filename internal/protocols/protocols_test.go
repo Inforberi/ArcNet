@@ -93,7 +93,7 @@ func TestHysteriaSecretsAndURI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(conf), "u2: "+c.Secret) || !strings.Contains(string(conf), "sniGuard: dns-san") {
+	if !strings.Contains(string(conf), `"u2": "`+c.Secret+`"`) || !strings.Contains(string(conf), `"sniGuard": "dns-san"`) {
 		t.Fatal("Hysteria userpass/TLS missing")
 	}
 	links, err := Connections(u, []store.Protocol{p}, []store.ProtocolCredential{c})

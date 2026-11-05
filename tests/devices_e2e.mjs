@@ -41,6 +41,11 @@ try {
  await dialog.getByText('Изменение сохранено. Применение VPN-службой ещё не подтверждено.',{exact:true}).waitFor();
  await dialog.getByRole('button',{name:'Подписка',exact:true}).click();
  const url=await dialog.getByLabel('Подписка устройства',{exact:true}).inputValue();
+ if(process.env.ARCVPN_E2E_HYSTERIA==='1') {
+  const credentials=await (await api('GET',`/api/users/1/devices/${state.items[0].id}/links`)).json();
+  assert.equal(credentials.links.length,2);assert(credentials.links.some(link=>link.startsWith('hysteria2://d')));
+  await dialog.getByText(/^hysteria2:\/\//).waitFor();
+ }
  const devicePath=new URL(url).pathname;
  assert.equal((await context.request.get(origin+devicePath)).status(),200);
  for(const theme of ['light','dark']) {

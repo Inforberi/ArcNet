@@ -39,7 +39,7 @@ func (s *Server) userUsage(w http.ResponseWriter, r *http.Request) {
 	for _, p := range packages {
 		items = append(items, item{p, p.Reason(time.Now().Unix(), fresh)})
 	}
-	respond(w, 200, map[string]any{"items": items, "sampled_at": time.Now().Unix(), "source": "local-xray", "source_fresh": fresh, "source_last_success": last, "complete_coverage": coverageErr == nil, "runtime_state": state, "physical_devices_verified": false})
+	respond(w, 200, map[string]any{"items": items, "sampled_at": time.Now().Unix(), "source": "local-engines", "source_fresh": fresh, "source_last_success": last, "complete_coverage": coverageErr == nil, "runtime_state": state, "physical_devices_verified": false})
 }
 func (s *Server) userPackageSave(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -62,7 +62,7 @@ func (s *Server) userPackageSave(w http.ResponseWriter, r *http.Request) {
 	if err := s.App.SaveUserPackage(r.Context(), id, in.Quota, in.Expires, in.Version, in.Reset); err != nil {
 		switch {
 		case errors.Is(err, store.ErrUsageUnsupported):
-			fail(w, 409, "Для части подключений ещё нет учёта трафика или исполнения ограничений. Конечный пакет сейчас доступен только для локального Xray.")
+			fail(w, 409, "Для части подключений ещё нет учёта трафика или исполнения ограничений. Конечный пакет сейчас доступен только для локальных Xray и Hysteria2.")
 		case errors.Is(err, store.ErrConflict):
 			fail(w, 409, "Пакет изменён. Обновите данные перед сохранением.")
 		case errors.Is(err, store.ErrNotFound):
@@ -70,7 +70,7 @@ func (s *Server) userPackageSave(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, usage.ErrInvalid):
 			fail(w, 400, "Некорректные параметры пакета")
 		default:
-			fail(w, 422, "Не удалось получить свежие счётчики. Пакет не изменён; проверьте доступность Xray.")
+			fail(w, 422, "Не удалось получить свежие счётчики. Пакет не изменён; проверьте доступность VPN-движков.")
 		}
 		return
 	}
@@ -95,7 +95,7 @@ func (s *Server) userDebits(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"items": items, "scope": "observed-local-xray", "history_limit": 60})
+	respond(w, 200, map[string]any{"items": items, "scope": "observed-local-engines", "history_limit": 60})
 }
 func (s *Server) subscriptionUsage(w http.ResponseWriter, r *http.Request, id int64) {
 	if s.App.Store.CheckPackageCoverage(r.Context(), 1, 0) != nil {

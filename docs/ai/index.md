@@ -156,3 +156,10 @@
 - `internal/httpapi/devices.go`, `frontend/src/features/users/DevicesDialog.tsx` — session/CSRF API, индивидуальная подписка, UI-композиция и advanced limit.
 - `internal/backup/backup_v7_test.go`, тесты рядом с модулями, `tests/devices_e2e.mjs` — encryption/restore/API/browser checks. Stand запускается opt-in тестом `TestDevicesBrowserFixture`.
 - Контракт: [ADR-009](../adr/009-device-credentials.md). Это локальные Xray credentials, не физический HWID и не VPS-приёмка.
+## 2026-11-05: Hysteria2 accounting и устройства
+
+- `internal/protocols/hysteria.go` — единый namespace auth IDs, generated JSON и URI устройств/legacy.
+- `internal/engines/hysteria_stats.go` — private key/config, systemd process epoch, проверка владельца loopback listener, bounded non-resetting HTTP collector.
+- `internal/store/{usage,usage_backup,devices}.go`, `internal/app/{usage,protocols,devices}.go` — общий пакет/независимая freshness/coverage/apply/retry.
+- `internal/backup/backup_v8_test.go`, новые Hysteria tests в engines/protocols/store/httpapi, opt-in настоящий QUIC fixture `TestRealHysteriaAccountingAndRevokedDevice`.
+- [ADR-010](../adr/010-hysteria-traffic-and-devices.md); WG/AWG/remote accounting не закрыты.

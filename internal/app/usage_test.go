@@ -117,7 +117,7 @@ exit 1
 	if actual.UUID != u.UUID || actual.Subscription != u.Subscription {
 		t.Fatal("package changed secrets")
 	}
-	if _, err := a.AddProtocol(ctx, "hysteria2", "198.51.100.25", 0, "", ""); !errors.Is(err, store.ErrUsageUnsupported) {
+	if _, err := a.AddProtocol(ctx, "wireguard", "198.51.100.25", 0, "", ""); !errors.Is(err, store.ErrUsageUnsupported) {
 		t.Fatal("unsupported engine bypassed package", err)
 	}
 	time.Sleep(1100 * time.Millisecond)

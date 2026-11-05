@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/xray"
@@ -21,6 +22,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 		return deviceErr
 	}
 	previousEpoch := ""
+	previousHysteriaEpoch, _ := a.collectHysteriaUsage(ctx, users, "")
 	if counters, at, err := a.Core.Statistics(ctx, users, true); err == nil {
 		if err := a.Store.RecordUsage(ctx, counters, at); err != nil {
 			return err
@@ -77,6 +79,29 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 		return fmt.Errorf("auxiliary engine apply failed; prior Xray configuration restored: %w", err)
 	}
 	a.recordAppliedUsage(ctx, users, previousEpoch)
+	for _, p := range profiles {
+		if p.Kind == protocols.Hysteria2 && p.Enabled {
+			observeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			// Type=simple can become active before its HTTP listener is ready.
+			// Bound this observation wait; uncertainty never becomes a fake ACK.
+			for attempt := 0; attempt < 10 && observeCtx.Err() == nil; attempt++ {
+				if _, err := a.collectHysteriaUsage(observeCtx, users, previousHysteriaEpoch); err == nil {
+					break
+				}
+				if a.Engines.SkipRestart {
+					break
+				}
+				timer := time.NewTimer(100 * time.Millisecond)
+				select {
+				case <-observeCtx.Done():
+					timer.Stop()
+				case <-timer.C:
+				}
+			}
+			cancel()
+			break
+		}
+	}
 	return nil
 }
 
@@ -94,7 +119,7 @@ func (a *App) ListProtocolProfiles(ctx context.Context) ([]store.Protocol, error
 func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, sni, target string) (store.Protocol, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if kind != protocols.XHTTP {
+	if kind != protocols.XHTTP && kind != protocols.Hysteria2 {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return store.Protocol{}, err
@@ -146,6 +171,23 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 	}
 	if kind == protocols.XHTTP && (port == reality.Port || port == 80 || port == a.ReservedTCPPort) {
 		return store.Protocol{}, errors.New("TCP port already reserved by Reality, HTTPS panel or ACME")
+	}
+	if kind == protocols.Hysteria2 {
+		if reality.Port == engines.HysteriaStatsPort || a.ReservedTCPPort == engines.HysteriaStatsPort {
+			return store.Protocol{}, errors.New("TCP port reserved for private Hysteria statistics is occupied")
+		}
+		for _, p := range profiles {
+			if p.Enabled && protocols.Transport(p.Kind) == "tcp" && p.Port == engines.HysteriaStatsPort {
+				return store.Protocol{}, errors.New("TCP port reserved for private Hysteria statistics is occupied")
+			}
+		}
+	}
+	if kind == protocols.XHTTP && port == engines.HysteriaStatsPort {
+		for _, p := range profiles {
+			if p.Kind == protocols.Hysteria2 && p.Enabled {
+				return store.Protocol{}, errors.New("TCP port reserved for private Hysteria statistics")
+			}
+		}
 	}
 	for _, p := range profiles {
 		if p.Enabled && p.Port == port && protocols.Transport(p.Kind) == protocols.Transport(kind) {
@@ -206,7 +248,7 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 	if err != nil {
 		return err
 	}
-	if enabled && kind != protocols.XHTTP {
+	if enabled && kind != protocols.XHTTP && kind != protocols.Hysteria2 {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return err

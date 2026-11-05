@@ -138,5 +138,10 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 			links = append(links, c.Link)
 		}
 	}
+	for _, p := range profiles {
+		if p.Kind == protocols.Hysteria2 && p.Enabled {
+			links = append(links, protocols.HysteriaLink(p, selected.Name, protocols.HysteriaDeviceName(selected.ID), selected.UUID))
+		}
+	}
 	return links, nil
 }

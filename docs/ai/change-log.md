@@ -169,3 +169,6 @@
 ## 2026-11-05 — индивидуальные доступы устройств
 
 Локальные TCP/XHTTP credentials с отдельной подпиской, серверным CAS/лимитом, отзывом и освобождением слота. Общий ключ отключается при переходе; общий пакет пользователя сохраняется. Apply failure виден и повторяется. Backup v7 сохраняет device credentials/отзывы; старый архив не отменяет местный отзыв. UI собран из Dialog/Field/Button/Advanced и существующих стилей; без зависимостей и Python. [Контракт](../adr/009-device-credentials.md), [проверки](../testing/local-results/stage5-2026-11-05-devices.md). Remote/UDP devices и VPS enforcement не приняты.
+## 2026-11-05 — Hysteria2: расход и отдельные доступы
+
+TrafficStats collector с private loopback/проверкой процесса, независимая freshness Xray/Hysteria, общий пакет/списания, individual device credentials/подписки, backup v8. Использованы существующие UI-компоненты и apply/retry; нет новых dependencies/privileged RPC. Настоящий loopback QUIC/TLS v2.13.0 подтвердил counters и отказ отозванному ключу после restart. Systemd/VPS gate остаётся открытым. [ADR-010](../adr/010-hysteria-traffic-and-devices.md).

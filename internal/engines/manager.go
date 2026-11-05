@@ -61,6 +61,12 @@ func (m Manager) targets(profiles []store.Protocol, users []store.User, credenti
 		if err != nil {
 			return nil, err
 		}
+		if p.Kind == protocols.Hysteria2 {
+			config, err = m.withHysteriaStatistics(config)
+			if err != nil {
+				return nil, err
+			}
+		}
 		t.data = config
 		result = append(result, t)
 	}
@@ -77,14 +83,14 @@ type priorState struct {
 // removes any service. On failure it restores both the files and the service
 // states observed before the operation. A failed rollback is reported.
 func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []store.User, credentials []store.ProtocolCredential) error {
-	targets, err := m.targets(profiles, users, credentials)
-	if err != nil {
-		return err
-	}
 	if m.Dir == "" {
 		return errors.New("engine directory not configured")
 	}
 	if err := os.MkdirAll(m.Dir, 0700); err != nil {
+		return err
+	}
+	targets, err := m.targets(profiles, users, credentials)
+	if err != nil {
 		return err
 	}
 	all := []target{

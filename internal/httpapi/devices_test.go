@@ -32,6 +32,14 @@ func TestDevicesBrowserFixture(t *testing.T) {
 	if err := s.App.Store.SaveReality(ctx, store.Reality{Address: "198.51.100.25", Port: 443, Target: "www.example.com", SNI: "www.example.com", Public: strings.Repeat("B", 43), Private: strings.Repeat("A", 43), ShortID: "0123456789abcdef", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("ARCVPN_DEVICE_BROWSER_HYSTERIA") == "1" {
+		if err := s.App.Store.UpsertProtocol(ctx, store.Protocol{Kind: "hysteria2", Enabled: true, Address: "198.51.100.25", SNI: "198.51.100.25", Port: 8444, TLSCert: "/etc/arcvpn/tls/fullchain.pem", TLSKey: "/etc/arcvpn/tls/privkey.pem"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.App.Store.SaveCredentials(ctx, []store.ProtocolCredential{{UserID: 1, Kind: "hysteria2", Secret: strings.Repeat("a", 43)}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := s.WithWebRoot("../../frontend/dist"); err != nil {
 		t.Fatal(err)
 	}

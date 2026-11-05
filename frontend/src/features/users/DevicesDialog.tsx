@@ -40,7 +40,7 @@ export default function DevicesDialog({id,name,onClose}:{id:number;name:string;o
    <p className="muted">Каждому устройству — отдельный доступ. Копию одного ключа нельзя отличить от оригинала: лимит считает выданные доступы.</p>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}
    {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:data&&<>
-    {!data.supported&&<Notice>Отдельные доступы пока доступны для локального Xray без удалённых нод и других активных движков.</Notice>}
+    {!data.supported&&<Notice>Отдельные доступы пока доступны для локальных Xray и Hysteria2 без удалённых нод и других активных движков.</Notice>}
     {data.managed&&!message&&data.runtime_state!=='applied'&&<Notice>Применение доступа VPN-службой пока не подтверждено. При ошибке панель повторит применение; старые соединения могут продолжать работать.</Notice>}
     {data.managed?<p>Активных доступов: {data.active} / {data.limit||'без ограничения'}. Общий ключ отключён.</p>:<Notice>При добавлении первого устройства общий ключ и прежняя подписка пользователя будут отключены. Подключите клиентов по новым индивидуальным подпискам.</Notice>}
     <form onSubmit={e=>{e.preventDefault();if(!data.managed&&!window.confirm('Отключить общий ключ и прежнюю подписку, перейти на отдельные доступы?'))return;void change('POST',{name:deviceName.trim()})}}>

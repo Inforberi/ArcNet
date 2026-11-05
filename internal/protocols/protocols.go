@@ -268,8 +268,7 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 			link := fmt.Sprintf("vless://%s@%s?%s#%s", url.PathEscape(c.Secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(user.Name+" XHTTP"))
 			out = append(out, Connection{Kind: p.Kind, Label: "VLESS + XHTTP + Reality", Format: "uri", Link: link})
 		case Hysteria2:
-			q := url.Values{"sni": {p.SNI}, "insecure": {"0"}}
-			link := fmt.Sprintf("hysteria2://%s@%s/?%s#%s", url.PathEscape(fmt.Sprintf("u%d:%s", user.ID, c.Secret)), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(user.Name+" Hysteria2"))
+			link := HysteriaLink(p, user.Name, fmt.Sprintf("u%d", user.ID), c.Secret)
 			out = append(out, Connection{Kind: p.Kind, Label: "Hysteria2", Format: "uri", Link: link})
 		case WireGuard, AmneziaWG:
 			conf, err := ClientTunnel(p, c)
