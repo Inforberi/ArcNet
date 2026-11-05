@@ -13,6 +13,11 @@ import (
 func (a *App) DeployNode(ctx context.Context, nodeID string) (store.NodeOperation, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if restricted, err := a.Store.HasRestrictedPackages(ctx, false); err != nil {
+		return store.NodeOperation{}, err
+	} else if restricted {
+		return store.NodeOperation{}, store.ErrUsageUnsupported
+	}
 	state, err := a.Store.NodeControl(ctx, nodeID)
 	if err != nil {
 		return store.NodeOperation{}, err

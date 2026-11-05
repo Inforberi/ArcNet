@@ -15,6 +15,8 @@ func (s *Server) nodeDeploy(w http.ResponseWriter, r *http.Request) {
 	operation, e := s.App.DeployNode(ctx, id)
 	if e != nil {
 		switch {
+		case errors.Is(e, store.ErrUsageUnsupported):
+			handleErr(w, e)
 		case errors.Is(e, store.ErrNotFound):
 			fail(w, 404, "Нода не найдена")
 		case errors.Is(e, store.ErrNodeBusy):

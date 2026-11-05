@@ -20,6 +20,7 @@ type App struct {
 	Engines         *engines.Manager
 	ReservedTCPPort int // HTTPS administrative listener, never a VPN TCP listener
 	mu              sync.Mutex
+	usageApplied    string
 }
 
 func (a *App) Setup(ctx context.Context, address, target string, port int) error {
@@ -153,6 +154,10 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+	accounting, err := a.Store.UsageBackup(ctx)
+	if err != nil {
+		return err
+	}
 	r, err := a.Store.ReadReality(ctx)
 	if err != nil {
 		return err
@@ -165,8 +170,9 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 		err = a.applyAll(ctx, r, users)
 	}
 	if err != nil {
-		_ = a.Store.RestoreUser(context.Background(), old)
-		_ = a.Store.SaveCredentials(context.Background(), oldCredentials)
+		if rollbackErr := a.Store.RestoreDeletedUser(context.Background(), old, oldCredentials, accounting); rollbackErr != nil {
+			return fmt.Errorf("deletion failed and user/accounting rollback failed: %w", rollbackErr)
+		}
 		if oldUsers, e := a.Store.ListUsers(context.Background()); e == nil {
 			_ = a.applyAll(context.Background(), r, oldUsers)
 		}

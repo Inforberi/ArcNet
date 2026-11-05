@@ -1,3 +1,5 @@
+> **Локальные пакеты Xray — 2026-11-05:** реализованы подтверждённые counters/checkpoints/debits, пакет/срок/новый период, UI/API и backup v6. [ADR-008](adr/008-local-xray-traffic-packages.md), [проверки](testing/local-results/stage5-2026-11-05-user-packages.md). Новая реализация не распространяет учёт на Hysteria2/WG/AWG/ноды и не завершает устройства или stage5 runtime. Systemd/VPS disconnect и byte overshoot не приняты.
+
 > **Продолжение live monitoring:** default5, сохраняемый interval UI, SSE и формы с defaults локально проверены. [Результаты](testing/local-results/stage5-2026-11-05-live-monitoring.md). Учёт гигабайтов пользователя, device enforcement, первый любой протокол и каскадный runtime **не реализованы**; [план](planning/simple-operation-and-user-packages-2026-11-05.md).
 
 > **Scope freeze 2026-11-05:** текущих пяти вариантов VPN-подключения достаточно; этап 6 отложен без разработки. Код поддерживаемых профилей присутствует, но реальный E2E статус не подтверждён. [Зафиксированное решение](planning/protocol-scope-freeze-2026-11-05.md).

@@ -12,6 +12,7 @@ import (
 	"github.com/arcvpn/arcvpn/internal/db"
 	"github.com/arcvpn/arcvpn/internal/routes"
 	"github.com/arcvpn/arcvpn/internal/routingprofile"
+	"github.com/arcvpn/arcvpn/internal/usage"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -52,7 +53,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 			`CREATE TABLE IF NOT EXISTS node_enrollments(hash TEXT PRIMARY KEY,name TEXT NOT NULL,expires INTEGER NOT NULL)`,
 			`CREATE INDEX IF NOT EXISTS node_enrollments_exp ON node_enrollments(expires)`,
 			`CREATE TABLE IF NOT EXISTS managed_nodes(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL DEFAULT 0,version TEXT NOT NULL DEFAULT '',xray_state TEXT NOT NULL DEFAULT 'unknown',memory_total TEXT NOT NULL DEFAULT '0',memory_available TEXT NOT NULL DEFAULT '0',load_1 TEXT NOT NULL DEFAULT '0',uptime_seconds TEXT NOT NULL DEFAULT '0')`,
-			profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema, telemetrySchema, telemetryTimeIndex,
+			packagesSchema, checkpointsSchema, debitsSchema, profilesSchema, credentialsSchema, credentialsAddressIndex, routePolicySchema, routingProfilesSchema, targetChecksSchema, targetCapabilitySchema, telemetrySchema, telemetryTimeIndex,
 		}
 		for _, q := range statements {
 			if err := tx.Exec(q); err != nil {
@@ -406,10 +407,28 @@ func (s *Store) ReplaceFullStateWithRoutes(ctx context.Context, reality *Reality
 }
 
 func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile) error {
+	return s.ReplaceFullStateWithUsage(ctx, reality, users, profiles, creds, nodes, budget, policies, routingProfiles, nil)
+}
+
+func (s *Store) ReplaceFullStateWithUsage(ctx context.Context, reality *Reality, users []User, profiles []Protocol, creds []ProtocolCredential, nodes *[]NodeIdentity, budget *int, policies *[]routes.Policy, routingProfiles *[]routingprofile.Profile, accounting *usage.State) error {
 	if budget != nil && (*budget < 50 || *budget > 1024) {
 		return ErrInvalidLogBudget
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		previousUsage, usageErr := readUsageState(tx)
+		if usageErr != nil {
+			return usageErr
+		}
+		oldRows, usageErr := tx.Query("SELECT id,uuid FROM users")
+		if usageErr != nil {
+			return usageErr
+		}
+		oldIdentities := map[int64]string{}
+		for _, row := range oldRows {
+			id, _ := strconv.ParseInt(row["id"], 10, 64)
+			oldIdentities[id] = row["uuid"]
+		}
+
 		previous, err := readRoutes(tx)
 		if err != nil {
 			return err
@@ -470,7 +489,7 @@ func (s *Store) ReplaceFullStateWithProfiles(ctx context.Context, reality *Reali
 				return err
 			}
 		}
-		return nil
+		return replaceUsageState(tx, accounting, previousUsage, oldIdentities)
 	})
 }
 

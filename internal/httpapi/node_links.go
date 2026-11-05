@@ -46,7 +46,7 @@ func (s *Server) nodeDirectLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	links := make([]item, 0, len(users))
 	for _, user := range users {
-		if !user.Enabled {
+		if s.App.UserAllowed(r.Context(), user.ID) != nil {
 			continue
 		}
 		links = append(links, item{UserID: user.ID, Name: user.Name, Link: xray.Link(profile, user)})

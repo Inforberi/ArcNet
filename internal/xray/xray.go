@@ -157,6 +157,10 @@ func (c Controller) ApplyWithProfiles(ctx context.Context, r store.Reality, user
 	if err != nil {
 		return err
 	}
+	data, err = c.withStatistics(data)
+	if err != nil {
+		return err
+	}
 	return c.apply(ctx, data)
 }
 

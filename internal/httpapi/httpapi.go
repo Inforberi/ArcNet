@@ -233,6 +233,9 @@ func (s *Server) Routes() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(data)
 	})
+	mux.HandleFunc("GET /api/users/usage", s.mustAuth(s.userUsage, false))
+	mux.HandleFunc("PUT /api/users/{id}/package", s.mustAuth(s.userPackageSave, true))
+	mux.HandleFunc("GET /api/users/{id}/debits", s.mustAuth(s.userDebits, false))
 	mux.HandleFunc("GET /api/users", s.mustAuth(s.users, false))
 	mux.HandleFunc("POST /api/users", s.mustAuth(s.usersCreate, true))
 	mux.HandleFunc("PATCH /api/users/{id}", s.mustAuth(s.userPatch, true))
@@ -694,10 +697,14 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Subscription-Userinfo", "upload=0; download=0; total=0; expire=0")
+	s.subscriptionUsage(w, r, user.ID)
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }
 func handleErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, store.ErrUsageUnsupported) {
+		fail(w, 409, "Для этого подключения пока нет полного учёта трафика. Сначала снимите конечные пакеты или используйте локальный Xray.")
+		return
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		fail(w, 404, "Не найдено")
 		return

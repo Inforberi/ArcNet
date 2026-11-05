@@ -76,3 +76,8 @@
 [ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md): recovery только через локальную service identity, root-wrapper drops privileges до DB; активная MFA сохраняется по умолчанию, pending enrollment отменяется, отдельный reset-2fa явный. Пароль/отзыв сессий/MFA/audit атомарны. Настройки проецируются без hashes/keys/tokens; process argv не исполняется и не печатается целиком. Wrapper не принимает произвольные systemd units. Password KDF одновременно выполняется максимум один на Server, без уменьшения стоимости хеша; это ограничитель, не полная защита от DoS.
 
 Telemetry — bounded bearer v1 от конкретной ноды, clock/range/rate checks, ограниченная retention. Authenticated node может лгать о ресурсах: эти данные не VPN proof/ACK и не влияют на публикацию. DB identity restore/отзыв убирает старые наблюдения. Нет сетевых target-проб на каждый dashboard GET, GET не пишет observations, private API no-store; worker один и ограничен lifecycle. Полная VM/VPS приёмка остаётся внешним gate.
+
+
+## Локальный учёт Xray — 2026-11-05
+
+[ADR-008](../adr/008-local-xray-traffic-packages.md): StatsService на private Unix socket, directory 0700 / socket owner effective UID / запрет group-other permissions. Нет TCP API, HandlerService или HTTP ingest клиентского расхода. CLI fixed argv, bounded stdout/time, reset=false; identity/config/epoch сверяются до и после чтения. Ошибки и неполный учёт видны; unexpected restart/stale source закрывают конечные пакеты через reconcile. Компрометированный UID arcvpn/root может менять SQLite/config/counters и остаётся вне гарантии аттестации. При недоступном helper старый VPN runtime может продолжаться — apply_failed не называется блокировкой. Пакеты других движков/нод запрещены до полноценного источника и исполнения.

@@ -123,7 +123,7 @@ try {
   const preview = await api('POST', '/api/backup/preview', {password: 'browser-test-backup-password', archive: archive.content});
   assert.equal(preview.status(), 200);
   const summary = await preview.json();
-  assert.equal(summary.version, 5); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
+  assert.equal(summary.version, 6); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
 
   const sections = [['/', 'Обзор'], ['/users', 'Пользователи'], ['/vpn', 'Подключения'], ['/nodes', 'Серверы'], ['/routing', 'Маршруты'], ['/security', 'Безопасность'], ['/events', 'Журнал'], ['/backup', 'Импорт и экспорт']];
   for (const theme of ['dark', 'light']) {
@@ -157,7 +157,7 @@ try {
   await page.getByRole('button', {name: 'Удалить черновик', exact: true}).click();
   await page.getByText('Черновик удалён.', {exact: true}).waitFor();
   assert.equal((await api('DELETE', `/api/nodes/${a.node_id}`)).status(), 200);
-  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v5 preview; 8 pages × 5 widths × 2 themes; no JS errors. VPN NOT TESTED.');
+  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v6 preview; 8 pages × 5 widths × 2 themes; no JS errors. VPN NOT TESTED.');
 } catch (error) {
   await page.screenshot({path: path.join(screenshots, "failure.png"), fullPage: true}).catch(() => {});
   console.error("Browser errors:", errors);

@@ -15,6 +15,20 @@ import (
 // applyXray includes every configured XHTTP listener in the same validated
 // Xray configuration as the original TCP Reality inbound.
 func (a *App) applyXray(ctx context.Context, reality store.Reality, users []store.User) error {
+	previousEpoch := ""
+	if counters, at, err := a.Core.Statistics(ctx, users, true); err == nil {
+		if err := a.Store.RecordUsage(ctx, counters, at); err != nil {
+			return err
+		}
+		if len(counters) > 0 {
+			previousEpoch = counters[0].Epoch
+		}
+	}
+	var accessErr error
+	users, accessErr = a.effectiveUsers(ctx, users)
+	if accessErr != nil {
+		return accessErr
+	}
 	profiles, err := a.Store.ListProtocols(ctx)
 	if err != nil {
 		return err
@@ -46,6 +60,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 		return err
 	}
 	if a.Engines == nil {
+		a.recordAppliedUsage(ctx, users, previousEpoch)
 		return nil
 	}
 	if err := a.Engines.Apply(ctx, profiles, users, credentials); err != nil {
@@ -56,10 +71,12 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 		}
 		return fmt.Errorf("auxiliary engine apply failed; prior Xray configuration restored: %w", err)
 	}
+	a.recordAppliedUsage(ctx, users, previousEpoch)
 	return nil
 }
 
 func (a *App) applyAll(ctx context.Context, reality store.Reality, users []store.User) error {
+	a.usageApplied = ""
 	return a.applyXray(ctx, reality, users)
 }
 
@@ -72,6 +89,15 @@ func (a *App) ListProtocolProfiles(ctx context.Context) ([]store.Protocol, error
 func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, sni, target string) (store.Protocol, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if kind != protocols.XHTTP {
+		limited, err := a.Store.HasRestrictedPackages(ctx, true)
+		if err != nil {
+			return store.Protocol{}, err
+		}
+		if limited {
+			return store.Protocol{}, store.ErrUsageUnsupported
+		}
+	}
 	if !protocols.IsSupported(kind) {
 		return store.Protocol{}, protocols.ErrInvalid
 	}
@@ -175,6 +201,15 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 	if err != nil {
 		return err
 	}
+	if enabled && kind != protocols.XHTTP {
+		limited, err := a.Store.HasRestrictedPackages(ctx, true)
+		if err != nil {
+			return err
+		}
+		if limited {
+			return store.ErrUsageUnsupported
+		}
+	}
 	old := p
 	p.Enabled = enabled
 	if err := a.Store.UpsertProtocol(ctx, p); err != nil {
@@ -230,6 +265,12 @@ func (a *App) ensureCredentials(ctx context.Context, u store.User) error {
 }
 
 func (a *App) Connections(ctx context.Context, id int64) ([]protocols.Connection, error) {
+	if err := a.UserAllowed(ctx, id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return []protocols.Connection{}, nil
+		}
+		return nil, err
+	}
 	u, err := a.Store.ByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -246,6 +287,9 @@ func (a *App) Connections(ctx context.Context, id int64) ([]protocols.Connection
 }
 
 func (a *App) SubscriptionLinks(ctx context.Context, u store.User) ([]string, error) {
+	if err := a.UserAllowed(ctx, u.ID); err != nil {
+		return nil, err
+	}
 	r, err := a.Store.ReadReality(ctx)
 	if err != nil {
 		return nil, err

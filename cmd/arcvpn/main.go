@@ -356,6 +356,12 @@ func run() error {
 		defer stop()
 		telemetryDone := make(chan struct{})
 		go func() { defer close(telemetryDone); api.RunTelemetry(exitCtx) }()
+		usageDone := make(chan struct{})
+		go func() {
+			defer close(usageDone)
+			a.RunUsage(exitCtx, func(err error) { logger.Warn("user accounting", "error", err) })
+		}()
+		defer func() { stop(); <-usageDone }()
 		defer func() { stop(); <-telemetryDone }()
 		errs := make(chan error, 1)
 		go func() {

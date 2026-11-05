@@ -15,6 +15,7 @@ func TestV5PreservesRoutingProfileIntentAndRejectsLegacyAmbiguity(t *testing.T) 
 	p.Enabled = true
 	p.Direct = []string{"domain:example.com"}
 	snapshot := sample().WithRoutingProfiles([]routingprofile.Profile{p})
+	snapshot.Version = 5
 	blob, err := Encrypt(snapshot, "backup-password-long-enough")
 	if err != nil {
 		t.Fatal(err)

@@ -1,3 +1,12 @@
+## 2026-11-05: локальные пакеты трафика Xray
+
+- `internal/usage/{usage,state}.go` — counters/epoch, пакет, причины ограничения, portable accounting.
+- `internal/store/usage{,_backup}.go` — транзакционные суммы/checkpoints/debits, point access lookup, CAS, restore high-water и компенсация удаления.
+- `internal/xray/statistics.go`, `internal/app/usage.go`, `cmd/arcvpn/main.go` — private StatsService, bounded CLI, один collector, reconcile с apply/rollback.
+- `internal/httpapi/usage.go`, `frontend/src/features/users/{usage.ts,PackageDialog.tsx}`, `frontend/src/pages/Users.tsx` — защищённые API, расход/остаток, период/срок, immutable editor draft.
+- `internal/backup/backup.go`, `internal/app/backup.go` — backup v6; тесты рядом с модулями, `tests/user_usage_e2e.mjs`, `tests/run-user-usage-browser.sh`.
+- Контракт: [ADR-008](../adr/008-local-xray-traffic-packages.md), [объём](../release-0.7.0-stage5-user-packages.md), [доказательства](../testing/local-results/stage5-2026-11-05-user-packages.md). Remote/UDP accounting, устройства и каскадный runtime не завершены.
+
 ## 2026-11-05: подписка мониторинга и простые формы
 
 - `internal/store/monitoring.go`, `internal/httpapi/monitoring.go`, `internal/nodeagent/telemetry.go` — сохраняемый cadence5, SSE hub, отдельный agent lifecycle; тесты рядом.

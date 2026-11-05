@@ -26,13 +26,14 @@ import (
 	"github.com/arcvpn/arcvpn/internal/routes"
 	"github.com/arcvpn/arcvpn/internal/routingprofile"
 	"github.com/arcvpn/arcvpn/internal/store"
+	"github.com/arcvpn/arcvpn/internal/usage"
 	"github.com/arcvpn/arcvpn/internal/xray"
 )
 
 const (
-	Version         = 5
+	Version         = 6
 	KDFIterations   = 210000
-	MaxArchiveBytes = 10 << 20
+	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
 )
 
@@ -77,6 +78,7 @@ type Protocol struct {
 	Enabled    bool   `json:"enabled"`
 }
 type Snapshot struct {
+	Usage           *usage.State               `json:"usage,omitempty"`
 	Version         int                        `json:"version"`
 	CreatedAt       int64                      `json:"created_at"`
 	VPN             *VPN                       `json:"vpn"`
@@ -165,6 +167,18 @@ func (s Snapshot) WithRoutingProfiles(profiles []routingprofile.Profile) Snapsho
 func supportedVersion(v int) bool { return v >= 1 && v <= Version }
 
 func (s Snapshot) Validate() error {
+	if s.Usage != nil {
+		if s.Version < 6 {
+			return ErrInvalid
+		}
+		identities := map[int64]string{}
+		for _, u := range s.Users {
+			identities[u.ID] = u.UUID
+		}
+		if s.Usage.Validate(identities) != nil {
+			return ErrInvalid
+		}
+	}
 	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0)) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
 		return ErrInvalid
 	}
@@ -441,3 +455,5 @@ func (s Snapshot) RemapAddress(raw string) (Snapshot, error) {
 	}
 	return s, nil
 }
+
+func (s Snapshot) WithUsage(state usage.State) Snapshot { s.Usage = &state; return s }

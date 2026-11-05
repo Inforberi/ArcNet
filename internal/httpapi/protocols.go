@@ -37,6 +37,10 @@ func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := s.App.AddProtocol(r.Context(), input.Kind, input.Address, input.Port, input.SNI, input.Target)
 	if err != nil {
+		if errors.Is(err, store.ErrUsageUnsupported) {
+			handleErr(w, err)
+			return
+		}
 		if errors.Is(err, store.ErrConflict) {
 			fail(w, 409, "Этот протокол уже настроен")
 			return
@@ -102,7 +106,7 @@ func (s *Server) userConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	// Disabled users have no active connections; do not show inactive secrets
 	// as if they could be imported and used.
-	if !user.Enabled {
+	if s.App.UserAllowed(r.Context(), user.ID) != nil {
 		w.Header().Set("Cache-Control", "no-store")
 		respond(w, 200, map[string]any{"items": []protocols.Connection{}})
 		return
@@ -140,7 +144,7 @@ func (s *Server) userConnectionExport(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	if !user.Enabled {
+	if s.App.UserAllowed(r.Context(), user.ID) != nil {
 		fail(w, 409, "Пользователь отключён")
 		return
 	}

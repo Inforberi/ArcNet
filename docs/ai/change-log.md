@@ -1,3 +1,7 @@
+## 2026-11-05 — локальные пакеты Xray, accounting и backup v6
+
+Подтверждённые пользовательские counters через private Unix StatsService, транзакционные суммы/минутные списания/checkpoints, пакет/срок/явный новый период, CAS и reconcile. UI использует Dialog/Advanced и показывает план изменения, unknown/pending/разрыв учёта. При failed delete восстанавливаются credentials и accounting; v6 переносит состояние без тихого уменьшения уже известного расхода. Point access lookup измерен на 10000 fixture users. [Объём](../release-0.7.0-stage5-user-packages.md), [результаты и ограничения](../testing/local-results/stage5-2026-11-05-user-packages.md). Только локальный Xray; устройства и distributed/UDP исполнение пока отсутствуют, VPS acceptance нет.
+
 ## 2026-11-05 — live monitoring и простые формы подключения
 
 Сохраняемый default5, SSE авторизованного layout, fallback/offline/online/watchdog, bounded hub и agent resource lifecycle отдельно от apply; совместимость 204/404. Trusted defaults API и композиция `ConnectionForms`/`Advanced`, автоматические target-пробы, сохранение ручных drafts. Go test/vet/race, frontend build/tests, browser checks — [фактические результаты](../testing/local-results/stage5-2026-11-05-live-monitoring.md). Уточнены требования пользовательского пакета ГБ и устройств, runtime не добавлен. Каскады/лимиты/VPS остаются незавершёнными.

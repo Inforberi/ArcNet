@@ -6,7 +6,7 @@ import {Button, Notice} from '../../shared/ui';
 type Settings = {interval_seconds: number; available_seconds: number[]};
 type Connection = 'connecting' | 'live' | 'reconnecting' | 'paused';
 const MonitoringContext = createContext<{connection: Connection; seconds: number}>({connection: 'connecting', seconds: 5});
-const liveKeys = new Set(['overview', 'server-telemetry', 'nodes', 'node-bootstraps', 'protocol-health', 'events', 'users']);
+const liveKeys = new Set(['overview', 'server-telemetry', 'nodes', 'node-bootstraps', 'protocol-health', 'events', 'users', 'user-usage', 'user-debits']);
 
 // One subscription for the authenticated layout; only mounted queries refetch.
 // A disconnected stream falls back to bounded polling at the same cadence.

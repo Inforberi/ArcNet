@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
+import PackageDialog, {UsageSummary} from '../features/users/PackageDialog';
+import {blockLabel, type UsageReply} from '../features/users/usage';
 import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
 
 type QRFormat = 'subscription' | 'vless';
@@ -8,6 +10,9 @@ type QRFormat = 'subscription' | 'vless';
 export default function Users() {
   const cache = useQueryClient();
   const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[] }>('/api/users') });
+  const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
+  const [packageUser,setPackageUser] = useState<VPNUser | null>(null);
+  const packages = new Map(usage.data?.items.map(item=>[item.user_id,item]));
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -17,6 +22,12 @@ export default function Users() {
   const [qrFormat, setQRFormat] = useState<QRFormat>('subscription');
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (subscriptionUser && (packages.get(subscriptionUser.id)?.block_reason || users.data?.items.find(item=>item.id===subscriptionUser.id)?.enabled === false)) {
+      setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);
+    }
+  }, [usage.data, users.data, subscriptionUser]);
 
   const create = useMutation({
     mutationFn: () => api<VPNUser>('/api/users', 'POST', { name: name.trim() }),
@@ -92,7 +103,7 @@ export default function Users() {
     <>
       <PageHeading
         title="Пользователи"
-        description="Управление доступом и ссылками подписок"
+        description="Доступ, расход пакета трафика и подписки"
         actions={<Button variant="primary" onClick={() => setCreating(true)}>Добавить пользователя</Button>}
       />
       {error && <p className="error" role="alert">{error}</p>}
@@ -114,19 +125,24 @@ export default function Users() {
         </Panel>
       )}
 
+      {usage.isError && <Notice>{usage.error.message}</Notice>}
+      {usage.data && !usage.data.source_fresh && <p className="muted">Нет свежего источника учёта трафика. Известный расход сохранён; новые байты не подставляются нулями.</p>}
+      {usage.data && ['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state) && <Notice>Исполнение ограничений: {usage.data.runtime_state === 'apply_failed' ? 'изменение доступа ожидает повторного применения' : usage.data.runtime_state === 'source_unavailable' ? 'источник учёта недоступен' : 'работа VPN-службы не подтверждена'}.</Notice>}
       {users.isPending ? <Loading /> : users.isError ? <Notice>{explain(users.error)}</Notice> : (
         <Panel title={`Пользователи · ${users.data.items.length}`}>
           <div className="table-scroll">
             {users.data.items.length === 0 ? <Empty>Сначала создай VPN-подключение, затем добавь пользователя.</Empty> : (
               <table>
-                <thead><tr><th scope="col">Клиент</th><th scope="col">Состояние</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
+                <thead><tr><th scope="col">Клиент</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
                   {users.data.items.map(u => (
                     <tr key={u.id}>
                       <td><strong>{u.name}</strong><div className="muted">ID {u.id}</div></td>
-                      <td><Badge variant={u.enabled ? 'green' : 'red'}>{u.enabled ? 'Включён' : 'Отключён'}</Badge></td>
+                      <td><Badge variant={u.enabled && !packages.get(u.id)?.block_reason ? 'green' : 'red'}>{!u.enabled ? 'Отключён' : packages.get(u.id)?.block_reason ? blockLabel[packages.get(u.id)!.block_reason] ?? 'Доступ ограничен' : 'Включён'}</Badge></td>
+                      <td><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
                       <td>{new Date(u.created_at * 1000).toLocaleDateString('ru-RU')}</td>
                       <td><div className="flex wrap">
+                        <Button className="small" disabled={!packages.has(u.id)} onClick={() => setPackageUser(u)}>Пакет / расход</Button>
                         <Button className="small" onClick={() => void showSubscription(u)}>Подписка / QR</Button>
                         <Button className="small" disabled={toggle.isPending || remove.isPending} onClick={() => void toggleUser(u)}>
                           {u.enabled ? 'Отключить' : 'Включить'}
@@ -141,6 +157,8 @@ export default function Users() {
           </div>
         </Panel>
       )}
+
+      {packageUser && usage.data && packages.get(packageUser.id) && <PackageDialog key={packageUser.id} name={packageUser.name} initial={packages.get(packageUser.id)!} status={usage.data} onClose={()=>setPackageUser(null)}/>}
 
       {subscription && subscriptionUser && (
         <Panel title={`Подключение · ${subscriptionUser.name}`}>

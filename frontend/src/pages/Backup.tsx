@@ -4,8 +4,8 @@ import {api} from '../shared/api';
 import {Button,Field,Notice,PageHeading,Panel} from '../shared/ui';
 
 type ExportReply={filename:string;content:string};
-type Preview={version:number;created_at:number;users:number;current_users:number;protocols:number;current_protocols:number;nodes:number;current_nodes:number;routes:number;current_routes:number;routes_replaced:boolean;routing_profiles:number;current_routing_profiles:number;routing_profiles_replaced:boolean;log_budget_mb?:number;vpn_configured:boolean;vpn_address?:string;vpn_port?:number};
-const maxArchiveSize=10*1024*1024;
+type Preview={usage_included:boolean;version:number;created_at:number;users:number;current_users:number;protocols:number;current_protocols:number;nodes:number;current_nodes:number;routes:number;current_routes:number;routes_replaced:boolean;routing_profiles:number;current_routing_profiles:number;routing_profiles_replaced:boolean;log_budget_mb?:number;vpn_configured:boolean;vpn_address?:string;vpn_port?:number};
+const maxArchiveSize=64*1024*1024;
 
 function download(content:string,filename:string):void{
  const url=URL.createObjectURL(new Blob([content],{type:'application/json;charset=utf-8'}));
@@ -23,7 +23,7 @@ export default function Backup(){
   catch(e){setError(e instanceof Error?e.message:'Ошибка экспорта')}finally{setExportBusy(false)}
  }
  async function readFile(e:ChangeEvent<HTMLInputElement>){setArchive('');setPreview(null);setError('');const f=e.target.files?.[0];if(!f)return;
-  if(f.size>maxArchiveSize){setError('Файл слишком большой (лимит 10 МБ)');return}
+  if(f.size>maxArchiveSize){setError('Файл слишком большой (лимит 64 МБ)');return}
   try{setArchive(await f.text())}catch{setError('Файл не удалось прочитать')}
  }
  async function previewImport(){setPreview(null);setError('');setMessage('');if(!archive){setError('Выбери архив');return}
@@ -52,7 +52,7 @@ export default function Backup(){
    <Field label="Пароль архива" type="password" autoComplete="off" maxLength={1024} value={importPassword} onChange={e=>{setImportPassword(e.target.value);setPreview(null)}}/>
    <div className="flex wrap"><Button onClick={()=>void previewImport()} disabled={importBusy||!archive||!importPassword}>Проверить архив</Button>
     <Button variant="danger" onClick={()=>void restore()} disabled={importBusy||!preview?.vpn_configured}>Заменить VPN и пользователей</Button></div>
-   {preview&&<div className="notice" role="status">Архив: {preview.users} пользователей, {preview.protocols} дополнительных протоколов, {preview.nodes??0} нод, IP {preview.vpn_address??'не указан'}, порт {preview.vpn_port??'—'}. Сейчас: {preview.current_users} пользователей, {preview.current_nodes??0} нод. Архив v{preview.version}: {preview.routes_replaced ? `черновики маршрутов заменяются (${preview.current_routes} → ${preview.routes})` : `текущие черновики (${preview.current_routes}) сохраняются; отсутствующие ноды вызовут отказ импорта`}. Профили правил: {preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются (архив до v5)"}. В v3–v5 ноды и настройки заменяются; v1/v2 сохраняют текущие ноды. Внешняя проверка VPN после переноса обязательна.</div>}
+   {preview&&<div className="notice" role="status">Архив: {preview.users} пользователей, {preview.protocols} дополнительных протоколов, {preview.nodes??0} нод, IP {preview.vpn_address??'не указан'}, порт {preview.vpn_port??'—'}. Сейчас: {preview.current_users} пользователей, {preview.current_nodes??0} нод. Архив v{preview.version}: {preview.routes_replaced ? `черновики маршрутов заменяются (${preview.current_routes} → ${preview.routes})` : `текущие черновики (${preview.current_routes}) сохраняются; отсутствующие ноды вызовут отказ импорта`}. Профили правил: {preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются (архив до v5)"}. Пакеты и расход: {preview.usage_included ? "переносятся; уже известный расход того же пользователя не уменьшается" : "сохраняются у пользователей с теми же UUID (архив без учёта)"}. В v3–v6 ноды и настройки заменяются; v1/v2 сохраняют текущие ноды. Внешняя проверка VPN после переноса обязательна.</div>}
   </div></Panel>
  </>;
 }

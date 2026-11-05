@@ -149,6 +149,7 @@ exit 1
 	// Importing a legacy v1 archive must stop and clear all obsolete engines.
 	legacy := saved
 	legacy.Version = 1
+	legacy.Usage = nil
 	legacy.Protocols = nil
 	legacy.Credentials = nil
 	legacy.Nodes = nil
