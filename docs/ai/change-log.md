@@ -1,3 +1,11 @@
+## 2026-11-05 — редактор черновиков маршрутов и backup v4
+
+- React Flow: основные/резервные стрелки, общая форма и таблица, мобильные карточки, явные draft-only состояния; исправлены скрытые выходы, сброс формы, устаревший preview и обработка CAS-конфликтов.
+- Защита зависимых нод при revoke/SSH purge/detach и гонках с сохранением маршрутов. Backup v4 переносит черновики атомарно с нодами, проверяет граф и ссылки, сохраняет чтение v1/v2/v3 и восстанавливает маршруты при ошибке применения движков.
+- Настоящий npm lockfile; исправлена несуществующая react-query 5.90.0, обновлены Router/Vite по audit. Linux Go tests/vet/selected race/build, frontend test/typecheck/build и новый настоящий Chromium UI/API E2E (8 страниц × 5 размеров × 2 темы) PASS. npm audit: 0 известных уязвимостей на момент проверки.
+- Реальные каскады, VPN failover, публикация, SNI/Geo и VPS приёмка не добавлены и не подтверждены. Этап 6 не начат.
+- Результат: [release](../release-0.7.0-stage5-routing-ui.md); доказательства: [протокол](../testing/local-results/stage5-2026-11-05-routing-ui.md).
+
 ## 2026-11-05 — фиксация набора VPN-протоколов (docs-only)
 
 - По решению пользователя текущих пяти VPN-вариантов достаточно: VLESS/REALITY TCP, VLESS/REALITY XHTTP, Hysteria2, WireGuard, AmneziaWG 3.1.
