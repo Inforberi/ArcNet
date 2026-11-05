@@ -1,0 +1,39 @@
+[1/8] Go unit and integration tests
+ok  	github.com/arcvpn/arcvpn/cmd/arcvpn	0.007s
+ok  	github.com/arcvpn/arcvpn/internal/app	0.139s
+?   	github.com/arcvpn/arcvpn/internal/db	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/auth	1.876s
+ok  	github.com/arcvpn/arcvpn/internal/backup	0.639s
+ok  	github.com/arcvpn/arcvpn/internal/backupfile	0.019s
+ok  	github.com/arcvpn/arcvpn/internal/engines	0.018s
+ok  	github.com/arcvpn/arcvpn/internal/firewall	0.006s
+?   	github.com/arcvpn/arcvpn/internal/metrics	[no test files]
+?   	github.com/arcvpn/arcvpn/web	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/httpapi	9.911s
+ok  	github.com/arcvpn/arcvpn/internal/logging	0.320s
+ok  	github.com/arcvpn/arcvpn/internal/mfa	0.002s
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	0.074s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	0.740s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	0.092s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprotocol	0.006s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	0.031s
+ok  	github.com/arcvpn/arcvpn/internal/ops	0.008s
+ok  	github.com/arcvpn/arcvpn/internal/protocols	0.008s
+ok  	github.com/arcvpn/arcvpn/internal/qrcode	0.008s
+ok  	github.com/arcvpn/arcvpn/internal/store	0.426s
+ok  	github.com/arcvpn/arcvpn/internal/updater	2.125s
+ok  	github.com/arcvpn/arcvpn/internal/xray	0.028s
+[2/8] Go static analysis
+[3/8] Security and concurrency race tests
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	1.161s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	8.571s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprotocol	1.013s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	1.060s
+ok  	github.com/arcvpn/arcvpn/internal/updater	3.182s
+ok  	github.com/arcvpn/arcvpn/internal/store	1.376s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	1.108s
+ok  	github.com/arcvpn/arcvpn/internal/httpapi	21.611s
+[4/8] Compile Go CLI
+[5/8] Shell and Python syntax
+SOURCE_CHECKS_PASS
+Not a LOCAL_PASS: React typecheck/build/E2E and VPS handshakes were not verified.

@@ -1,0 +1,27 @@
+import {restoreTheme} from './shared/theme';
+import React,{Suspense} from 'react';
+import{createRoot}from'react-dom/client';
+import{QueryClient,QueryClientProvider}from'@tanstack/react-query';
+import{createBrowserRouter,RouterProvider}from'react-router';
+import{AuthGate}from'./app/Auth';
+import Layout from'./app/Layout';
+import{Loading}from'./shared/ui';
+import{PageErrorBoundary}from'./app/PageErrorBoundary';
+import './style.css';
+const Overview=React.lazy(()=>import('./pages/Overview'));
+const Users=React.lazy(()=>import('./pages/Users'));
+const VPN=React.lazy(()=>import('./pages/VPN'));
+const Nodes=React.lazy(()=>import('./pages/Nodes'));
+const Routing=React.lazy(()=>import('./pages/Routing'));
+const Security=React.lazy(()=>import('./pages/Security'));
+const Events=React.lazy(()=>import('./pages/Events'));
+const Backup=React.lazy(()=>import('./pages/Backup'));
+const NotFound=React.lazy(()=>import('./pages/NotFound'));
+const wrap=(element:React.ReactNode)=><PageErrorBoundary><Suspense fallback={<Loading/>}>{element}</Suspense></PageErrorBoundary>;
+const router=createBrowserRouter([{element:<AuthGate/>,children:[{element:<Layout/>,children:[
+ {index:true,element:wrap(<Overview/>)},{path:'users',element:wrap(<Users/>)},{path:'vpn',element:wrap(<VPN/>)},{path:'nodes',element:wrap(<Nodes/>)},{path:'routing',element:wrap(<Routing/>)},{path:'security',element:wrap(<Security/>)},{path:'events',element:wrap(<Events/>)},{path:'backup',element:wrap(<Backup/>)},{path:'*',element:wrap(<NotFound/>)}]}]}]);
+const query=new QueryClient({defaultOptions:{queries:{staleTime:5_000,retry:1,refetchOnWindowFocus:false}}});
+const element=document.getElementById('root');if(!element)throw new Error('Missing root element');
+createRoot(element).render(<React.StrictMode><PageErrorBoundary><QueryClientProvider client={query}><RouterProvider router={router}/></QueryClientProvider></PageErrorBoundary></React.StrictMode>);
+
+restoreTheme();

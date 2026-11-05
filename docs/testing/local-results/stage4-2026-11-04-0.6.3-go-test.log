@@ -1,0 +1,24 @@
+ok  	github.com/arcvpn/arcvpn/cmd/arcvpn	0.009s
+?   	github.com/arcvpn/arcvpn/internal/db	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/app	0.256s
+?   	github.com/arcvpn/arcvpn/internal/metrics	[no test files]
+?   	github.com/arcvpn/arcvpn/internal/nodeprotocol	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/auth	2.216s
+ok  	github.com/arcvpn/arcvpn/internal/backup	0.594s
+ok  	github.com/arcvpn/arcvpn/internal/backupfile	0.012s
+ok  	github.com/arcvpn/arcvpn/internal/engines	0.014s
+ok  	github.com/arcvpn/arcvpn/internal/firewall	0.003s
+?   	github.com/arcvpn/arcvpn/web	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/httpapi	9.453s
+ok  	github.com/arcvpn/arcvpn/internal/logging	0.312s
+ok  	github.com/arcvpn/arcvpn/internal/mfa	0.002s
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	0.077s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	0.629s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	0.096s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	0.023s
+ok  	github.com/arcvpn/arcvpn/internal/ops	0.007s
+ok  	github.com/arcvpn/arcvpn/internal/protocols	0.005s
+ok  	github.com/arcvpn/arcvpn/internal/qrcode	0.005s
+ok  	github.com/arcvpn/arcvpn/internal/store	0.340s
+ok  	github.com/arcvpn/arcvpn/internal/updater	2.116s
+ok  	github.com/arcvpn/arcvpn/internal/xray	0.013s

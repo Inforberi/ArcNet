@@ -1,0 +1,20 @@
+# Secrets, binaries, generated data and one-time enrollment screenshots must not be committed.
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.pem
+*.key
+.env
+.env.*
+!*.example
+frontend/node_modules/
+frontend/dist/
+web/react-dist/
+dist/
+tmp/
+tests/screenshots/
+*.zip
+
+.local/
+*.tsbuildinfo
+.DS_Store

@@ -1,0 +1,34 @@
+[1/8] Go unit and integration tests
+ok  	github.com/arcvpn/arcvpn/cmd/arcvpn	0.005s
+?   	github.com/arcvpn/arcvpn/internal/db	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/app	0.215s
+?   	github.com/arcvpn/arcvpn/internal/metrics	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/auth	2.119s
+ok  	github.com/arcvpn/arcvpn/internal/backup	0.591s
+ok  	github.com/arcvpn/arcvpn/internal/backupfile	0.014s
+ok  	github.com/arcvpn/arcvpn/internal/engines	0.013s
+ok  	github.com/arcvpn/arcvpn/internal/firewall	0.005s
+?   	github.com/arcvpn/arcvpn/web	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/httpapi	10.021s
+ok  	github.com/arcvpn/arcvpn/internal/logging	0.290s
+ok  	github.com/arcvpn/arcvpn/internal/mfa	0.004s
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	0.087s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	0.679s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	0.103s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprotocol	0.004s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	0.044s
+ok  	github.com/arcvpn/arcvpn/internal/ops	0.006s
+ok  	github.com/arcvpn/arcvpn/internal/protocols	0.019s
+ok  	github.com/arcvpn/arcvpn/internal/qrcode	0.006s
+ok  	github.com/arcvpn/arcvpn/internal/store	0.343s
+ok  	github.com/arcvpn/arcvpn/internal/updater	2.117s
+ok  	github.com/arcvpn/arcvpn/internal/xray	0.018s
+[2/8] Go static analysis
+[3/8] Security and concurrency race tests
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	1.181s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	9.837s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprotocol	1.020s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	1.089s
+ok  	github.com/arcvpn/arcvpn/internal/updater	3.178s
+ok  	github.com/arcvpn/arcvpn/internal/store	1.470s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	1.112s

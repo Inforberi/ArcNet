@@ -1,0 +1,32 @@
+== Stage 4: Go unit and HTTP tests ==
+ok  	github.com/arcvpn/arcvpn/cmd/arcvpn	0.005s
+?   	github.com/arcvpn/arcvpn/internal/db	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/app	0.223s
+?   	github.com/arcvpn/arcvpn/internal/metrics	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/auth	2.204s
+ok  	github.com/arcvpn/arcvpn/internal/backup	0.587s
+ok  	github.com/arcvpn/arcvpn/internal/backupfile	0.015s
+ok  	github.com/arcvpn/arcvpn/internal/engines	0.011s
+ok  	github.com/arcvpn/arcvpn/internal/firewall	0.005s
+?   	github.com/arcvpn/arcvpn/web	[no test files]
+ok  	github.com/arcvpn/arcvpn/internal/httpapi	7.995s
+ok  	github.com/arcvpn/arcvpn/internal/logging	0.260s
+ok  	github.com/arcvpn/arcvpn/internal/mfa	0.002s
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	0.078s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	0.596s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	0.027s
+ok  	github.com/arcvpn/arcvpn/internal/ops	0.004s
+ok  	github.com/arcvpn/arcvpn/internal/protocols	0.005s
+ok  	github.com/arcvpn/arcvpn/internal/qrcode	0.003s
+ok  	github.com/arcvpn/arcvpn/internal/store	0.184s
+ok  	github.com/arcvpn/arcvpn/internal/updater	2.113s
+ok  	github.com/arcvpn/arcvpn/internal/xray	0.015s
+== Stage 4: Go vet ==
+== Stage 4: race tests in critical state/agent/helper/bootstrap packages ==
+ok  	github.com/arcvpn/arcvpn/internal/store	1.258s
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	1.121s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	1.039s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	9.120s
+== Stage 4: static Bash syntax ==
+GO/SHELL LOCAL PASS; React build and VPS acceptance are separate gates.
+FRONTEND BLOCKED: real npm-generated package-lock.json is absent.

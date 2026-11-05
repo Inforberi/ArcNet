@@ -1,0 +1,7 @@
+ok  	github.com/arcvpn/arcvpn/internal/nodeagent	1.147s
+ok  	github.com/arcvpn/arcvpn/internal/nodebootstrap	8.236s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprotocol	1.015s
+ok  	github.com/arcvpn/arcvpn/internal/noderuntime	1.086s
+ok  	github.com/arcvpn/arcvpn/internal/updater	3.166s
+ok  	github.com/arcvpn/arcvpn/internal/store	1.367s
+ok  	github.com/arcvpn/arcvpn/internal/nodeprobe	1.108s

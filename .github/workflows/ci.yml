@@ -1,0 +1,59 @@
+name: ArcVPN stage-4 release and browser verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-and-react:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Releases must use a lockfile committed after review; a transient
+      # npm install in CI must not hide a missing supply-chain baseline.
+      - name: Require committed frontend lockfile
+        shell: bash
+        run: |
+          if [[ ! -s frontend/package-lock.json ]]; then
+            echo '::error::Missing reviewed frontend/package-lock.json. Generate on a networked trusted build machine, review and commit before release.'
+            exit 1
+          fi
+      - name: Verify locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Routing model regression tests
+        working-directory: frontend
+        run: npm run test
+      - name: System libraries for CGO
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libsqlite3-0 libqrencode4 gcc make git
+      - name: Build and verify embedded React and Go
+        run: ./scripts/build-release.sh
+      - name: Browser test prerequisites
+        run: |
+          python3 -m pip install --user playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Real React E2E against Go
+        run: python3 tests/react_e2e.py
+      - name: Routing graph E2E against disposable Go API
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/arcvpn-browser" --no-audit --no-fund playwright@1.58.2
+          node "$RUNNER_TEMP/arcvpn-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/arcvpn-browser/node_modules" tests/run-routing-browser.sh
+      - name: Upload browser screenshots if checks fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-browser-screenshots
+          path: tests/screenshots/
+          if-no-files-found: ignore
