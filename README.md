@@ -6,7 +6,7 @@
 
 [Установка и обновление](docs/ops/install-and-update.md) · [Правила коротких рабочих блоков](docs/planning/short-work-blocks.md) · [Репозиторий](https://github.com/Inforberi/ArcNet) · [MIT](LICENSE)
 
-Общие `sudo arcvpn start / stop / restart / status` реализованы в исходниках для локальной установки: [контракт и ограничения](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). Нужны соответствующие новые core/wrapper/units; реальная systemd/VPS-приёмка открыта. Следующий блок — [тестовый установочный пакет и установка одной командой](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md); сетевой bootstrap пока не готов.
+Общие `sudo arcvpn start / stop / restart / status` реализованы для локальной установки: [контракт](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). A2: собран локальный подписанный installer Linux x86_64 с UI и точным build snapshot — [сборка, подпись и перенос](docs/ops/installer-release-and-migration.md). GitHub Release не опубликован, серверная приёмка открыта. Следующий A3 — проверенный сетевой bootstrap одной командой.
 
 ## Возможности
 
@@ -40,6 +40,8 @@ cd ArcNet
 ```
 
 Результат — `dist/arcvpn-0.7.0-stage5-linux-amd64.tar.gz`. Node.js и Go нужны машине сборки; на целевом VPS они не требуются. Перенесите пакет на тестовый VPS, распакуйте в отдельный каталог и проверьте его:
+
+Для сборки с заданной Ubuntu22.04 baseline из macOS/другого build host доступен `./scripts/build-installer-docker.sh`: результат `dist/installer-0.7.0-stage5-a2/`. Перед распаковкой сетевого пакета проверьте подпись всего архива с независимо доверенным public key по release guide. SHA256 внутри tar.gz проверяет integrity, но сам по себе не подтверждает издателя.
 
 ```bash
 mkdir -p arcvpn-install

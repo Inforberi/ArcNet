@@ -12,6 +12,8 @@ for file in install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.
 done
 printf 'synthetic binary fixture; not executable\n' > "$fixture/dist/arcvpn-linux-amd64"
 printf '0.7.0-stage5\n' > "$fixture/dist/VERSION"
+printf '{"format":"fixture-only-not-a-build"}\n' > "$fixture/dist/BUILDINFO.json"
+printf '%064d  README.md\n' 0 > "$fixture/SOURCE_MANIFEST.sha256"
 printf 'must never be distributed\n' > "$fixture/dist/update-private.hex"
 printf '%064d\n' 0 > "$fixture/dist/update-public.hex"
 # Stale/unlisted optional artifacts must not silently re-enable the old default.
@@ -23,6 +25,8 @@ grep -qx 'install.sh' "$fixture/contents"
 grep -qx 'deploy/arcvpn-menu.sh' "$fixture/contents"
 grep -qx 'docs/ops/install-and-update.md' "$fixture/contents"
 grep -qx 'docs/ops/local-service-control.md' "$fixture/contents"
+grep -qx 'dist/BUILDINFO.json' "$fixture/contents"
+grep -qx 'SOURCE_MANIFEST.sha256' "$fixture/contents"
 grep -qx 'dist/update-public.hex' "$fixture/contents"
 if grep -Eq 'update-private|awg-linux|panel.sqlite' "$fixture/contents"; then
  echo 'Unexpected private/unlisted artifact in package' >&2; exit 1

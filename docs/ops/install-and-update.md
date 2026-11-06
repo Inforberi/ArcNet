@@ -2,7 +2,7 @@
 
 Это руководство для нового администратора и сопровождающего. Текущая версия — 0.7 preview; systemd/ACME/VPN/полный update на VPS ещё требуют внешней приёмки. Публичный репозиторий: [Inforberi/ArcNet](https://github.com/Inforberi/ArcNet), лицензия проекта — [MIT](../../LICENSE).
 
-Пользователь проведёт серверные испытания самостоятельно. A1 общий CLI start/stop/restart/status реализован и проверен на локальных fixtures: [контракт](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). Нужны новые core/wrapper/units/tmpfiles/cert hook вместе; core-only updater не мигрирует эту обвязку. Настоящий systemd ещё не принят. Следующие A2/A3 — проверенный установочный пакет/миграция и bootstrap одной командой: [план](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md). Готовая однострочная установка пока не выдаётся.
+Пользователь проведёт серверные испытания самостоятельно. A1 CLI и A2 локальный подписанный Linux x86_64 пакет подготовлены: [release/migration guide](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md). Нужны core/wrapper/units/tmpfiles/hook вместе; core-only updater не мигрирует обвязку. Systemd/VPS не приняты, публичного installer Release и A3 bootstrap одной командой пока нет.
 
 ## Что скачать
 
@@ -13,6 +13,8 @@
 ## Сборка пакета сопровождающим
 
 На отдельной Linux x86_64 машине: Go 1.26+, Node.js 22.12+, npm, GCC, GNU tar/coreutils, SQLite headers и qrencode runtime. Для Debian/Ubuntu системные build dependencies: `build-essential libsqlite3-dev libqrencode4`. Версии Go/Node устанавливает сопровождающий по доверенному процессу своей машины.
+
+Проверенный рецепт A2: Ubuntu22.04 + Go1.26.6/Node22.21.1, опционально через `./scripts/build-installer-docker.sh`. Native builder требует актуальный SOURCE_MANIFEST.sha256 и проверяет его перед упаковкой; BUILDINFO показывает revision/dirty/source hash. Для подписи используйте offline `arcvpn-release`, а не приватный ключ на VPS. [Подробности](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md).
 
 CGO-бинарник зависит от системных библиотек. Собирайте на самой старой целевой ОС и проверяйте на каждой заявленной платформе; сборка на новой ОС не доказывает ABI-совместимость со всеми старыми VPS.
 

@@ -2,6 +2,8 @@
 
 > **A1 CLI — source verified:** общие локальные start/stop/restart/status/logs реализованы с root lock/pause и безопасным reconcile. [Контракт](ops/local-service-control.md), [результаты](testing/local-results/stage5-2026-11-06-local-lifecycle.md). Systemd/VPS и миграция old install не приняты, core-only update недостаточен. A2 installer asset/A3 bootstrap остаются открытыми.
 
+> **A2 — local build/signature verified:** Linux x86_64 installer со встроенным UI и provenance собран на Ubuntu22.04, signature всего архива проверена. [Guide](ops/installer-release-and-migration.md), [результаты](testing/local-results/stage5-2026-11-06-installer-bundle.md). Это не published Release и не VPS acceptance; следующий A3 bootstrap. In-place migration не автоматизирована.
+
 > **Локальные пакеты Xray — 2026-11-05:** реализованы подтверждённые counters/checkpoints/debits, пакет/срок/новый период, UI/API и backup v6. [ADR-008](adr/008-local-xray-traffic-packages.md), [проверки](testing/local-results/stage5-2026-11-05-user-packages.md). Новая реализация не распространяет учёт на Hysteria2/WG/AWG/ноды и не завершает устройства или stage5 runtime. Systemd/VPS disconnect и byte overshoot не приняты.
 
 > **Продолжение live monitoring:** default5, сохраняемый interval UI, SSE и формы с defaults локально проверены. [Результаты](testing/local-results/stage5-2026-11-05-live-monitoring.md). Учёт гигабайтов пользователя, device enforcement, первый любой протокол и каскадный runtime **не реализованы**; [план](planning/simple-operation-and-user-packages-2026-11-05.md).

@@ -36,8 +36,26 @@ trap 'rm -rf "$ROOT/web/react-dist"' EXIT
 cp -a frontend/dist web/react-dist
 ARCVPN_BUILD_VERSION="${ARCVPN_BUILD_VERSION:-0.7.0-stage5}"
 [[ "$ARCVPN_BUILD_VERSION" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Unsupported panel release version; use 0.6.x or 0.7.x' >&2; exit 65; }
+revision="${ARCVPN_SOURCE_REVISION:-$(git rev-parse --verify HEAD)}"
+dirty="${ARCVPN_SOURCE_DIRTY:-}"
+if [[ -z "$dirty" ]]; then
+ dirty=true
+ if [[ -z "$(git status --porcelain --untracked-files=normal)" ]]; then dirty=false; fi
+fi
+[[ "$revision" =~ ^[0-9a-f]{40}$ && ( "$dirty" == true || "$dirty" == false ) ]] || { echo 'Invalid source revision/dirty metadata' >&2; exit 65; }
+[[ -s SOURCE_MANIFEST.sha256 ]] || { echo 'Source manifest is required' >&2; exit 65; }
+sha256sum --status -c SOURCE_MANIFEST.sha256
+source_sha="$(sha256sum SOURCE_MANIFEST.sha256 | cut -d ' ' -f 1)"
+go_version="$(go env GOVERSION)"
+node_version="$(node --version)"
+build_os="$(. /etc/os-release; printf '%s-%s' "$ID" "$VERSION_ID")"
+[[ "$go_version" =~ ^go[0-9.]+$ && "$node_version" =~ ^v[0-9.]+$ && "$build_os" =~ ^[a-z0-9.-]+$ ]] || { echo 'Invalid toolchain metadata' >&2; exit 65; }
+printf '{"format":"arcvpn-build-v1","version":"%s","target":"linux/amd64","source_commit":"%s","source_dirty":%s,"source_manifest_sha256":"%s","go":"%s","node":"%s","build_os":"%s"}\n' \
+ "$ARCVPN_BUILD_VERSION" "$revision" "$dirty" "$source_sha" "$go_version" "$node_version" "$build_os" > dist/BUILDINFO.json
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags arcvpn_embed_react -trimpath -buildvcs=false -ldflags="-s -w -X github.com/arcvpn/arcvpn/internal/nodeagent.Version=$ARCVPN_BUILD_VERSION" -o dist/arcvpn-linux-amd64 ./cmd/arcvpn
 ./dist/arcvpn-linux-amd64 frontend-check
+./dist/arcvpn-linux-amd64 version | grep -Fx "arcvpn $ARCVPN_BUILD_VERSION"
+./dist/arcvpn-linux-amd64 help | grep -Fx 'local management protocol: lifecycle-v1'
 echo '[5/5] Package the installer and verified runtime'
 # Legacy compatibility only; not part of the default supported scope.
 ARCVPN_WITH_AMNEZIAWG="${ARCVPN_WITH_AMNEZIAWG:-0}"
@@ -45,6 +63,8 @@ ARCVPN_WITH_AMNEZIAWG="${ARCVPN_WITH_AMNEZIAWG:-0}"
 if [[ "$ARCVPN_WITH_AMNEZIAWG" == 1 ]]; then "$ROOT/scripts/build-amneziawg.sh"; fi
 printf '%s\n' "$ARCVPN_BUILD_VERSION" > dist/VERSION
 ARCVPN_WITH_AMNEZIAWG="$ARCVPN_WITH_AMNEZIAWG" "$ROOT/scripts/package-release.sh"
+cut -c 67- SOURCE_MANIFEST.sha256 > dist/source-files.txt
+tar -czf "dist/arcvpn-$ARCVPN_BUILD_VERSION-source.tar.gz" --files-from=dist/source-files.txt SOURCE_MANIFEST.sha256
 printf '\nRelease build complete: dist/arcvpn-linux-amd64 (React embedded)\n'
 printf 'The installer verifies the embedded React frontend before changing the VPS.\n'
 printf 'CGO requires libsqlite3.so.0 and libqrencode.so.4 on the runtime VPS.\n'

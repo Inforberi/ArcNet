@@ -1,4 +1,4 @@
-name: ArcVPN stage-4 release and browser verification
+name: ArcVPN installer and browser verification
 
 on:
   push:
@@ -9,16 +9,16 @@ permissions:
 
 jobs:
   backend-and-react:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: '1.26.6'
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.21.1'
       # Releases must use a lockfile committed after review; a transient
       # npm install in CI must not hide a missing supply-chain baseline.
       - name: Require committed frontend lockfile
@@ -28,16 +28,13 @@ jobs:
             echo '::error::Missing reviewed frontend/package-lock.json. Generate on a networked trusted build machine, review and commit before release.'
             exit 1
           fi
-      - name: Verify locked frontend dependencies
-        working-directory: frontend
-        run: npm ci --no-audit --no-fund
-      - name: Routing model regression tests
-        working-directory: frontend
-        run: npm run test
       - name: System libraries for CGO
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libsqlite3-0 libqrencode4 gcc make git
       - name: Build and verify embedded React and Go
         run: ./scripts/build-release.sh
+      - name: Routing model regression tests
+        working-directory: frontend
+        run: npm run test
       - name: Browser test prerequisites
         run: |
           python3 -m pip install --user playwright

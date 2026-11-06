@@ -6,6 +6,8 @@
 
 ## Фактическая исходная точка
 
+**Продолжение A2:** локальная Linux x86_64/Ubuntu22.04 сборка и подпись полного installer прошли. [Guide/перенос](../ops/installer-release-and-migration.md), [результаты](../testing/local-results/stage5-2026-11-06-installer-bundle.md). Private key offline; публичного Release/bootstrap нет. Для старой установки описан clean install + backup restore; полноценный in-place migrator не выдан за готовый. Далее A3, внешние испытания остаются пользовательскими.
+
 - `scripts/build-release.sh` собирает Linux x86_64 core со встроенным React; `scripts/package-release.sh` формирует installer tar.gz. Полный выпуск/установка на VPS ещё не приняты. Source ZIP не заменяет установочный пакет.
 - `install.sh` содержит проверки ОС/портов, systemd setup, IP ACME и установку runtime dependencies. Нет принятого готового сценария безопасной сетевой установки одной командой.
 - `deploy/arcvpn-menu.sh` и `core lifecycle`: меню, recovery/settings, общие start/stop/restart/status, bounded logs и component restarts реализованы локально; для настоящего systemd нужны отдельные испытания и новая согласованная обвязка.
@@ -94,7 +96,7 @@ GeoIP/GeoSite, применение пользовательских прави�
 ## Очередь коротких блоков
 
 1. A1: CLI lifecycle и единая сводка реализованы локально; systemd-проверка пользователем остаётся открытой.
-2. A2: release build/упаковка/доверенный манифест и инструкция миграции.
+2. A2: local release build/упаковка/signed manifest и инструкция clean migration завершены; публикация/внешняя приёмка отдельно, in-place migrator не реализован.
 3. A3: проверенный bootstrap одной командой и локальные failure fixtures.
 4. A4: пользовательская приёмка первого тестового VPS; исправления по её фактическим результатам.
 5. B: реализация и отдельная многонодовая приёмка каскадов; остальные функции — последующими блоками.

@@ -4,6 +4,7 @@
 *.sqlite-wal
 *.pem
 *.key
+*-private.hex
 .env
 .env.*
 !*.example
