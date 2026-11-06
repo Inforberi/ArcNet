@@ -4,6 +4,8 @@ import {api, ApiError, type VPNConfig} from '../../shared/api';
 import {PageHeading, Panel, Notice, Loading, Button, Field, Badge} from '../../shared/ui';
 import {changeDraft, draftError, moveBackup, newDraft, nodeTitle, type ManagedNode, type RouteList, type RoutePolicy, type RoutePreview} from './model';
 
+import CascadeDeployment from './CascadeDeployment';
+
 const RouteCanvas = lazy(() => import('./RouteCanvas'));
 type Decision = {at: number; active_exit?: string; effective_path: string; reason: string; switched: boolean};
 type Simulation = {simulated: boolean; verified: boolean; published: boolean; decisions: Decision[]};
@@ -100,7 +102,7 @@ export default function RoutePaths() {
 
   return <>
     <PageHeading title="Пути и каскады" description="Как серверы соединяются между собой"/>
-    <Notice>Только черновики: схема НЕ применяется к Xray и НЕ меняет подписки. Работоспособность VPN и автоматическое переключение ещё не подтверждены.</Notice>
+    <Notice>Сохранение схемы создаёт черновик. Применение к нодам выполняется отдельно в разделе «Применение каскадов». VPN-путь и автоматическое переключение требуют отдельной проверки.</Notice>
     {vpn.isError && <Notice>{vpn.error.message}</Notice>}
     {vpn.data && !vpn.data.configured && <Notice>Локальный VPN ещё не настроен. Сохранение маршрутов его не активирует.</Notice>}
     {nodes.isError && <Notice>Не удалось загрузить ноды. Обновите данные перед сохранением.</Notice>}
@@ -145,6 +147,7 @@ export default function RoutePaths() {
     <Panel title={`Сохранённые черновики · ${policies.length}`}>
       {routes.isPending ? <Loading/> : routes.isError ? <div className="panel-body"><Notice>{routes.error.message}</Notice><Button type="button" onClick={() => void routes.refetch()}>Повторить загрузку</Button></div> : policies.length === 0 ? <div className="empty">Маршрутов ещё нет. Выберите вход и выход на схеме или в форме.</div> : view === 'table' ? <div className="table-scroll route-policy-table"><table><thead><tr><th>Маршрут</th><th>Вход → выход</th><th>Резерв по порядку</th><th>Состояние</th><th>Действия</th></tr></thead><tbody>{policies.map(policy => <tr key={policy.id}><td data-label="Маршрут"><strong>{policy.name}</strong><small className="node-secondary">r{policy.version}</small></td><td data-label="Вход → выход">{title(policy.entry_node)} → {policy.mode === 'direct' ? 'Интернет' : title(policy.primary_exit ?? '')}</td><td data-label="Резерв по порядку">{policy.backup_exits.map(title).join(' → ') || 'Нет'}</td><td data-label="Состояние"><Badge>Черновик</Badge></td><td data-label="Действия">{actions(policy)}</td></tr>)}</tbody></table></div> : <div className="panel-body route-list">{policies.map(policy => <article key={policy.id} className="route-policy-card"><div className="route-card-heading"><h3>{policy.name} <small>r{policy.version}</small></h3><Badge>Черновик</Badge></div><p className="route-path">Клиент → {title(policy.entry_node)}{policy.mode === 'cascade' ? ` → ${title(policy.primary_exit ?? '')}` : ''} → Интернет</p><p className="muted">{policy.backup_exits.length ? `Резерв: ${policy.backup_exits.map(title).join(' → ')}` : 'Без резервных выходов'}</p>{actions(policy)}</article>)}</div>}
     </Panel>
+    <CascadeDeployment policies={policies} nodes={available}/>
     {simulation && policies.some(policy => policy.id === simulation.id && policy.version === simulation.version) && <Panel title="Симуляция отказа: основной выход недоступен, затем восстановлен"><div className="panel-body"><Notice>Только модель с заданными наблюдениями. Реальная сеть и подписки не проверяются и не изменяются.</Notice><ol>{simulation.data.decisions.map((decision, index) => <li key={index}>Шаг {index + 1}: {pathTitles[decision.effective_path] ?? decision.effective_path}{decision.active_exit ? ` · ${title(decision.active_exit)}` : ''}{decision.switched ? ' · переключение' : ''}</li>)}</ol><Button type="button" onClick={() => setSimulation(null)}>Скрыть симуляцию</Button></div></Panel>}
   </>;
 }

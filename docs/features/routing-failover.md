@@ -1,3 +1,5 @@
+> **2026-11-06, UI этап сохранён:** preview/apply/status/rollback подключены к панели; клиентский профиль остаётся прежним, меняется серверный выход. Stable binding охватывает TCP/REALITY входной ноды. Source/build/API проверки прошли, браузерная приёмка ещё не завершена: [handoff](../testing/local-results/stage5-2026-11-06-cascade-ui.md). ACK не является egress proof; stage/VPS acceptance не выставлены.
+
 > **2026-11-06, продолжение:** encrypted journal/CAS/node leases, B→ACK→A и обратная компенсация подключены к node poll/ACK; [контракт](../adr/016-persistent-cascade-deployment.md). Есть только внутренний app/store start, admin HTTP/UI запуска отсутствует. ACK обоих узлов означает awaiting_probe, не публикацию. LogicalEndpoint/DNS/egress и VPS остаются открытыми.
 
 > **2026-11-06:** первый [кодовый блок inter-node renderer/helper](../adr/015-cascade-channel-and-node-operation.md) локально проверен. Он не подключён к controller/UI и не публикует маршруты. Ниже исторический foundation и целевая спецификация; полная функция каскадов всё ещё не завершена.

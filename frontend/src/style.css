@@ -263,3 +263,4 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 .fleet-server .badge{white-space:normal;max-width:100%}
 
 .metrics .metric{min-width:0}.metric .value,.metric .description{overflow-wrap:anywhere}
+.cascade-steps{margin:0;padding-left:22px;display:grid;gap:6px;overflow-wrap:anywhere}

@@ -15,6 +15,10 @@ import (
 func (a *App) PrepareCascade(ctx context.Context, routeID string, version int64, channelPort int) (store.CascadeDeployment, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.prepareCascadeLocked(ctx, routeID, version, channelPort)
+}
+
+func (a *App) prepareCascadeLocked(ctx context.Context, routeID string, version int64, channelPort int) (store.CascadeDeployment, error) {
 	policy, e := a.Store.RoutePolicy(ctx, routeID)
 	if e != nil {
 		return store.CascadeDeployment{}, e
@@ -50,11 +54,23 @@ func (a *App) PrepareCascade(ctx context.Context, routeID string, version int64,
 			return store.CascadeDeployment{}, errors.New("node endpoint changed; identity migration required")
 		}
 	}
+	baseA, e := a.Store.AcknowledgedNodeConfig(ctx, policy.EntryNode)
+	if e != nil {
+		return store.CascadeDeployment{}, e
+	}
+	baseB, e := a.Store.AcknowledgedNodeConfig(ctx, policy.PrimaryExit)
+	if e != nil {
+		return store.CascadeDeployment{}, e
+	}
 	channel, e := xray.NewCascadeChannel(channelPort)
 	if e != nil {
 		return store.CascadeDeployment{}, e
 	}
 	left, right, e := xray.GenerateCascade(entry, exit, users, users, channel)
+	if e != nil {
+		return store.CascadeDeployment{}, e
+	}
+	left, right, e = preserveCascadeClients(left, right, baseA.Config, baseB.Config)
 	if e != nil {
 		return store.CascadeDeployment{}, e
 	}
@@ -74,5 +90,5 @@ func (a *App) PrepareCascade(ctx context.Context, routeID string, version int64,
 	if e != nil {
 		return store.CascadeDeployment{}, e
 	}
-	return a.Store.PrepareCascade(ctx, store.CascadePreparation{RouteID: routeID, ExpectedVersion: version, RosterDigest: roster, EntryConfig: left, ExitConfig: right, ChannelSecret: secret})
+	return a.Store.PrepareCascade(ctx, store.CascadePreparation{RouteID: routeID, ExpectedVersion: version, RosterDigest: roster, EntryBaselineDigest: baseA.Digest, ExitBaselineDigest: baseB.Digest, EntryConfig: left, ExitConfig: right, ChannelSecret: secret})
 }

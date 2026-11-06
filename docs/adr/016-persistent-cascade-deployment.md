@@ -28,3 +28,8 @@ Leases блокируют сторонние deploy/retry/cancel/drain, SSH upgr
 ## Что остаётся
 
 Нет admin HTTP prepare/start/rollback/list и UI, LogicalEndpoint/user binding, ротации/повторного использования channel, Geo/DNS, независимой revision-bound egress/UDP проверки и публикации подписок. Ручное внутреннее Start меняет весь TCP listener ноды; **не подключать его к обычной кнопке сохранения черновика**. Не применять в production до staged preview/привязок/внешних gates. Нужен новый согласованный node release/helper, A2 prerelease не обновлён. Реальные systemd/SSH/две VPS/REALITY handshake/отключение трафика/512МиБ NOT RUN. [Проверки](../testing/local-results/stage5-2026-11-06-cascade-journal.md).
+
+
+## Сохранённое продолжение UI
+
+Session/CSRF API и React preview/apply/rollback подключены; binding получает стабильный endpoint ID (node+TCP inbound), scope всех текущих TCP доступов. Подтверждённый listener переносится целиком, рассогласованные доступы не пересоздаются. Preview digest связывает intent/roster/baselines/профили/порт; публикация остаётся закрытой. TypeScript/API race PASS, browser pending: [точка продолжения](../testing/local-results/stage5-2026-11-06-cascade-ui.md). Поля target/UUID/конфиги от браузера не принимаются. Прежнее «нет admin HTTP/UI» выше историческое; полный VPN/egress gate остаётся открытым.

@@ -1,3 +1,7 @@
+## 2026-11-06: UI применения каскадов (browser pending)
+
+`internal/store/cascade_ui.go` — stable endpoint/binding/preflight/baseline; `internal/app/cascade_ui.go`, `cascade_clients.go` — preview token/apply/preserve listeners; `internal/httpapi/cascade_ui{,_test}.go` — authenticated API и opt-in fixture; `frontend/src/features/routing/CascadeDeployment.tsx`, `RoutePaths.tsx` — UI; `tests/cascade_ui_e2e.mjs` — browser scenario. [Точка продолжения](../testing/local-results/stage5-2026-11-06-cascade-ui.md).
+
 ## 2026-11-06: постоянный журнал каскада
 
 `internal/store/cascade{,_test}.go` — encrypted snapshots/leases/CAS/stages; `node_control.go` — typed queue/poll/ACK transitions; `nodes.go`, `internal/nodeagent/agent.go`, `internal/noderuntime/runtime.go` — helper capability/heartbeat. `internal/app/cascade{,_test}.go` — internal preparation. Guards: store/routes/devices/usage/node_profile/node_bootstrap/store; `internal/httpapi/{httpapi,cascade_test}.go` —409. [ADR-016](../adr/016-persistent-cascade-deployment.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-journal.md). Admin UI/start API не подключены.

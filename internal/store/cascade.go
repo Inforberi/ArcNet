@@ -46,10 +46,11 @@ type CascadeDeployment struct {
 	Version      int64  `json:"version"`
 }
 type CascadePreparation struct {
-	RouteID                                string
-	ExpectedVersion                        int64
-	RosterDigest                           string
-	EntryConfig, ExitConfig, ChannelSecret []byte
+	RouteID                                 string
+	ExpectedVersion                         int64
+	RosterDigest                            string
+	EntryBaselineDigest, ExitBaselineDigest string
+	EntryConfig, ExitConfig, ChannelSecret  []byte
 }
 
 func cascadeProjection(r db.Row) CascadeDeployment {
@@ -215,12 +216,18 @@ func (s *Store) PrepareCascade(ctx context.Context, input CascadePreparation) (C
 			}
 			baselines[node] = r
 		}
+		if (input.EntryBaselineDigest != "" && baselines[policy.Entry]["desired_digest"] != input.EntryBaselineDigest) || (input.ExitBaselineDigest != "" && baselines[policy.Exit]["desired_digest"] != input.ExitBaselineDigest) {
+			return ErrConflict
+		}
 		sealed, e := s.sealNodeConfig(input.ChannelSecret, "cascade-secret:"+id)
 		if e != nil {
 			return e
 		}
 		now := strconv.FormatInt(time.Now().Unix(), 10)
 		if e := tx.Exec("INSERT INTO cascade_deployments(id,route_id,route_version,entry_node,exit_node,state,version,secret_ciphertext,roster_digest,created_at,updated_at) VALUES(?,?,?,?,?,'prepared',1,?,?,?,?)", id, input.RouteID, strconv.FormatInt(input.ExpectedVersion, 10), policy.Entry, policy.Exit, sealed, roster, now, now); e != nil {
+			return e
+		}
+		if e := bindCascadeEndpoint(tx, id, policy.Entry); e != nil {
 			return e
 		}
 		for _, node := range []string{policy.Entry, policy.Exit} {

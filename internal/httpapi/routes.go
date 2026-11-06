@@ -32,6 +32,8 @@ func routeError(w http.ResponseWriter, e error) {
 	switch {
 	case errors.Is(e, store.ErrNotFound):
 		fail(w, 404, "Маршрут не найден")
+	case errors.Is(e, store.ErrCascadeBusy):
+		fail(w, 409, "Маршрут связан с журналом каскада; сначала откатите операцию и удалите её журнал")
 	case errors.Is(e, store.ErrConflict):
 		fail(w, 409, "Конфликт версий маршрута; обновите данные")
 	case errors.Is(e, store.ErrRouteInvalid):
