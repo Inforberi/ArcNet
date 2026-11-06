@@ -32,6 +32,7 @@ import (
 	"github.com/arcvpn/arcvpn/internal/db"
 	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/httpapi"
+	"github.com/arcvpn/arcvpn/internal/lifecycle"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/updater"
 	"github.com/arcvpn/arcvpn/internal/xray"
@@ -40,7 +41,12 @@ import (
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "Ошибка:", err)
-		os.Exit(1)
+		code := 1
+		var coded interface{ ExitCode() int }
+		if errors.As(err, &coded) {
+			code = coded.ExitCode()
+		}
+		os.Exit(code)
 	}
 }
 func run() error {
@@ -49,6 +55,8 @@ func run() error {
 		return nil
 	}
 	switch os.Args[1] {
+	case "lifecycle":
+		return runLifecycle(os.Args[2:])
 	case "update-keygen":
 		flags := flag.NewFlagSet("update-keygen", flag.ContinueOnError)
 		dir := flags.String("out-dir", "", "offline signing key directory")
@@ -159,7 +167,7 @@ func run() error {
 	if dataDir == "" {
 		dataDir = "/var/lib/arcvpn"
 	}
-	if os.Args[1] == "admin-reset" || os.Args[1] == "settings" || os.Args[1] == "admin-revoke-sessions" {
+	if os.Args[1] == "admin-reset" || os.Args[1] == "settings" || os.Args[1] == "admin-revoke-sessions" || strings.HasPrefix(os.Args[1], "runtime-") {
 		if err := checkRecoveryPermissions(dataDir); err != nil {
 			return err
 		}
@@ -178,12 +186,30 @@ func run() error {
 	defer database.Close()
 	st := &store.Store{DB: database}
 	ctx := context.Background()
-	if os.Args[1] != "settings" {
+	if os.Args[1] != "settings" && !strings.HasPrefix(os.Args[1], "runtime-") {
 		if err := st.Migrate(ctx); err != nil {
 			return err
 		}
 	}
 	switch os.Args[1] {
+	case "runtime-plan", "runtime-prepare", "runtime-apply":
+		if len(os.Args) != 2 {
+			return errors.New("runtime management accepts no extra arguments")
+		}
+		call, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+		if os.Args[1] == "runtime-plan" {
+			plan, err := st.RuntimePlan(call)
+			if err != nil {
+				return err
+			}
+			return json.NewEncoder(os.Stdout).Encode(plan)
+		}
+		a := localRuntimeApp(st, dataDir)
+		if os.Args[1] == "runtime-prepare" {
+			return a.FinalLocalUsage(call)
+		}
+		return a.ApplyLocalRuntime(call)
 	case "backup-create":
 		flags := flag.NewFlagSet("backup-create", flag.ContinueOnError)
 		directory := flags.String("directory", "/var/backups/arcvpn", "private backup directory")
@@ -307,6 +333,7 @@ func run() error {
 		}
 		a := &app.App{
 			ReservedTCPPort: listenerPort,
+			RuntimeCheck:    (lifecycle.Guard{}).Check,
 			Store:           st,
 			Core:            xray.Controller{Binary: *coreBinary, Path: *coreConf, Service: *coreService, ControlSocket: *controlSocket},
 			Engines: &engines.Manager{
@@ -406,6 +433,7 @@ func run() error {
 }
 func splitHostPort(s string) (string, string, error) { return net.SplitHostPort(s) }
 func help() {
+	fmt.Println("local management protocol: lifecycle-v1")
 	fmt.Println("arcvpn: serve | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
 }
 
@@ -565,6 +593,12 @@ func runHelper() error {
 					_, _ = conn.Write([]byte(state + "\n"))
 				}
 				return
+			}
+			if action == "restart" {
+				if err := (lifecycle.Guard{}).Check(); err != nil {
+					_, _ = io.WriteString(conn, "error\n")
+					return
+				}
 			}
 			_, err = exec.CommandContext(ctx, "/usr/bin/systemctl", action, unit).CombinedOutput()
 			if err == nil && action == "restart" {

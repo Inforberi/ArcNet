@@ -1,6 +1,11 @@
 ## 2026-11-06: подготовка к самостоятельной VPS-приёмке
 
-[План A1–A4/B](../planning/pre-vps-install-and-cli-2026-11-06.md) — первичный остаток перед первой тестовой сборкой: общий локальный CLI, проверяемый release и установка одной командой; испытания проводит пользователь. Существующие точки: `deploy/arcvpn-menu.sh`, `install.sh`, `scripts/{build-release,package-release}.sh`; общие start/stop/runtime ещё не реализованы этим планом.
+[План A1–A4/B](../planning/pre-vps-install-and-cli-2026-11-06.md): A1 реализован локально, следующий A2 — проверяемый release/миграция, затем установка одной командой. Испытания проводит пользователь.
+
+- `internal/lifecycle/{manager,guard}.go` — одноразовый root coordinator и pause/lock; `internal/store/runtime.go` — safe enabled flags.
+- `cmd/arcvpn/lifecycle.go`, `deploy/arcvpn-menu.sh`, `internal/app/runtime.go` — CLI/меню, service-user prepare/reconcile, safe status.
+- `cmd/arcvpn/main.go`, `internal/updater/apply.go`, `install.sh` — guards для helper/worker/update/cert/units, boot tmpfiles. Нет новых постоянных сервисов.
+- Тесты рядом с модулями, `cmd/arcvpn/{menu,lifecycle,lifecycle_install}_test.go`; [контракт](../ops/local-service-control.md), [ADR-013](../adr/013-local-runtime-lifecycle.md), [результаты](../testing/local-results/stage5-2026-11-06-local-lifecycle.md).
 
 ## 2026-11-06: первый протокол без обязательного TCP REALITY
 

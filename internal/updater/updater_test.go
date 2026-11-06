@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/arcvpn/arcvpn/internal/lifecycle"
 )
 
 func TestSignVerifyAndRejectTampering(t *testing.T) {
@@ -79,6 +81,9 @@ func (r *fakeRunner) Run(_ context.Context, name string, args ...string) error {
 	return nil
 }
 func TestInstallerRollback(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("root lifecycle coordination fixture runs in disposable Linux")
+	}
 	pub, private, _ := ed25519.GenerateKey(rand.Reader)
 	dir := t.TempDir()
 	old := filepath.Join(dir, "arcvpn-core")
@@ -98,7 +103,7 @@ func TestInstallerRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &fakeRunner{failRestart: true}
-	install := Installer{Binary: old, Staged: staged, PublicKey: public, LockFile: filepath.Join(dir, "lock"), Runner: runner}
+	install := Installer{Binary: old, Staged: staged, PublicKey: public, LockFile: filepath.Join(dir, "lock"), Runner: runner, Coordination: &lifecycle.Guard{Dir: filepath.Join(dir, "lifecycle")}}
 	if _, err := install.Verify(); err != nil {
 		t.Fatal(err)
 	}

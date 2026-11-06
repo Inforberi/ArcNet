@@ -130,6 +130,11 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 }
 
 func (a *App) applyAll(ctx context.Context, reality store.Reality, users []store.User) error {
+	if a.RuntimeCheck != nil {
+		if err := a.RuntimeCheck(); err != nil {
+			return err
+		}
+	}
 	a.usageApplied = ""
 	return a.applyXray(ctx, reality, users)
 }

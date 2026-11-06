@@ -195,9 +195,15 @@ RuntimeMaxFileSize=16M
 JOURNAL
 chmod 0644 /etc/systemd/journald@arcvpn.conf.d/90-arcvpn-budget.conf
 info "Creating systemd services"
+# This root-owned directory must persist for the whole boot. Never place the
+# shared lock in a RuntimeDirectory removed when an individual unit exits.
+install -d -m 0755 -o root -g root /run/arcvpn-lifecycle /etc/tmpfiles.d
+printf 'd /run/arcvpn-lifecycle 0755 root root -\n' > /etc/tmpfiles.d/arcvpn-lifecycle.conf
+chmod 0644 /etc/tmpfiles.d/arcvpn-lifecycle.conf
 cat > "$SYSTEMD/arcvpn-panel.service" <<UNIT
 [Unit]
 Description=ArcVPN controller and web interface
+ConditionPathExists=!/run/arcvpn-lifecycle/paused
 After=network-online.target
 Wants=network-online.target
 [Service]
@@ -227,6 +233,7 @@ UNIT
 cat > "$SYSTEMD/arcvpn-xray.service" <<UNIT
 [Unit]
 Description=ArcVPN managed Xray-core
+ConditionPathExists=!/run/arcvpn-lifecycle/paused
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=$RUN_DIR/xray.json
@@ -257,6 +264,7 @@ UNIT
 cat > "$SYSTEMD/arcvpn-hysteria.service" <<UNIT
 [Unit]
 Description=ArcVPN Hysteria2 UDP server
+ConditionPathExists=!/run/arcvpn-lifecycle/paused
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=$RUN_DIR/hysteria.yaml
@@ -282,6 +290,7 @@ UNIT
 cat > "$SYSTEMD/arcvpn-wireguard.service" <<UNIT
 [Unit]
 Description=ArcVPN WireGuard interface
+ConditionPathExists=!/run/arcvpn-lifecycle/paused
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=$RUN_DIR/arcwg.conf
@@ -302,6 +311,7 @@ UNIT
 cat > "$SYSTEMD/arcvpn-amneziawg.service" <<UNIT
 [Unit]
 Description=ArcVPN AmneziaWG interface
+ConditionPathExists=!/run/arcvpn-lifecycle/paused
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=$RUN_DIR/arcawg.conf
@@ -324,7 +334,7 @@ cat > "$OPT/bin/arcvpn-cert-deploy" <<DEPLOY
 set -Eeuo pipefail
 install -m 0640 -o root -g arcvpn "$FULLCHAIN" "$CONFIG_DIR/tls/fullchain.pem"
 install -m 0640 -o root -g arcvpn "$PRIVATEKEY" "$CONFIG_DIR/tls/privkey.pem"
-/usr/bin/systemctl try-restart arcvpn-panel.service
+if [[ ! -e /run/arcvpn-lifecycle/paused ]]; then /usr/bin/systemctl try-restart arcvpn-panel.service; fi
 DEPLOY
 chmod 0755 "$OPT/bin/arcvpn-cert-deploy"
 cat > "$SYSTEMD/arcvpn-control.socket" <<'UNIT'
@@ -376,7 +386,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=$OPT/bin $RUN_DIR/update /run/arcvpn-update
+ReadWritePaths=$OPT/bin $RUN_DIR/update /run/arcvpn-update /run/arcvpn-lifecycle
 UMask=0077
 UNIT
 

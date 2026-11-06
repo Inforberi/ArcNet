@@ -2,7 +2,7 @@
 
 Это руководство для нового администратора и сопровождающего. Текущая версия — 0.7 preview; systemd/ACME/VPN/полный update на VPS ещё требуют внешней приёмки. Публичный репозиторий: [Inforberi/ArcNet](https://github.com/Inforberi/ArcNet), лицензия проекта — [MIT](../../LICENSE).
 
-Пользователь проведёт серверные испытания самостоятельно. До передачи тестовой сборки запланированы общий CLI start/stop/restart/status, проверенный установочный пакет и bootstrap одной командой: [план A1–A4/B](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md). Эти общие команды и сетевой bootstrap ещё не реализованы; настоящую однострочную установочную команду следует выдавать после подготовки проверенного asset.
+Пользователь проведёт серверные испытания самостоятельно. A1 общий CLI start/stop/restart/status реализован и проверен на локальных fixtures: [контракт](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). Нужны новые core/wrapper/units/tmpfiles/cert hook вместе; core-only updater не мигрирует эту обвязку. Настоящий systemd ещё не принят. Следующие A2/A3 — проверенный установочный пакет/миграция и bootstrap одной командой: [план](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md). Готовая однострочная установка пока не выдаётся.
 
 ## Что скачать
 

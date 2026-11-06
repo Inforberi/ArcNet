@@ -11,6 +11,8 @@ import (
 	"sort"
 	"syscall"
 	"time"
+
+	"github.com/arcvpn/arcvpn/internal/lifecycle"
 )
 
 type Exec interface {
@@ -26,11 +28,12 @@ func (commandRunner) Run(ctx context.Context, name string, args ...string) error
 }
 
 type Installer struct {
-	Binary    string
-	Staged    string
-	PublicKey string
-	LockFile  string
-	Runner    Exec
+	Binary       string
+	Staged       string
+	PublicKey    string
+	LockFile     string
+	Runner       Exec
+	Coordination *lifecycle.Guard
 }
 
 func (i Installer) defaults() Installer {
@@ -93,6 +96,18 @@ func (i Installer) Apply(ctx context.Context) error {
 	i = i.defaults()
 	pub, err := ReadPublicKey(i.PublicKey)
 	if err != nil {
+		return err
+	}
+	guard := lifecycle.Guard{}
+	if i.Coordination != nil {
+		guard = *i.Coordination
+	}
+	unlock, err := guard.Lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := guard.Check(); err != nil {
 		return err
 	}
 	lock, err := os.OpenFile(i.LockFile, os.O_CREATE|os.O_RDWR, 0600)

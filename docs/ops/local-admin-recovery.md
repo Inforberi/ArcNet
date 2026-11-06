@@ -2,6 +2,8 @@
 
 Контракт исходников 2026-11-05. Команды доступны после установки обновлённого `/usr/local/bin/arcvpn` из `deploy/arcvpn-menu.sh` и соответствующего core. Уже установленный старый wrapper сам этим изменением не обновляется. Изменения не развёрнуты на реальном VPS.
 
+Дополнение A1 2026-11-06: общие [start/stop/restart/status и журналы](local-service-control.md) реализованы в исходниках. Recovery/settings по-прежнему выполняются service user; root lifecycle вызывает только фиксированные системные действия и не открывает SQLite от root. Для нового lifecycle нужны также согласованные units/tmpfiles/cert hook, а не одна замена wrapper.
+
 ```bash
 sudo arcvpn
 sudo arcvpn settings

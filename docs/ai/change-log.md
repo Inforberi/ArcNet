@@ -1,5 +1,7 @@
 ## 2026-11-06 — план установки и самостоятельной VPS-приёмки
 
+Продолжение A1: реализованы общие root-coordinated start/stop/restart/status/logs, safe flags plan/service-user DB, pause/lock и worker/helper/units/cert/update guards. Targeted Go tests/vet/race, shell fixtures и diagnostic core build PASS. Никаких actual systemd/VPS/handshake/512МиБ PASS; полный release/миграция и bootstrap остаются A2/A3. [Контракт](../ops/local-service-control.md), [ADR-013](../adr/013-local-runtime-lifecycle.md), [результаты](../testing/local-results/stage5-2026-11-06-local-lifecycle.md).
+
 По запросу пользователя закреплены подготовка установочного пакета/проверенного bootstrap одной командой и общий start/stop/restart/status локальной установки. Пользователь сам выполняет серверные испытания. План отделяет первый smoke test от будущего каскадного runtime; A1 CLI — следующая кодовая задача. Это docs-only: проверены ссылки/команды по wrapper и diff, сборки/Go/frontend/серверные проверки не запускались. Никаких новых runtime PASS. [План](../planning/pre-vps-install-and-cli-2026-11-06.md).
 
 ## 2026-11-06 — независимый первый локальный протокол

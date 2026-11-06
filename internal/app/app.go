@@ -18,7 +18,8 @@ type App struct {
 	Store           *store.Store
 	Core            xray.Controller
 	Engines         *engines.Manager
-	ReservedTCPPort int // HTTPS administrative listener, never a VPN TCP listener
+	ReservedTCPPort int          // HTTPS administrative listener, never a VPN TCP listener
+	RuntimeCheck    func() error // injected local maintenance boundary
 	mu              sync.Mutex
 	usageApplied    string
 }

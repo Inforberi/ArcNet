@@ -6,7 +6,7 @@
 
 [Установка и обновление](docs/ops/install-and-update.md) · [Правила коротких рабочих блоков](docs/planning/short-work-blocks.md) · [Репозиторий](https://github.com/Inforberi/ArcNet) · [MIT](LICENSE)
 
-Следующая подготовка к пользовательской проверке: [установка одной командой и общее CLI-управление](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md). Это план; общие команды start/stop/restart всей установки пока не реализованы.
+Общие `sudo arcvpn start / stop / restart / status` реализованы в исходниках для локальной установки: [контракт и ограничения](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). Нужны соответствующие новые core/wrapper/units; реальная systemd/VPS-приёмка открыта. Следующий блок — [тестовый установочный пакет и установка одной командой](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md); сетевой bootstrap пока не готов.
 
 ## Возможности
 

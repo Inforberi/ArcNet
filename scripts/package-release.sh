@@ -6,7 +6,7 @@ cd "$ROOT"
 IFS= read -r version < dist/VERSION
 [[ "$version" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Invalid dist/VERSION' >&2; exit 65; }
 files=(dist/arcvpn-linux-amd64 dist/VERSION install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE
- docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/planning/short-work-blocks.md)
+ docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/ops/local-service-control.md docs/planning/short-work-blocks.md)
 legacy="${ARCVPN_WITH_AMNEZIAWG:-0}"
 [[ "$legacy" == 0 || "$legacy" == 1 ]] || { echo 'ARCVPN_WITH_AMNEZIAWG must be 0 or 1' >&2; exit 65; }
 if [[ "$legacy" == 1 ]]; then

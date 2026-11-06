@@ -6,7 +6,7 @@ fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/scripts" "$fixture/dist"
 cp "$root/scripts/package-release.sh" "$fixture/scripts/"
-for file in install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/planning/short-work-blocks.md; do
+for file in install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/ops/local-service-control.md docs/planning/short-work-blocks.md; do
  mkdir -p "$fixture/$(dirname "$file")"
  cp "$root/$file" "$fixture/$file"
 done
@@ -22,6 +22,7 @@ tar -tzf "$archive" > "$fixture/contents"
 grep -qx 'install.sh' "$fixture/contents"
 grep -qx 'deploy/arcvpn-menu.sh' "$fixture/contents"
 grep -qx 'docs/ops/install-and-update.md' "$fixture/contents"
+grep -qx 'docs/ops/local-service-control.md' "$fixture/contents"
 grep -qx 'dist/update-public.hex' "$fixture/contents"
 if grep -Eq 'update-private|awg-linux|panel.sqlite' "$fixture/contents"; then
  echo 'Unexpected private/unlisted artifact in package' >&2; exit 1
