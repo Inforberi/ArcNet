@@ -190,6 +190,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/routes/{id}/deployment-preview", s.mustAuth(s.cascadePreview, true))
 	mux.HandleFunc("POST /api/routes/{id}/deployments", s.mustAuth(s.cascadeApply, true))
 	mux.HandleFunc("GET /api/cascade-deployments", s.mustAuth(s.cascadeList, false))
+	mux.HandleFunc("POST /api/cascade-deployments/{id}/probe-grant", s.mustAuth(s.cascadeProbeGrant, true))
+	mux.HandleFunc("POST /api/cascade-probes/report", s.cascadeProbeReport)
 	mux.HandleFunc("POST /api/cascade-deployments/{id}/{action}", s.mustAuth(s.cascadeAction, true))
 	mux.HandleFunc("DELETE /api/cascade-deployments/{id}", s.mustAuth(s.cascadeDelete, true))
 	mux.HandleFunc("GET /api/routing-profiles", s.mustAuth(s.routingProfiles, false))

@@ -130,7 +130,7 @@ func GenerateCascade(entry, exit store.Reality, entryUsers, exitUsers []store.Us
 	out := cascadeOutbound(exit.Address, channel.Port, channel.ID, exit.SNI, channel.Public, channel.ShortID)
 	a["outbounds"] = []any{map[string]any{"protocol": "blackhole", "tag": "block"}, out}
 	a["routing"] = cascadeRouting(false)
-	b["outbounds"] = []any{map[string]any{"protocol": "blackhole", "tag": "block"}, map[string]any{"protocol": "freedom", "tag": "direct"}}
+	b["outbounds"] = []any{map[string]any{"protocol": "blackhole", "tag": "block"}, cascadeExitOutbound()}
 	b["routing"] = cascadeRouting(true)
 	entryConfig, err = json.Marshal(a)
 	if err == nil {
@@ -146,6 +146,12 @@ func cascadeOutbound(address string, port int, id, sni, public, short string) ma
 		"settings":       map[string]any{"address": address, "port": port, "id": id, "encryption": "none", "flow": "xtls-rprx-vision"},
 		"streamSettings": map[string]any{"network": "tcp", "security": "reality", "realitySettings": map[string]any{"serverName": sni, "fingerprint": "chrome", "password": public, "shortId": short}}}
 }
+func cascadeExitOutbound() map[string]any {
+	return map[string]any{"protocol": "freedom", "tag": "direct", "settings": map[string]any{"targetStrategy": "UseIP", "finalRules": []any{map[string]any{"action": "block", "ip": cascadeBlockedIPs()}, map[string]any{"action": "allow"}}}}
+}
+func cascadeBlockedIPs() []string {
+	return []string{"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "::/96", "2001:db8::/32", "fc00::/7", "fe80::/10", "ff00::/8"}
+}
 func cascadeRouting(exit bool) map[string]any {
 	tags := []string{"vless-reality"}
 	target := CascadeOutbound
@@ -154,7 +160,7 @@ func cascadeRouting(exit bool) map[string]any {
 		target = "direct"
 	}
 	return map[string]any{"domainStrategy": "AsIs", "rules": []any{
-		map[string]any{"type": "field", "inboundTag": tags, "ip": []string{"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4", "::/96", "fc00::/7", "fe80::/10", "ff00::/8"}, "outboundTag": "block"},
+		map[string]any{"type": "field", "inboundTag": tags, "ip": cascadeBlockedIPs(), "outboundTag": "block"},
 		map[string]any{"type": "field", "inboundTag": tags, "outboundTag": target},
 	}}
 }
@@ -185,7 +191,7 @@ func ValidateCascadeForwarding(raw []byte) error {
 		return errors.New("cascade must use fixed fail-closed forwarding")
 	}
 	if exit {
-		if !sameJSON(config.Outbounds[1], map[string]any{"protocol": "freedom", "tag": "direct"}) {
+		if !sameJSON(config.Outbounds[1], cascadeExitOutbound()) {
 			return errors.New("invalid exit outbound")
 		}
 		return nil

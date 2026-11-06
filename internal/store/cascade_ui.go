@@ -36,6 +36,8 @@ type CascadeStepView struct {
 	Revision int64  `json:"revision"`
 }
 type CascadeView struct {
+	Proof               *CascadeProof `json:"proof"`
+	ProbeGrantExpiresAt int64         `json:"probe_grant_expires_at"`
 	CascadeDeployment
 	Binding *CascadeBinding   `json:"binding"`
 	Steps   []CascadeStepView `json:"steps"`
@@ -145,6 +147,17 @@ func (s *Store) CascadeDeployments(ctx context.Context) ([]CascadeView, error) {
 			for _, r := range steps {
 				revision, _ := strconv.ParseInt(r["revision"], 10, 64)
 				item.Steps = append(item.Steps, CascadeStepView{Step: r["step"], NodeID: r["node_id"], State: r["state"], Revision: revision})
+			}
+			item.Proof, e = cascadeProof(tx, row)
+			if e != nil {
+				return e
+			}
+			grants, e := tx.Query("SELECT expires FROM cascade_probe_grants WHERE deployment_id=?", item.ID)
+			if e != nil {
+				return e
+			}
+			if len(grants) > 0 {
+				item.ProbeGrantExpiresAt, _ = strconv.ParseInt(grants[0]["expires"], 10, 64)
 			}
 			out = append(out, item)
 		}

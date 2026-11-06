@@ -1,3 +1,7 @@
+## 2026-11-06: cascade proof/publication
+
+`internal/nodeprobe/cascade{,_test}.go`, `cmd/arcvpn/cascade_probe.go` — fixed HTTPS/DoH runner; `internal/store/cascade_probe{,_test}.go` — grants/evidence/publication; `internal/app/cascade_probe.go`, `protocols.go` — private bundle and subscription links; `internal/httpapi/cascade_probe{,_test}.go`, `cascade_ui.go` — admin/report/publish; `CascadeDeployment.tsx` — file download/proof/publish UI; `internal/xray/cascade.go` — fixed post-resolution block. [ADR-017](../adr/017-cascade-external-proof-and-publication.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-proof.md).
+
 ## 2026-11-06: UI применения каскадов (browser pending)
 
 `internal/store/cascade_ui.go` — stable endpoint/binding/preflight/baseline; `internal/app/cascade_ui.go`, `cascade_clients.go` — preview token/apply/preserve listeners; `internal/httpapi/cascade_ui{,_test}.go` — authenticated API и opt-in fixture; `frontend/src/features/routing/CascadeDeployment.tsx`, `RoutePaths.tsx` — UI; `tests/cascade_ui_e2e.mjs` — browser scenario. [Точка продолжения](../testing/local-results/stage5-2026-11-06-cascade-ui.md).

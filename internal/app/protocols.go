@@ -411,5 +411,16 @@ func (a *App) SubscriptionLinks(ctx context.Context, u store.User) ([]string, er
 			links = append(links, connection.Link)
 		}
 	}
+	nodes, err := a.Store.PublishedCascadeEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		profile, err := a.Store.NodeReality(ctx, node)
+		if err != nil {
+			return nil, err
+		}
+		links = append(links, xray.Link(profile, u))
+	}
 	return links, nil
 }

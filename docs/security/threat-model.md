@@ -104,3 +104,8 @@ Private loopback API `127.0.0.1:19823` требует случайный маш�
 ## Постоянный журнал каскада — 2026-11-06
 
 [ADR-016](../adr/016-persistent-cascade-deployment.md): AES-GCM/AAD per deployment/step/digest, monotonic compensation revisions, transaction ACK→next-stage, node leases и guards на users/routes/endpoint/deploy/SSH lifecycle/restore. ACK loss не доказывает отсутствие apply; attention сохраняет резервации и last-good snapshots. Восстановление A предшествует удалению канала B. Capability read-only/2s deadline и freshness180s не являются root attestation: агент/root доверены, публикация остаётся запрещена. Runtime journal отсутствует в portable backup; нужен согласованный SQLite+node-control.key/OS snapshot. Admin UI/start API ещё нет, internal method не должен становиться обычным Save. Внешние process/systemd/VPS crash/egress/DNS gates открыты.
+
+
+## Cascade proof/publication 2026-11-06
+
+[ADR-017](../adr/017-cascade-external-proof-and-publication.md): self-report trusted runner, hash-only one-time grants, оба node revision/digest, expected exit IP, fixed HTTPS/DoH tunnel without local DNS/dial fallback, bounded file/process/body. Отчёт не root/location attestation, DoH не OS leak-test. Отдельный CAS publication, чтение проверяет current evidence/expiry/states; старые выданные credentials не исчезают при metadata TTL. Root fixed finalRules блокируют private IP после resolution, произвольные overrides не добавлены. Новые gates требуют node release и внешней приёмки.

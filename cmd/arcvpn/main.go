@@ -147,6 +147,8 @@ func run() error {
 	case "version":
 		fmt.Println("arcvpn " + nodeagent.Version)
 		return nil
+	case "cascade-probe":
+		return runCascadeProbe(os.Args[2:])
 	case "node-probe":
 		return runNodeProbe(os.Args[2:])
 	case "frontend-check":
@@ -434,7 +436,7 @@ func run() error {
 func splitHostPort(s string) (string, string, error) { return net.SplitHostPort(s) }
 func help() {
 	fmt.Println("local management protocol: lifecycle-v1")
-	fmt.Println("arcvpn: serve | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
+	fmt.Println("arcvpn: serve | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | cascade-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
 }
 
 // runHelper is intended ONLY for the root-owned systemd socket-activated unit.

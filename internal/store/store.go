@@ -81,7 +81,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 				return err
 			}
 		}
-		for _, q := range []string{nodeControlSchema, nodeOpSchema, cascadeSchema, cascadeStepsSchema, cascadeLeasesSchema, cascadeCapabilitySchema, cascadeEndpointsSchema, cascadeBindingsSchema, `CREATE INDEX IF NOT EXISTS cascade_steps_operation_idx ON cascade_steps(operation_id)`, nodeEnrollMetaSchema, nodeProfileSchema, nodeBootstrapSchema, `CREATE INDEX IF NOT EXISTS node_operations_node_idx ON node_operations(node_id,created_at DESC)`, `INSERT OR IGNORE INTO node_control(node_id) SELECT id FROM managed_nodes`} {
+		for _, q := range []string{nodeControlSchema, nodeOpSchema, cascadeSchema, cascadeStepsSchema, cascadeLeasesSchema, cascadeCapabilitySchema, cascadeEndpointsSchema, cascadeBindingsSchema, cascadeProbeSchema, cascadeEvidenceSchema, cascadePublicationSchema, `CREATE INDEX IF NOT EXISTS cascade_steps_operation_idx ON cascade_steps(operation_id)`, nodeEnrollMetaSchema, nodeProfileSchema, nodeBootstrapSchema, `CREATE INDEX IF NOT EXISTS node_operations_node_idx ON node_operations(node_id,created_at DESC)`, `INSERT OR IGNORE INTO node_control(node_id) SELECT id FROM managed_nodes`} {
 			if err := tx.Exec(q); err != nil {
 				return err
 			}

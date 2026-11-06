@@ -128,6 +128,8 @@ func Config(link Link, localPort int, username, password string) ([]byte, error)
 
 // Result never includes the client UUID, REALITY key, or full VLESS link.
 type Result struct {
+	ExitIP     string `json:"exit_ip,omitempty"`
+	DNSMode    string `json:"dns_mode,omitempty"`
 	Result     string `json:"result"`
 	DurationMS int64  `json:"duration_ms"`
 	CheckedAt  int64  `json:"checked_at"`
@@ -143,6 +145,10 @@ func randomCredential() (string, error) {
 }
 
 func Run(ctx context.Context, binary, rawLink string) (Result, error) {
+	return run(ctx, binary, rawLink, nil)
+}
+
+func run(ctx context.Context, binary, rawLink string, extra func(context.Context, *http.Client) (Result, error)) (Result, error) {
 	link, err := ParseLink(rawLink)
 	if err != nil {
 		return Result{}, err
@@ -177,7 +183,11 @@ func Run(ctx context.Context, binary, rawLink string) (Result, error) {
 	if err = os.WriteFile(configPath, data, 0600); err != nil {
 		return Result{}, err
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, MaxDuration)
+	duration := MaxDuration
+	if extra != nil {
+		duration = 60 * time.Second
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 	validate := exec.CommandContext(probeCtx, binary, "run", "-test", "-config", configPath)
 	validate.Stdout = io.Discard
@@ -241,6 +251,15 @@ func Run(ctx context.Context, binary, rawLink string) (Result, error) {
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
 	if resp.StatusCode != http.StatusNoContent {
 		return Result{}, fmt.Errorf("VPN HTTPS target returned HTTP %d (expected 204)", resp.StatusCode)
+	}
+	if extra != nil {
+		result, e := extra(probeCtx, client)
+		if e != nil {
+			return Result{}, e
+		}
+		result.DurationMS = time.Since(start).Milliseconds()
+		result.CheckedAt = time.Now().Unix()
+		return result, nil
 	}
 	return Result{Result: "pass", DurationMS: time.Since(start).Milliseconds(), CheckedAt: time.Now().Unix(), Evidence: "HTTPS 204 through authenticated local SOCKS5 -> Xray VLESS/REALITY; TLS verified"}, nil
 }

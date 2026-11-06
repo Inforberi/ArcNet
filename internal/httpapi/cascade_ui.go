@@ -31,7 +31,7 @@ func (s *Server) cascadeList(w http.ResponseWriter, r *http.Request) {
 		cascadeError(w, e)
 		return
 	}
-	respond(w, 200, map[string]any{"items": items, "publication_enabled": false})
+	respond(w, 200, map[string]any{"items": items, "publication_enabled": true})
 }
 func (s *Server) cascadePreview(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -93,6 +93,17 @@ func (s *Server) cascadeAction(w http.ResponseWriter, r *http.Request) {
 		}
 		s.App.Store.Event(r.Context(), "cascade.start", "resumed cascade "+id)
 		respond(w, 202, deployment)
+	case "publish":
+		if input.Confirm != "PUBLISH_CASCADE" {
+			fail(w, 400, "Подтвердите публикацию проверенного маршрута")
+			return
+		}
+		if e := s.App.PublishCascade(r.Context(), id, input.Version); e != nil {
+			cascadeError(w, e)
+			return
+		}
+		s.App.Store.Event(r.Context(), "cascade.publish", "published verified cascade "+id)
+		respond(w, 200, map[string]bool{"published": true})
 	case "rollback":
 		if input.Confirm != "ROLLBACK_CASCADE" {
 			fail(w, 400, "Подтвердите откат")
