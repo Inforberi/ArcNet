@@ -1,3 +1,5 @@
+> **2026-11-06:** первый [кодовый блок inter-node renderer/helper](../adr/015-cascade-channel-and-node-operation.md) локально проверен. Он не подключён к controller/UI и не публикует маршруты. Ниже исторический foundation и целевая спецификация; полная функция каскадов всё ещё не завершена.
+
 # Feature: маршруты, каскады, failover
 
 > **Реализация 0.7.0-stage5-foundation:** существует только сохранение и симуляция черновиков RoutePolicy (SQLite/API/React). Xray outbound/inbound, межнодовые ключи, реальный failover и публикация отсутствуют. Полный список задач — [stage5-checklist](../planning/stage5-checklist.md). Ниже **целевая** спецификация, а не готовые функции.

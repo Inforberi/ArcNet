@@ -1,3 +1,5 @@
+**2026-11-06, частично S5-12/13:** отдельные machine credentials, TCP/REALITY renderer A→B и restricted helper operation реализованы; [контракт/остаток](../adr/015-cascade-channel-and-node-operation.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-channel.md). Пункты не закрываются: encrypted persistence, LogicalEndpoint/bindings, multi-node journal/ACK/compensation, DNS/egress/publish и VPS не реализованы/не приняты.
+
 # ArcVPN — этап 5: маршруты, каскады, резервирование
 
 **Точка входа:** `0.7.0-stage5-foundation` (2026-11-05). Это **основа для Codex**, а не приёмка этапа 5.

@@ -94,3 +94,8 @@ Private loopback API `127.0.0.1:19823` требует случайный маш�
 ## WireGuard helper statistics
 
 Только фиксированный read-only RPC `stats wireguard`, никакого интерфейса/argv/path от браузера. Root helper читает только public-key/transfer, never dump/private-key. Root-owned epoch receipt привязан к boot/interface/config SHA; peer set/server key/revision и эпоха проверяются. При ошибке receipt после up выполняется bounded down. Socket parent root-owned, без group/other write; private peer keys не возвращаются stats API и не попадают в audit. Новый путь требует отдельного isolated VM rollback/systemd/kernel теста; source checks не являются его приёмкой. [ADR-011](../adr/011-wireguard-traffic-and-devices.md).
+
+
+## Каскадный канал/helper — 2026-11-06
+
+[ADR-015](../adr/015-cascade-channel-and-node-operation.md): отдельные machine credentials и listener; новая fixed-shape операция без shell/paths/API, no direct fallback на A, default block, duplicate-key rejection. Скомпрометированные controller/node UID/root остаются доверенной границей, receipt/active не аттестуют egress. Политика AsIs/CIDR блокирует буквальные private destinations, но не гарантирует запрет domain→private или отсутствие DNS leaks: это открытый gate перед публикацией. Новая операция не ставится в controller queue; старые агенты не считаются совместимыми по одному protocol1. Firewall/OS не меняются. Нужны persistent encrypted credentials/rotation, LogicalEndpoint bindings, CAS многоузловых revisions, rollback/reconcile, независимая egress/DNS/UDP приёмка и отдельный publish.

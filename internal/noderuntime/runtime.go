@@ -210,12 +210,15 @@ func stringValue(raw json.RawMessage) string {
 }
 
 func ValidateRequest(req ApplyRequest) error {
-	if req.ProtocolVersion != 1 || req.Kind != "apply_xray_v1" || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
+	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
 		return errors.New("unsupported or malformed apply operation")
 	}
 	sum := sha256.Sum256(req.Config)
 	if hex.EncodeToString(sum[:]) != req.SHA256 {
 		return errors.New("payload digest mismatch")
+	}
+	if req.Kind == "apply_cascade_xray_v1" {
+		return ValidateCascadeConfig(req.Config)
 	}
 	return ValidateConfig(req.Config)
 }

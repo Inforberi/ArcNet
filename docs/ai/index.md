@@ -1,3 +1,7 @@
+## 2026-11-06: каскадный канал
+
+`internal/xray/cascade{,_test,_integration_test}.go` — machine identity/renderer/real Xray test; `internal/noderuntime/cascade{,_test}.go`, `runtime.go` — отдельная allowlisted apply operation с receipt/rollback. Controller/UI queue не подключены. [ADR-015](../adr/015-cascade-channel-and-node-operation.md), [результаты](../testing/local-results/stage5-2026-11-06-cascade-channel.md).
+
 ## 2026-11-06: A3 bootstrap
 
 `deploy/bootstrap-install.sh` — pinned installer с OpenSSL/Python safe extraction; `scripts/testing/bootstrap-fixture.py` — offline signed-hostile archive fixture; [команда/приёмка](../ops/vps-preview-acceptance.md), [проверки](../testing/local-results/stage5-2026-11-06-bootstrap.md). Публичный prerelease A2; VPS остаётся пользовательской проверкой. Старые статусы ниже исторические.
