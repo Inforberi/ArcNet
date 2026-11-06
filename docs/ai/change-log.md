@@ -1,3 +1,7 @@
+## 2026-11-06 — план установки и самостоятельной VPS-приёмки
+
+По запросу пользователя закреплены подготовка установочного пакета/проверенного bootstrap одной командой и общий start/stop/restart/status локальной установки. Пользователь сам выполняет серверные испытания. План отделяет первый smoke test от будущего каскадного runtime; A1 CLI — следующая кодовая задача. Это docs-only: проверены ссылки/команды по wrapper и diff, сборки/Go/frontend/серверные проверки не запускались. Никаких новых runtime PASS. [План](../planning/pre-vps-install-and-cli-2026-11-06.md).
+
 ## 2026-11-06 — независимый первый локальный протокол
 
 Убрана обязательная настройка TCP REALITY перед XHTTP/Hysteria/WG: отдельная identity-проекция адреса, optional TCP, согласованные users/devices/подписки/учёт и backup v10. Никакого скрытого VLESS или новых dependencies/RPC/schema. Сохранены credentials и legacy backup compatibility; добавлены first-create/restore failure/port/address/freshness/export regression. Targeted Linux tests/vet/race и TypeScript/build PASS; отдельный Chromium UI/API сценарий с simulated engines. Реальный VPS/VPN NOT RUN, remote/Geo/cascade/failover остаются открытыми. [ADR-012](../adr/012-independent-first-local-protocol.md), [результаты](../testing/local-results/stage5-2026-11-06-first-protocol.md).

@@ -1,3 +1,7 @@
+## 2026-11-06: подготовка к самостоятельной VPS-приёмке
+
+[План A1–A4/B](../planning/pre-vps-install-and-cli-2026-11-06.md) — первичный остаток перед первой тестовой сборкой: общий локальный CLI, проверяемый release и установка одной командой; испытания проводит пользователь. Существующие точки: `deploy/arcvpn-menu.sh`, `install.sh`, `scripts/{build-release,package-release}.sh`; общие start/stop/runtime ещё не реализованы этим планом.
+
 ## 2026-11-06: первый протокол без обязательного TCP REALITY
 
 - `internal/store/local_server.go` — самостоятельная read-only модель local host address, `OptionalReality`, guard последнего профиля.

@@ -6,6 +6,8 @@
 
 [Установка и обновление](docs/ops/install-and-update.md) · [Правила коротких рабочих блоков](docs/planning/short-work-blocks.md) · [Репозиторий](https://github.com/Inforberi/ArcNet) · [MIT](LICENSE)
 
+Следующая подготовка к пользовательской проверке: [установка одной командой и общее CLI-управление](https://github.com/Inforberi/ArcNet/blob/main/docs/planning/pre-vps-install-and-cli-2026-11-06.md). Это план; общие команды start/stop/restart всей установки пока не реализованы.
+
 ## Возможности
 
 | Возможность | Текущее состояние |
