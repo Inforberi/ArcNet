@@ -1,3 +1,7 @@
+## 2026-11-06 — A3: безопасная установка и публикация preview
+
+**2026-11-06 — A3 bootstrap и тестовый prerelease.** `deploy/bootstrap-install.sh`: pinned version/public key, подпись до metadata, hash/size/target, ограниченная безопасная распаковка, внутренние checksums, fresh-install guard; verify-only без исполнения. Опубликован [prerelease A2](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a2) с точным dirty build snapshot и bootstrap; core не пересобирался. [Одна команда/короткая приёмка](../ops/vps-preview-acceptance.md), [проверки](../testing/local-results/stage5-2026-11-06-bootstrap.md). VPS/systemd/ACME/VPN/reboot/restore/512МиБ NOT RUN — проверяет пользователь. Нет in-place migration/полного OS rollback, каскады/Geo/failover остаются открытыми. Старые «Release/bootstrap нет» ниже — история.
+
 ## 2026-11-06 — план установки и самостоятельной VPS-приёмки
 
 Продолжение A2: один настоящий Ubuntu22.04 linux/amd64 release build со встроенным UI, provenance и source snapshot; полный tar.gz подписан новым offline installer signer, actual archive verify PASS. Новые releasebundle security tests вошли в этот единственный release pipeline; повторных race/browser matrix нет. Docker опционален на build host, не VPS. Добавлен безопасный маршрут clean migration; in-place updater/публичный Release/bootstrap не заявлены готовыми. [Guide](../ops/installer-release-and-migration.md), [результаты](../testing/local-results/stage5-2026-11-06-installer-bundle.md).

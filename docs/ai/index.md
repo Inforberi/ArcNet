@@ -1,3 +1,7 @@
+## 2026-11-06: A3 bootstrap
+
+`deploy/bootstrap-install.sh` — pinned installer с OpenSSL/Python safe extraction; `scripts/testing/bootstrap-fixture.py` — offline signed-hostile archive fixture; [команда/приёмка](../ops/vps-preview-acceptance.md), [проверки](../testing/local-results/stage5-2026-11-06-bootstrap.md). Публичный prerelease A2; VPS остаётся пользовательской проверкой. Старые статусы ниже исторические.
+
 ## 2026-11-06: подготовка к самостоятельной VPS-приёмке
 
 A2: `deploy/release.Dockerfile`, `scripts/build-installer-docker.sh`, `scripts/{build-release,package-release}.sh` — Ubuntu22.04 linux/amd64 build, metadata/source snapshot/installer. `internal/releasebundle`, `cmd/arcvpn-release` — offline full-archive signer/verifier/keygen, отдельный от updater протокол. [Guide](../ops/installer-release-and-migration.md), [ADR-014](../adr/014-signed-installer-and-build-baseline.md), [результаты](../testing/local-results/stage5-2026-11-06-installer-bundle.md). Далее A3 bootstrap; keys вне Git, публичного Release нет.

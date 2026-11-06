@@ -11,3 +11,9 @@ CGO собирается на самой старой заявленной basel
 Build metadata явно показывает commit/dirty и source manifest hash; экспортируется полный source snapshot, включая dirty tree, без выдачи его за чистый commit. Финальные documentation-only commits не приписываются уже проверенному бинарнику. Подписан конкретный локальный предварительный asset, не опубликованный production Release.
 
 Для старой обвязки выбран документированный путь clean install + encrypted restore. In-place OS/units/helper migration не автоматизирована: её нельзя подменять core-only update или повторным install.sh. Новый полноценный мигратор/rollback требует отдельной VM-приёмки.
+
+## A3: закреплённый bootstrap
+
+По прямому разрешению пользователя опубликован тестовый prerelease A2. `deploy/bootstrap-install.sh` содержит конкретные version/URL/public PEM без URL/key overrides. Перед root execution launcher из доверенной инструкции проверяет закреплённый SHA256 bootstrap в приватном root-owned каталоге. Подпись raw manifest проверяется OpenSSL до использования metadata, затем размер/hash/target, bounded gzip и строгий file allowlist без ссылок/спецфайлов/extensions, ручное exclusive/no-follow извлечение и внутренние checksums/source/build metadata. Никакой код архива не исполняется до завершения проверок.
+
+`--verify-only` не исполняет payload и не устанавливает зависимости; `--from-dir` разрешён только с ним. Установка отклоняет существующие каталоги/units до apt/download. Bootstrap удаляет временный каталог, но не обещает rollback изменений ОС самим install.sh; нужен snapshot и внешняя приёмка. [Короткая инструкция](../ops/vps-preview-acceptance.md).

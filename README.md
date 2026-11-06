@@ -6,7 +6,7 @@
 
 [Установка и обновление](docs/ops/install-and-update.md) · [Правила коротких рабочих блоков](docs/planning/short-work-blocks.md) · [Репозиторий](https://github.com/Inforberi/ArcNet) · [MIT](LICENSE)
 
-Общие `sudo arcvpn start / stop / restart / status` реализованы для локальной установки: [контракт](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/local-service-control.md). A2: собран локальный подписанный installer Linux x86_64 с UI и точным build snapshot — [сборка, подпись и перенос](docs/ops/installer-release-and-migration.md). GitHub Release не опубликован, серверная приёмка открыта. Следующий A3 — проверенный сетевой bootstrap одной командой.
+Общие `sudo arcvpn start / stop / restart / status` реализованы для локальной установки. Опубликован тестовый [prerelease 0.7.0-stage5-a2](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a2): подписанный Linux x86_64 пакет со встроенным UI, закреплённый bootstrap и [установка одной командой / приёмка](docs/ops/vps-preview-acceptance.md). Серверная приёмка остаётся открытой.
 
 ## Возможности
 
@@ -31,25 +31,9 @@ AmneziaWG не входит в стандартный установочный �
 
 **Сервер:** чистый Debian 12+ или Ubuntu 22.04+, Linux x86_64, systemd, публичный IPv4 и доступ к SSH/консоли. Порт TCP/80 нужен для IP-сертификата, TCP/8443 — для панели по умолчанию. VPN-порты выбираются в панели. Требования к RAM/числу пользователей пока не подтверждены benchmark.
 
-Готовых опубликованных [GitHub Releases](https://github.com/Inforberi/ArcNet/releases) пока нет. Архив исходников не является установочным пакетом. Сейчас пакет собирается на доверенной **Linux x86_64 машине сборки** с Go 1.26+, Node.js 22.12+, npm, GCC, `libsqlite3-dev` и `libqrencode4`:
+Для установки используйте **[одну закреплённую команду из короткой инструкции](docs/ops/vps-preview-acceptance.md#установка-одной-командой)**. Она проверяет SHA256 bootstrap, подпись пакета и безопасно распаковывает его до запуска. GitHub source ZIP не является установочным пакетом.
 
-```bash
-git clone https://github.com/Inforberi/ArcNet.git
-cd ArcNet
-./scripts/build-release.sh
-```
-
-Результат — `dist/arcvpn-0.7.0-stage5-linux-amd64.tar.gz`. Node.js и Go нужны машине сборки; на целевом VPS они не требуются. Перенесите пакет на тестовый VPS, распакуйте в отдельный каталог и проверьте его:
-
-Для сборки с заданной Ubuntu22.04 baseline из macOS/другого build host доступен `./scripts/build-installer-docker.sh`: результат `dist/installer-0.7.0-stage5-a2/`. Перед распаковкой сетевого пакета проверьте подпись всего архива с независимо доверенным public key по release guide. SHA256 внутри tar.gz проверяет integrity, но сам по себе не подтверждает издателя.
-
-```bash
-mkdir -p arcvpn-install
-tar -xzf arcvpn-0.7.0-stage5-linux-amd64.tar.gz -C arcvpn-install
-cd arcvpn-install
-sha256sum -c dist/SHA256SUMS
-sudo bash install.sh
-```
+Сборка на собственной доверенной машине и перенос старой установки описаны в [release guide](docs/ops/installer-release-and-migration.md). Go/Node/Docker на VPS не нужны; bootstrap не заменяет приёмку TLS/VPN и snapshot ОС.
 
 Установщик создаёт пользователя и службы ArcVPN, устанавливает зависимости, Xray/Hysteria/WireGuard tools и запрашивает сертификат. Это изменяет ОС. SSH не отключается; выключенный UFW автоматически не включается. Существующая установка не перезаписывается: для неё используйте обновление.
 

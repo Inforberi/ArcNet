@@ -2,11 +2,11 @@
 
 Это руководство для нового администратора и сопровождающего. Текущая версия — 0.7 preview; systemd/ACME/VPN/полный update на VPS ещё требуют внешней приёмки. Публичный репозиторий: [Inforberi/ArcNet](https://github.com/Inforberi/ArcNet), лицензия проекта — [MIT](../../LICENSE).
 
-Пользователь проведёт серверные испытания самостоятельно. A1 CLI и A2 локальный подписанный Linux x86_64 пакет подготовлены: [release/migration guide](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md). Нужны core/wrapper/units/tmpfiles/hook вместе; core-only updater не мигрирует обвязку. Systemd/VPS не приняты, публичного installer Release и A3 bootstrap одной командой пока нет.
+Пользователь проведёт серверные испытания самостоятельно. A1 CLI и A2 локальный подписанный Linux x86_64 пакет подготовлены: [release/migration guide](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md). Нужны core/wrapper/units/tmpfiles/hook вместе; core-only updater не мигрирует обвязку. Опубликованы тестовый prerelease и A3 bootstrap: [одна команда и короткая приёмка](vps-preview-acceptance.md). Systemd/VPS ещё не приняты.
 
 ## Что скачать
 
-На 2026-11-06 опубликованных GitHub Releases нет. Для установки нужен **собранный установочный пакет**, а не GitHub source ZIP. После появления релиза скачивайте asset `arcvpn-<версия>-linux-amd64.tar.gz` со страницы проекта и сверяйте происхождение/опубликованный hash. SHA256 внутри архива обнаруживает повреждение, но сам по себе не подтверждает издателя.
+Тестовый [GitHub Release 0.7.0-stage5-a2](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a2) содержит подписанный installer, закреплённый bootstrap и точный source snapshot сборки. Используйте [проверенную установочную команду](vps-preview-acceptance.md); source ZIP не заменяет installer.
 
 Пакет содержит core со встроенным React, `install.sh`, требуемые `deploy/`-скрипты, README/лицензию/руководство, `dist/VERSION` и `dist/SHA256SUMS`. Приватные ключи подписи, SQLite, пользовательские данные и случайные файлы `dist` в него не включаются. Стандартная сборка не требует AmneziaWG.
 
@@ -30,7 +30,7 @@ ARCVPN_BUILD_VERSION=0.7.0-stage5 ./scripts/build-release.sh
 
 Поддержанный установщиком target: Debian 12+ / Ubuntu 22.04+, x86_64, запущенный systemd, root/sudo, публичный IPv4. Нужны доступный снаружи TCP/80 для IP ACME, выбранный TCP-порт панели (8443 по умолчанию) и порты VPN. Не устанавливайте поверх действующей панели; сохраните SSH/консоль и snapshot тестовой VM. RAM/максимум пользователей пока не подтверждены измерениями.
 
-Перенесите пакет, распакуйте в новый каталог, выполните `sha256sum -c dist/SHA256SUMS`, затем `sudo bash install.sh`. По умолчанию IP определяется автоматически. При необходимости до запуска можно задать:
+Используйте [A3 bootstrap](vps-preview-acceptance.md): он проверяет подпись до безопасной распаковки. Ручной запуск install.sh допустим только из уже аутентифицированного payload. По умолчанию IP определяется автоматически. При необходимости до запуска можно задать:
 
 ```bash
 sudo env ARCVPN_PUBLIC_IP=203.0.113.10 ARCVPN_PANEL_PORT=8443 bash install.sh
