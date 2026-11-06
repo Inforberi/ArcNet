@@ -30,9 +30,9 @@ try {
  const subscription = await (await api('GET','/api/users/1/subscription')).json();
  assert.equal(subscription.links.length,1); assert(subscription.link.startsWith('hysteria2://'));
  await page.goto(origin+'/users',{waitUntil:'domcontentloaded'});
- await page.getByRole('button',{name:'Подписка / QR',exact:true}).click();
- await page.getByText('Прямая ссылка подключения',{exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'Копировать подключение',exact:true}).count(),1);
+ await page.getByRole('button',{name:'Подключить',exact:true}).click();
+ await page.getByLabel('Прямое подключение',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Копировать прямую ссылку',exact:true}).count(),1);
  assert.equal(await page.getByRole('button',{name:'QR VLESS',exact:true}).count(),0);
  assert.equal((await api('POST','/api/users/1/devices',{name:'Phone',expected_version:0})).status(),200);
  const device = (await (await api('GET','/api/users/1/devices')).json()).items[0];

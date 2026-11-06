@@ -1,3 +1,7 @@
+## 2026-11-06: прямой доступ
+
+`frontend/src/features/users/DirectAccess.tsx`, Users/DevicesDialog — selector/copy/QR; `internal/httpapi/direct_access{,_test}.go`, portable/devices/httpapi — live selection IDs/private QR. [Контракт](../features/direct-client-access.md), [проверки](../testing/local-results/stage5-2026-11-06-direct-access.md).
+
 ## 2026-11-06: cascade proof/publication
 
 `internal/nodeprobe/cascade{,_test}.go`, `cmd/arcvpn/cascade_probe.go` — fixed HTTPS/DoH runner; `internal/store/cascade_probe{,_test}.go` — grants/evidence/publication; `internal/app/cascade_probe.go`, `protocols.go` — private bundle and subscription links; `internal/httpapi/cascade_probe{,_test}.go`, `cascade_ui.go` — admin/report/publish; `CascadeDeployment.tsx` — file download/proof/publish UI; `internal/xray/cascade.go` — fixed post-resolution block. [ADR-017](../adr/017-cascade-external-proof-and-publication.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-proof.md).

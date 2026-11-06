@@ -94,6 +94,19 @@ func (s *Server) userQRCode(w http.ResponseWriter, r *http.Request) {
 	}
 	var value string
 	switch r.URL.Query().Get("format") {
+	case "link":
+		user, e := s.App.Store.ByID(r.Context(), id)
+		if e != nil {
+			handleErr(w, e)
+			return
+		}
+		links, e := s.App.SubscriptionLinks(r.Context(), user)
+		if e != nil {
+			handleErr(w, e)
+			return
+		}
+		writeSelectedAccessQR(w, r, links)
+		return
 	case "subscription":
 		value = url
 	case "vless":
@@ -103,7 +116,7 @@ func (s *Server) userQRCode(w http.ResponseWriter, r *http.Request) {
 		}
 		value = link
 	default:
-		fail(w, 400, "Выбери subscription или vless")
+		fail(w, 400, "Выбери subscription, link или vless")
 		return
 	}
 	image, err := qrcode.SVG(value)

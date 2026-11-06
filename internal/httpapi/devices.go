@@ -113,7 +113,7 @@ func (s *Server) userDeviceLinks(w http.ResponseWriter, r *http.Request) {
 			if err == nil && profile.Enabled && d.WGPrivate != "" {
 				wgURL = s.origin(r) + "/device/" + d.Token + "/wireguard"
 			}
-			respond(w, 200, map[string]any{"url": s.origin(r) + "/device/" + d.Token, "links": links, "wireguard_url": wgURL})
+			respond(w, 200, map[string]any{"url": s.origin(r) + "/device/" + d.Token, "links": links, "link_ids": directLinkIDs(links), "device_id": d.ID, "wireguard_url": wgURL})
 			return
 		}
 	}

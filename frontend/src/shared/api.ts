@@ -69,6 +69,7 @@ export interface Overview {
 }
 
 export interface Subscription {
+ link_ids: string[];
   url: string;
   link: string;
   links: string[];

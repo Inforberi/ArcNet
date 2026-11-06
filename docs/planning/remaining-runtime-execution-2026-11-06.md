@@ -12,3 +12,5 @@
 6. Полная обвязка updater: подпись полного manifest, core/helpers/wrappers/units/hooks согласованы, backup/version/DB compatibility, restart recovery/компенсация. Не выдавать core-only updater за эту функцию.
 
 Исходная точка: a5443d5, UI apply/rollback сохранён, frontend/API targeted PASS, browser acceptance остаётся открытой. A2 Release не содержит новых source-блоков. Тестовых VPS нет, user выполняет внешнюю приёмку. Этап6/новые протоколы и AmneziaWG development не входят в этот объём.
+
+Уточнение пользователя: клиентами должны быть Happ, Streisand и другие стандартные приложения, не собственный клиент. URI subscriptions/credentials сохранять стандартными. Нельзя выдавать стандартный список профилей за программу failover: поддержка параллельных проб/приоритетов/порогов зависит от конкретного клиента/версии; неизвестные возможности не включать молча.

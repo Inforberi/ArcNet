@@ -245,6 +245,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("PUT /api/users/{id}/devices", s.mustAuth(s.userDeviceChange, true))
 	mux.HandleFunc("DELETE /api/users/{id}/devices/{device}", s.mustAuth(s.userDeviceChange, true))
 	mux.HandleFunc("GET /api/users/{id}/devices/{device}/links", s.mustAuth(s.userDeviceLinks, false))
+	mux.HandleFunc("GET /api/users/{id}/devices/{device}/qr", s.mustAuth(s.userDeviceQRCode, false))
 	mux.HandleFunc("GET /device/{token}", s.deviceSubscription)
 	mux.HandleFunc("GET /device/{token}/wireguard", s.deviceWireGuardExport)
 	mux.HandleFunc("PUT /api/users/{id}/package", s.mustAuth(s.userPackageSave, true))
@@ -664,7 +665,7 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 	if len(links) > 0 {
 		link = links[0]
 	}
-	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": link, "links": links})
+	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
 }
 func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.App.Store.ReadReality(r.Context())

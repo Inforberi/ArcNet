@@ -264,3 +264,4 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 
 .metrics .metric{min-width:0}.metric .value,.metric .description{overflow-wrap:anywhere}
 .cascade-steps{margin:0;padding-left:22px;display:grid;gap:6px;overflow-wrap:anywhere}
+.direct-access{display:grid;gap:12px;min-width:0}.direct-access .code{max-width:100%;overflow-wrap:anywhere;white-space:pre-wrap}.direct-access .qr-image{display:block;max-width:min(100%,280px);height:auto}

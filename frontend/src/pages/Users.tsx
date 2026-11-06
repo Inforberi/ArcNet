@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
 import PackageDialog, {UsageSummary} from '../features/users/PackageDialog';
 import DevicesDialog from '../features/users/DevicesDialog';
+import DirectAccess from '../features/users/DirectAccess';
 import {blockLabel, type UsageReply} from '../features/users/usage';
 import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
 
-type QRFormat = 'subscription' | 'vless';
+
 
 export default function Users() {
   const cache = useQueryClient();
@@ -21,7 +22,6 @@ export default function Users() {
   const [message, setMessage] = useState('');
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [subscriptionUser, setSubscriptionUser] = useState<VPNUser | null>(null);
-  const [qrFormat, setQRFormat] = useState<QRFormat>('subscription');
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
 
@@ -64,7 +64,6 @@ export default function Users() {
       setSelectedQR(null);
       setSubscription(result);
       setSubscriptionUser(user);
-      setQRFormat('subscription');
     } catch (err) {
       setError(explain(err));
     }
@@ -146,7 +145,7 @@ export default function Users() {
                       <td><div className="flex wrap">
                         <Button className="small" onClick={()=>{setSubscription(null);setSubscriptionUser(null);setDeviceUser(u)}}>Устройства</Button>
                         <Button className="small" disabled={!packages.has(u.id)} onClick={() => setPackageUser(u)}>Пакет / расход</Button>
-                        <Button className="small" disabled={u.devices_managed} title={u.devices_managed?'Подписки доступны в разделе «Устройства»':undefined} onClick={() => void showSubscription(u)}>{u.devices_managed?'Общий ключ отключён':'Подписка / QR'}</Button>
+                        <Button className="small" disabled={u.devices_managed} title={u.devices_managed?'Подписки доступны в разделе «Устройства»':undefined} onClick={() => void showSubscription(u)}>{u.devices_managed?'Общий ключ отключён':'Подключить'}</Button>
                         <Button className="small" disabled={toggle.isPending || remove.isPending} onClick={() => void toggleUser(u)}>
                           {u.enabled ? 'Отключить' : 'Включить'}
                         </Button>
@@ -168,27 +167,16 @@ export default function Users() {
         <Panel title={`Подключение · ${subscriptionUser.name}`}>
           <div className="panel-body">
             <p className="muted">Ссылки содержат секретные данные. Не пересылай их посторонним.</p>
-            <div className="field"><label>HTTPS-ссылка подписки</label><pre className="code">{subscription.url}</pre></div>
-            {subscription.link ? <div className="field"><label>Прямая ссылка подключения</label><pre className="code">{subscription.link}</pre></div> : <Notice>Для WireGuard скачайте отдельную конфигурацию ниже или в доступах устройства.</Notice>}
-            <div className="flex wrap">
-              <Button onClick={() => void copy(subscription.url)}>Копировать подписку</Button>
-              {subscription.link && <Button onClick={() => void copy(subscription.link)}>Копировать подключение</Button>}
-              {subscription.links.length > 0 && <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a>}
-              <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a>
-              <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a>
-            </div>
-            <div className="flex wrap qr-actions" role="group" aria-label="Вид QR-кода">
-              <Button onClick={() => setQRFormat('subscription')} variant={qrFormat === 'subscription' ? 'primary' : 'default'}>QR подписки</Button>
-              {subscription.link && <Button onClick={() => setQRFormat('vless')} variant={qrFormat === 'vless' ? 'primary' : 'default'}>QR подключения</Button>}
-            </div>
-            <img
-              key={`${subscriptionUser.id}-${qrFormat}`}
-              className="qr-image"
-              src={`/api/users/${subscriptionUser.id}/qr?format=${qrFormat}`}
-              alt={`QR-код ${qrFormat === 'subscription' ? 'подписки' : 'подключения'}`}
-            />
+            <DirectAccess links={subscription.links} ids={subscription.link_ids} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
+            <details className="profile-advanced"><summary>Подписка и дополнительные форматы</summary>
+              <div className="profile-settings">
+                <div className="field"><label>HTTPS-ссылка подписки</label><pre className="code">{subscription.url}</pre></div>
+                <div className="flex wrap"><Button onClick={() => void copy(subscription.url)}>Копировать подписку</Button><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a></div>
+                <img className="qr-image" src={`/api/users/${subscriptionUser.id}/qr?format=subscription`} alt="QR-код подписки"/>
+              </div>
+            </details>
             <div className="protocol-grid" aria-label="Отдельные VPN-подключения">
-              {connections.map(connection => <div className="protocol-card" key={connection.kind}>
+              {connections.filter(connection => connection.format === 'conf').map(connection => <div className="protocol-card" key={connection.kind}>
                 <strong>{connection.label}</strong>
                 <p className="muted">{connection.format === 'uri' ? 'Прямая ссылка на подключение' : 'Конфигурационный файл для совместимого клиента'}</p>
                 {connection.link ? <pre className="code">{connection.link}</pre> : null}
