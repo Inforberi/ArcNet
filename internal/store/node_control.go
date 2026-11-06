@@ -397,7 +397,7 @@ func (s *Store) QueueNodeDeployment(ctx context.Context, id string, config []byt
 	return op, err
 }
 func (s *Store) queueNodeDeployment(tx *db.Tx, id string, config []byte, kind string) (NodeOperation, error) {
-	if kind != "apply_xray_v1" && kind != "apply_cascade_xray_v1" {
+	if kind != "apply_xray_v1" && kind != "apply_cascade_xray_v1" && kind != "apply_xray_devices_v1" {
 		return NodeOperation{}, ErrRouteInvalid
 	}
 	if len(config) == 0 || len(config) > 256<<10 || !json.Valid(config) {
@@ -529,6 +529,15 @@ func (s *Store) PendingNodeCommand(ctx context.Context, nodeID, secret string) (
 		if len(attemptRows) != 1 {
 			return errors.New("missing deployment journal")
 		}
+		if attemptRows[0]["kind"] == "apply_xray_devices_v1" {
+			if e := requireDeviceNode(tx, nodeID); e != nil {
+				now := strconv.FormatInt(time.Now().Unix(), 10)
+				if e := tx.Exec("UPDATE node_control SET deployment_status='failed',last_error='device helper capability unavailable',updated_at=? WHERE node_id=?", now, nodeID); e != nil {
+					return e
+				}
+				return tx.Exec("UPDATE node_operations SET state='failed',error='device helper capability unavailable',updated_at=? WHERE id=?", now, r["deployment_id"])
+			}
+		}
 		if attemptRows[0]["kind"] == "apply_cascade_xray_v1" {
 			caps, e := tx.Query("SELECT protocol,checked_at FROM cascade_capabilities WHERE node_id=?", nodeID)
 			if e != nil {
@@ -639,6 +648,11 @@ func (s *Store) AcknowledgeNodeOperation(ctx context.Context, nodeID, secret, op
 		if e := tx.Exec("UPDATE node_operations SET state=?,error=?,updated_at=? WHERE id=?", status, errorText, now, operationID); e != nil {
 			return e
 		}
+		if result == "applied" {
+			if e := tx.Exec("UPDATE node_credentials SET applied_generation=generation WHERE node_id=? AND operation_id=?", nodeID, operationID); e != nil {
+				return e
+			}
+		}
 		return s.advanceCascadeACK(tx, operationID, result)
 	})
 }
@@ -668,7 +682,7 @@ func (s *Store) RetryNodeDeployment(ctx context.Context, nodeID string) (NodeOpe
 		if id == "" {
 			return ErrConflict
 		}
-		old, e := tx.Query("SELECT created_at FROM node_operations WHERE id=? AND node_id=?", id, nodeID)
+		old, e := tx.Query("SELECT created_at,kind FROM node_operations WHERE id=? AND node_id=?", id, nodeID)
 		if e != nil {
 			return e
 		}
@@ -678,7 +692,7 @@ func (s *Store) RetryNodeDeployment(ctx context.Context, nodeID string) (NodeOpe
 		now := time.Now().Unix()
 		rev, _ := strconv.ParseInt(r["desired_revision"], 10, 64)
 		created, _ := strconv.ParseInt(old[0]["created_at"], 10, 64)
-		op = NodeOperation{ID: id, NodeID: nodeID, Kind: "apply_xray_v1", Revision: rev, Digest: r["desired_digest"], State: "queued", CreatedAt: created, UpdatedAt: now}
+		op = NodeOperation{ID: id, NodeID: nodeID, Kind: old[0]["kind"], Revision: rev, Digest: r["desired_digest"], State: "queued", CreatedAt: created, UpdatedAt: now}
 		if e = tx.Exec("UPDATE node_control SET deployment_status='queued',last_error='',updated_at=? WHERE node_id=?", strconv.FormatInt(now, 10), nodeID); e != nil {
 			return e
 		}

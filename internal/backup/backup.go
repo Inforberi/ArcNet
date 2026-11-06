@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 10
+	Version         = 11
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -190,7 +190,7 @@ func (s Snapshot) Validate() error {
 			return ErrInvalid
 		}
 		if len(*s.Devices) > 0 {
-			if len(s.Nodes) > 0 {
+			if len(s.Nodes) > 0 && s.Version < 11 {
 				return ErrInvalid
 			}
 			for _, p := range s.Protocols {
@@ -226,7 +226,7 @@ func (s Snapshot) Validate() error {
 			return ErrInvalid
 		}
 	}
-	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0) && (s.Version < 10 || len(s.Protocols) == 0)) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
+	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0) && (s.Version < 10 || (len(s.Protocols) == 0 && (s.Version < 11 || len(s.Nodes) == 0)))) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
 		return ErrInvalid
 	}
 	if (s.Version < 5 && len(s.RoutingProfiles) > 0) || len(s.RoutingProfiles) > routingprofile.MaxProfiles {

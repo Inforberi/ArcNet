@@ -14,3 +14,6 @@
 Исходная точка: a5443d5, UI apply/rollback сохранён, frontend/API targeted PASS, browser acceptance остаётся открытой. A2 Release не содержит новых source-блоков. Тестовых VPS нет, user выполняет внешнюю приёмку. Этап6/новые протоколы и AmneziaWG development не входят в этот объём.
 
 Уточнение пользователя: клиентами должны быть Happ, Streisand и другие стандартные приложения, не собственный клиент. URI subscriptions/credentials сохранять стандартными. Нельзя выдавать стандартный список профилей за программу failover: поддержка параллельных проб/приоритетов/порогов зависит от конкретного клиента/версии; неизвестные возможности не включать молча.
+
+
+Выполненные source-блоки: cascade proof/publication — ADR-017; стандартная отдельная ссылка/QR пользователя и устройства; direct remote TCP device credentials/ACK + backup v11 — ADR-018. Остаток2: distributed counters/budget enforcement, cascade-owned credentials, remote UDP profiles; пункты3–6 не объявлены реализованными. Внешняя приёмка не заменяется fixtures.

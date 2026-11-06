@@ -86,6 +86,9 @@ func (s *Store) Migrate(ctx context.Context) error {
 				return err
 			}
 		}
+		if err := migrateNodeCredentials(tx); err != nil {
+			return err
+		}
 		if err := migrateNodeControlDrain(tx); err != nil {
 			return err
 		}
@@ -511,6 +514,9 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 			}
 			for _, node := range *nodes {
 				if err := tx.Exec("INSERT INTO managed_nodes(id,name,token_hash,created_at,last_seen,xray_state) VALUES(?,?,?,?,0,'unknown')", node.ID, node.Name, node.TokenHash, strconv.FormatInt(node.CreatedAt, 10)); err != nil {
+					return err
+				}
+				if err := tx.Exec("INSERT INTO node_control(node_id) VALUES(?)", node.ID); err != nil {
 					return err
 				}
 			}

@@ -1,3 +1,7 @@
+## 2026-11-06: remote device credentials
+
+`internal/store/node_credentials.go` — clock/capability/queue/generation guards; `internal/app/node_credentials.go` — lazy poll reconcile; store/app devices/nodes/node_control, nodeagent/helper/httpapi — integration; `internal/httpapi/node_credentials_test.go` — two-node fixtures; `internal/backup/backup_v11_test.go` — v11. [ADR-018](../adr/018-direct-node-device-credentials.md), [проверки](../testing/local-results/stage5-2026-11-06-remote-devices.md).
+
 ## 2026-11-06: прямой доступ
 
 `frontend/src/features/users/DirectAccess.tsx`, Users/DevicesDialog — selector/copy/QR; `internal/httpapi/direct_access{,_test}.go`, portable/devices/httpapi — live selection IDs/private QR. [Контракт](../features/direct-client-access.md), [проверки](../testing/local-results/stage5-2026-11-06-direct-access.md).

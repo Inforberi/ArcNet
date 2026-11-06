@@ -13,7 +13,7 @@ import (
 func (a *App) DeployNode(ctx context.Context, nodeID string) (store.NodeOperation, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if restricted, err := a.Store.HasRestrictedPackages(ctx, false); err != nil {
+	if restricted, err := a.Store.HasFinitePackages(ctx); err != nil {
 		return store.NodeOperation{}, err
 	} else if restricted {
 		return store.NodeOperation{}, store.ErrUsageUnsupported
@@ -50,13 +50,28 @@ func (a *App) DeployNode(ctx context.Context, nodeID string) (store.NodeOperatio
 	if r.Address != state.Address || r.Port != state.Port {
 		return store.NodeOperation{}, errors.New("node endpoint changed; identity migration required")
 	}
+	generation, generationErr := a.Store.CredentialGeneration(ctx)
+	if generationErr != nil {
+		return store.NodeOperation{}, generationErr
+	}
 	users, err := a.Store.ListUsers(ctx)
+	if err != nil {
+		return store.NodeOperation{}, err
+	}
+	users, err = a.xrayUsers(ctx, users)
 	if err != nil {
 		return store.NodeOperation{}, err
 	}
 	payload, err := xray.Generate(r, users)
 	if err != nil {
 		return store.NodeOperation{}, err
+	}
+	managed, e := a.Store.HasManagedDevices(ctx)
+	if e != nil {
+		return store.NodeOperation{}, e
+	}
+	if managed {
+		return a.Store.QueueNodeCredentials(ctx, nodeID, payload, generation, r.Address, r.Port)
 	}
 	return a.Store.QueueNodeDeployment(ctx, nodeID, payload)
 }

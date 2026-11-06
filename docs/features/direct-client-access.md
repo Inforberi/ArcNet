@@ -9,3 +9,6 @@
 Кнопка копирования имеет fallback: видимый текст ссылки можно выделить вручную, если браузер запретил clipboard. Списочный API устройств не раскрывает UUID/tokens; ссылки запрашиваются отдельно при явном открытии подключения.
 
 [Проверки](../testing/local-results/stage5-2026-11-06-direct-access.md). Remote device/accounting/finite limits этим UI-блоком не добавлены; прежние security gates сохраняются.
+
+
+Продолжение: direct remote TCP device links добавлены с applied-generation gate всех нод, [ADR-018](../adr/018-direct-node-device-credentials.md). Cascade+devices и удалённые finite quotas по-прежнему запрещены.

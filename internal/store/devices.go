@@ -108,7 +108,7 @@ func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change fun
 		if err != nil {
 			return err
 		}
-		rows, err := tx.Query("SELECT id,uuid FROM users")
+		rows, err := tx.Query("SELECT id,uuid,enabled FROM users")
 		if err != nil {
 			return err
 		}
@@ -148,18 +148,35 @@ func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change fun
 		if err := state.Validate(ids); err != nil {
 			return err
 		}
-		// Independent of UI/app guards, prevent a policy with an unmanaged bypass.
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
-		if err != nil {
-			return err
+		if e := checkDeviceCoverage(tx); e != nil {
+			return e
 		}
-		nodes, err := tx.Query("SELECT id FROM managed_nodes LIMIT 1")
-		if err != nil {
-			return err
+		nodes, e := tx.Query("SELECT id FROM managed_nodes LIMIT 1")
+		if e != nil {
+			return e
 		}
-		if len(unsupported) > 0 || len(nodes) > 0 {
-			return ErrUsageUnsupported
+		if len(nodes) > 0 {
+			active := 0
+			records := map[int64]int{}
+			for _, record := range state {
+				records[record.UserID] = record.Active()
+			}
+			for _, row := range rows {
+				if row["enabled"] != "1" {
+					continue
+				}
+				uid, _ := strconv.ParseInt(row["id"], 10, 64)
+				if count, ok := records[uid]; ok {
+					active += count
+				} else {
+					active++
+				}
+			}
+			if active > 512 {
+				return ErrUsageUnsupported
+			}
 		}
+
 		for _, record := range state {
 			if record.UserID == id || changed[record.UserID] {
 				if record.UserID != id {
@@ -256,11 +273,7 @@ func replaceDevices(tx *db.Tx, incoming *devices.State, before devices.State, ol
 		if err != nil {
 			return err
 		}
-		nodes, err := tx.Query("SELECT id FROM managed_nodes LIMIT 1")
-		if err != nil {
-			return err
-		}
-		if len(unsupported) > 0 || len(nodes) > 0 {
+		if len(unsupported) > 0 {
 			return ErrUsageUnsupported
 		}
 	}

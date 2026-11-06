@@ -116,6 +116,14 @@ func (s *Server) nodePoll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error", 500)
 		return
 	}
+	if e := s.App.Store.AuthenticateNode(r.Context(), nodeID, token); e != nil {
+		http.Error(w, "Unauthorized", 401)
+		return
+	}
+	if e := s.App.ReconcileNodeCredentials(r.Context(), nodeID); e != nil && !errors.Is(e, store.ErrNodeBusy) {
+		http.Error(w, "Remote credential policy is pending or unsupported", 409)
+		return
+	}
 	command, e := s.App.Store.PendingNodeCommand(r.Context(), nodeID, token)
 	if errors.Is(e, store.ErrNodeUnauthorized) || errors.Is(e, store.ErrNotFound) {
 		http.Error(w, "Unauthorized", 401)

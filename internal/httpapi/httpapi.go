@@ -733,6 +733,10 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }
 func handleErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, store.ErrRemoteCredentialsPending) {
+		fail(w, 409, "Удалённые ноды ещё не подтвердили доступы. Дождитесь синхронизации; при ошибке повторите применение на ноде.")
+		return
+	}
 	if errors.Is(err, store.ErrCascadeBusy) {
 		fail(w, 409, "Изменение заблокировано журналом каскада; сначала завершите или откатите операцию")
 		return

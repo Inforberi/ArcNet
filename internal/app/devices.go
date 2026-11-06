@@ -35,6 +35,14 @@ func (a *App) ChangeUserDevices(ctx context.Context, id, version int64, name, re
 	if (limit != nil && (*limit < 0 || *limit > devices.MaxActive)) || (revoke == "" && limit == nil && !devices.ValidName(name)) {
 		return devices.ErrInvalid
 	}
+	if revoke != "" {
+		if e := a.Store.RevokeDevice(ctx, id, version, revoke); e != nil {
+			return e
+		}
+		a.Store.Event(ctx, "user.devices", fmt.Sprintf("ID %d", id))
+		_ = a.reconcilePackagesLocked(ctx, true)
+		return nil
+	}
 	var created devices.Device
 	if revoke == "" && limit == nil {
 		var err error
@@ -122,6 +130,24 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 			links = append(links, protocols.HysteriaLink(p, selected.Name, protocols.HysteriaDeviceName(selected.ID), selected.UUID))
 		}
 	}
+	nodes, e := a.Store.ReadyDeviceNodes(ctx)
+	if e != nil {
+		return nil, e
+	}
+	for _, node := range nodes {
+		profile, e := a.Store.NodeReality(ctx, node)
+		if e != nil {
+			return nil, e
+		}
+		state, e := a.Store.NodeControl(ctx, node)
+		if e != nil {
+			return nil, e
+		}
+		if state.Address != profile.Address || state.Port != profile.Port {
+			return nil, store.ErrConflict
+		}
+		links = append(links, xray.Link(profile, user))
+	}
 	return links, nil
 }
 
@@ -148,7 +174,7 @@ func (a *App) authorizedDevice(ctx context.Context, id int64, deviceID string) (
 		return devices.Device{}, store.ErrNotFound
 	}
 	// Fail closed if restored/configured state has an unsupported credential path.
-	if err := a.Store.CheckPackageCoverage(ctx, 1, 0); err != nil {
+	if err := a.Store.CheckDeviceCoverage(ctx); err != nil {
 		return devices.Device{}, err
 	}
 	return *selected, nil

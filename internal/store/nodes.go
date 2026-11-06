@@ -137,6 +137,7 @@ func (s *Store) RegisterNode(ctx context.Context, enrollmentToken string) (Node,
 
 type NodeHeartbeat struct {
 	CascadeProtocol int     `json:"cascade_protocol,omitempty"`
+	DeviceProtocol  int     `json:"device_protocol,omitempty"`
 	Version         string  `json:"version"`
 	ProtocolVersion int     `json:"protocol_version"`
 	XrayState       string  `json:"xray_state"`
@@ -150,7 +151,7 @@ func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) e
 	if len(bearer) < 40 || len(bearer) > 128 {
 		return ErrNotFound
 	}
-	if h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
+	if h.DeviceProtocol < 0 || h.DeviceProtocol > 1 || h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
 		return errors.New("invalid heartbeat")
 	}
 	if h.XrayState != "active" && h.XrayState != "inactive" && h.XrayState != "unknown" {
@@ -165,6 +166,9 @@ func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) e
 			return ErrNotFound
 		}
 		if e := tx.Exec("INSERT INTO cascade_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.CascadeProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
+			return e
+		}
+		if e := tx.Exec("INSERT INTO node_device_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.DeviceProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
 			return e
 		}
 		return tx.Exec("UPDATE managed_nodes SET last_seen=?,version=?,agent_protocol=?,xray_state=?,memory_total=?,memory_available=?,load_1=?,uptime_seconds=? WHERE id=?",

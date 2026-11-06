@@ -39,6 +39,7 @@ type ApplyRequest struct {
 }
 type ApplyResponse struct {
 	CascadeProtocol int    `json:"cascade_protocol,omitempty"`
+	DeviceProtocol  int    `json:"device_protocol,omitempty"`
 	Status          string `json:"status"`
 	Error           string `json:"error,omitempty"`
 }
@@ -217,7 +218,7 @@ func ValidateRequest(req ApplyRequest) error {
 		}
 		return errors.New("invalid capability query")
 	}
-	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
+	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1" && req.Kind != "apply_xray_devices_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
 		return errors.New("unsupported or malformed apply operation")
 	}
 	sum := sha256.Sum256(req.Config)
@@ -313,7 +314,7 @@ func (raw Installer) Apply(ctx context.Context, request ApplyRequest) (ApplyResp
 		return ApplyResponse{Status: "failed"}, err
 	}
 	if request.Kind == "capabilities_v1" {
-		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1}, nil
+		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1, DeviceProtocol: 1}, nil
 	}
 	if receipt, err := readPrivilegedState(i.ReceiptPath, 4096); err == nil {
 		var prior struct {

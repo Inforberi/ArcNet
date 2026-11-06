@@ -35,12 +35,13 @@ func (s *Server) userDevices(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	coverage := s.App.Store.CheckPackageCoverage(r.Context(), 1, 0)
+	coverage := s.App.Store.CheckDeviceCoverage(r.Context())
 	if coverage != nil && !errors.Is(coverage, store.ErrUsageUnsupported) {
 		handleErr(w, coverage)
 		return
 	}
-	respond(w, 200, map[string]any{"items": items, "managed": record.Version > 0, "limit": record.Limit, "version": record.Version, "active": record.Active(), "supported": coverage == nil, "runtime_state": runtime, "physical_devices_verified": false})
+	_, syncErr := s.App.Store.ReadyDeviceNodes(r.Context())
+	respond(w, 200, map[string]any{"items": items, "managed": record.Version > 0, "limit": record.Limit, "version": record.Version, "active": record.Active(), "supported": coverage == nil, "runtime_state": runtime, "remote_pending": record.Version > 0 && syncErr != nil, "physical_devices_verified": false})
 }
 func (s *Server) userDeviceChange(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -77,7 +78,7 @@ func (s *Server) userDeviceChange(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, devices.ErrLimit):
 			fail(w, 409, "Лимит доступов достигнут. Сначала отзовите лишние доступы или увеличьте лимит.")
 		case errors.Is(err, store.ErrUsageUnsupported):
-			fail(w, 409, "Отдельные доступы пока доступны только для локальных Xray, Hysteria2 и WireGuard без удалённых нод и других активных движков.")
+			fail(w, 409, "Для удалённых доступов нужны обновлённые agent/helper, прямой TCP/REALITY профиль и отсутствие конечных пакетов/каскада.")
 		case errors.Is(err, store.ErrConflict):
 			fail(w, 409, "Список изменён. Обновите данные перед повтором.")
 		default:
