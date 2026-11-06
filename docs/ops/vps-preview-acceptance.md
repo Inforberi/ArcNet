@@ -1,20 +1,20 @@
 # Короткая приёмка ArcVPN на тестовом VPS
 
-Тестовый [prerelease 0.7.0-stage5-a2](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a2). Debian12+/Ubuntu22.04+, x86_64, systemd, публичный IPv4; TCP/80 для ACME и TCP/8443 для панели доступны снаружи. До запуска сохраните snapshot и доступ к консоли. Проверку проводит владелец сервера; успешная локальная сборка не подтверждает VPS/VPN.
+Тестовый [prerelease 0.7.0-stage5-a3](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a3). Debian12+/Ubuntu22.04+, x86_64, systemd, публичный IPv4; TCP/80 для ACME и TCP/8443 для панели доступны снаружи. До запуска сохраните snapshot и доступ к консоли. Проверку проводит владелец сервера; успешная локальная сборка не подтверждает VPS/VPN.
 
 ## Установка одной командой
 
 Выполните **от root** (при необходимости сначала `sudo -i`):
 
 ```bash
-bash -c 'set -euo pipefail; [ "$(id -u)" = 0 ] || { echo "Run as root" >&2; exit 1; }; umask 077; d=$(mktemp -d /var/tmp/arcvpn-launch.XXXXXXXX); trap '"'"'rm -rf -- "$d"'"'"' EXIT; command -v curl >/dev/null || { apt-get update -qq; apt-get install -y --no-install-recommends curl ca-certificates; }; curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL --connect-timeout 15 --max-time 60 --max-filesize 131072 https://github.com/Inforberi/ArcNet/releases/download/v0.7.0-stage5-a2/arcvpn-install-0.7.0-stage5-a2.sh | head -c 131073 > "$d/install.sh"; printf "%s  %s\n" db5914d3a3ee6e4e6af0e3832f509eb0459859c565b82dbb8c85a96cf500eb87 "$d/install.sh" | sha256sum -c -; bash "$d/install.sh"'
+bash -c 'set -euo pipefail; [ "$(id -u)" = 0 ] || { echo "Run as root" >&2; exit 1; }; umask 077; d=$(mktemp -d /var/tmp/arcvpn-launch.XXXXXXXX); trap '"'"'rm -rf -- "$d"'"'"' EXIT; command -v curl >/dev/null || { apt-get update -qq; apt-get install -y --no-install-recommends curl ca-certificates; }; curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL --connect-timeout 15 --max-time 60 --max-filesize 131072 https://github.com/Inforberi/ArcNet/releases/download/v0.7.0-stage5-a3/arcvpn-install-0.7.0-stage5-a3.sh | head -c 131073 > "$d/install.sh"; printf "%s  %s\n" 82ca584090371ef5934a1c1154b146fab020f6ea41133c768052cd27adb4413e "$d/install.sh" | sha256sum -c -; bash "$d/install.sh"'
 ```
 
 Команда закрепляет SHA256 bootstrap; bootstrap содержит доверенный Ed25519 public key, скачивает конкретную версию, проверяет подпись manifest/размер/SHA256, безопасно извлекает строго известные файлы и запускает install.sh. Не заменяйте hash значением из непроверенного скачанного файла. Go/Node/Docker на VPS не нужны. При отсутствии curl он устанавливается из репозитория ОС. Другие зависимости ставит установщик; Xray/Hysteria загружаются отдельно, это не offline bundle.
 
 Существующая установка отклоняется. Это не in-place upgrade. При прерывании installer возможны частичные изменения ОС: сохраните диагностику, восстановите snapshot; автоматический rollback ОС не заявлен. Перенос старой панели — [чистая установка + portable restore](installer-release-and-migration.md).
 
-Без установки: скачайте bootstrap, проверьте указанный SHA256 и выполните `bash arcvpn-install-0.7.0-stage5-a2.sh --verify-only`. Для уже скачанного набора допускается `--verify-only --from-dir /path/to/assets`; payload при этом не исполняется, зависимости не устанавливаются. В Linux нужны openssl, python3, timeout и curl для сетевой проверки.
+Без установки: скачайте bootstrap, проверьте указанный SHA256 и выполните `bash arcvpn-install-0.7.0-stage5-a3.sh --verify-only`. Для уже скачанного набора допускается `--verify-only --from-dir /path/to/assets`; payload при этом не исполняется, зависимости не устанавливаются. В Linux нужны openssl, python3, timeout и curl для сетевой проверки.
 
 ## Приёмка
 
@@ -42,4 +42,8 @@ sudo arcvpn logs panel
 
 ## Происхождение пакета
 
-Core уже собран и подписан в A2; A3 его не пересобирает. BUILDINFO содержит `source_dirty:true`, commit `f3946a8` и точный hash исходного snapshot. Asset `arcvpn-0.7.0-stage5-a2-source.tar.gz` — именно исходники сборки; tag8a5cfcb относится к A2 handoff, bootstrap/эта инструкция добавлены отдельно. Не отождествляйте tag с чистой сборкой бинарника. Public installer signer fingerprint: `3f0f85ed250a916bfdeefd78d8eb15f84b90e23f67939ae3b3c25ac62f933c24`. Подпись installer не включает автоматическое доверие будущим updater-пакетам; update key в A2 отсутствует.
+A3 пересобирает core и встроенный UI из исходников после добавления прямых remote TCP-устройств и каскадного apply/probe/publish. BUILDINFO содержит исходный commit `1ab39bbf5c9be968305129892318ab587faf7e45`, `source_dirty:true` и hash точного source manifest; исходники сборки приложены отдельным `arcvpn-0.7.0-stage5-a3-source.tar.gz`. Последующий tag/коммит документации не следует отождествлять с исходным snapshot бинарника.
+
+Для A3 используется **новый отдельный installer signer**, поскольку прежнего приватного ключа A2 на этой машине нет. Его fingerprint (SHA256 raw Ed25519 public key): `5f80f78a69441940b93bece69ce027f4ffe4f26452f5bed96da8bb520b4cd69a`. Новый ключ закреплён в A3 bootstrap, SHA256 bootstrap закреплён в команде выше. Это отдельное доверие при чистой установке, не автоматическая ротация существующих установок A2. Старые assets A2 не заменяются. Ключ updater этим не устанавливается.
+
+Распределённые конечные пакеты, remote UDP, устройства каскадов, резервы/автопереключение, Geo/DNS apply, поздний домен/SSH-hardening и полный updater не завершены. Для первого знакомства используйте локальный протокол либо прямые remote TCP-ноды без конечного пакета. Для каскада нужны две ноды, ACK, независимая проба и отдельная публикация; автоматического резерва нет.

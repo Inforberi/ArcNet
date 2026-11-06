@@ -1,3 +1,7 @@
+## 2026-11-06: VPS preview A3
+
+`deploy/bootstrap-install.sh` — A3 и новый закреплённый signer; `scripts/build-installer-docker.sh`, `deploy/release.Dockerfile` — A3 по умолчанию; `scripts/testing/bootstrap-fixture.py` — версия A3. [Установка](../ops/vps-preview-acceptance.md), [build/signature evidence](../testing/local-results/stage5-2026-11-06-installer-bundle.md). Browser acceptance UI каскада390/1280 завершена на синтетических ACK, VPN не принят.
+
 ## 2026-11-06: remote device credentials
 
 `internal/store/node_credentials.go` — clock/capability/queue/generation guards; `internal/app/node_credentials.go` — lazy poll reconcile; store/app devices/nodes/node_control, nodeagent/helper/httpapi — integration; `internal/httpapi/node_credentials_test.go` — two-node fixtures; `internal/backup/backup_v11_test.go` — v11. [ADR-018](../adr/018-direct-node-device-credentials.md), [проверки](../testing/local-results/stage5-2026-11-06-remote-devices.md).
@@ -10,7 +14,7 @@
 
 `internal/nodeprobe/cascade{,_test}.go`, `cmd/arcvpn/cascade_probe.go` — fixed HTTPS/DoH runner; `internal/store/cascade_probe{,_test}.go` — grants/evidence/publication; `internal/app/cascade_probe.go`, `protocols.go` — private bundle and subscription links; `internal/httpapi/cascade_probe{,_test}.go`, `cascade_ui.go` — admin/report/publish; `CascadeDeployment.tsx` — file download/proof/publish UI; `internal/xray/cascade.go` — fixed post-resolution block. [ADR-017](../adr/017-cascade-external-proof-and-publication.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-proof.md).
 
-## 2026-11-06: UI применения каскадов (browser pending)
+## 2026-11-06: UI применения каскадов (browser PASS, VPN pending)
 
 `internal/store/cascade_ui.go` — stable endpoint/binding/preflight/baseline; `internal/app/cascade_ui.go`, `cascade_clients.go` — preview token/apply/preserve listeners; `internal/httpapi/cascade_ui{,_test}.go` — authenticated API и opt-in fixture; `frontend/src/features/routing/CascadeDeployment.tsx`, `RoutePaths.tsx` — UI; `tests/cascade_ui_e2e.mjs` — browser scenario. [Точка продолжения](../testing/local-results/stage5-2026-11-06-cascade-ui.md).
 

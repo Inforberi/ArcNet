@@ -1,3 +1,14 @@
+## Новый preview A3 — 2026-11-06
+
+- `ARCVPN_BUILD_VERSION=0.7.0-stage5-a3 ./scripts/build-installer-docker.sh` — **PASS**: npm ci, TypeScript/Vite, Go test ./..., Go vet ./..., bash syntax, CGO Linux/amd64 binary, frontend-check, version/lifecycle contract и packaging. Отдельный full race не запускался.
+- `bash deploy/bootstrap-install.sh --verify-only --from-dir dist/installer-0.7.0-stage5-a3` — **PASS** на настоящем архиве в Linux. Существующий `python3 scripts/testing/bootstrap-fixture.py` — **PASS**: valid, traversal/symlink/hardlink/duplicate/setuid/checksum-path/tamper/bad-signature; payload не исполнялся.
+- UI каскадов — **PASS**: [целевой браузерный сценарий](stage5-2026-11-06-cascade-ui.md).
+- `arcvpn-release sign` и `verify` настоящего архива — **PASS**. Новый installer signer A3: `5f80f78a69441940b93bece69ce027f4ffe4f26452f5bed96da8bb520b4cd69a`; private key вне Git/Docker/VPS. Это отдельное доверие для чистой установки, не автоматическая ротация A2.
+- Artifact SHA256: `1549a9604c0bdb339748f08b88d3d4b29d0eb691530d8bb8e6bcf5036ddbc7b3`; source manifest SHA256: `d5375916094f39edefa33af9799bc3f5f4a3472b2bc755deb601e747f1ecf30d`. BUILDINFO: исходный commit `1ab39bbf5c9be968305129892318ab587faf7e45`, dirty=true, Go1.26.6, Node22.21.1, Ubuntu22.04. Точный исходный snapshot приложен к релизу; последующее обновление документации не меняет бинарник.
+- Первая сборка остановилась на полном Docker-диске; пользователь разрешил удалить неиспользуемый build cache (освобождено11,58ГБ). Проверки подписей apt не отключались. После освобождения места сборка прошла.
+
+**NOT RUN:** установка на VPS, systemd/ACME/VPN handshake, фактический remote revoke/расход, reboot/restore и полный updater. Пользователь выполняет серверную приёмку самостоятельно по [инструкции](../../ops/vps-preview-acceptance.md). A3 — preview, не production acceptance. История A2 ниже.
+
 # A2 — первый Linux x86_64 installer, 2026-11-06
 
 **BUILD_PASS / LOCAL_SIGNATURE_PASS / VPS_NOT_RUN**. Это локальный тестовый пакет, не опубликованный GitHub Release. [Контракт](../../ops/installer-release-and-migration.md).

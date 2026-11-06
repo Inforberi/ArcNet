@@ -2,7 +2,7 @@
 # Pinned preview installer. Authenticate this script by its published SHA256 first.
 set -Eeuo pipefail
 umask 077
-RELEASE_VERSION=0.7.0-stage5-a2
+RELEASE_VERSION=0.7.0-stage5-a3
 FILE="arcvpn-$RELEASE_VERSION-linux-amd64.tar.gz"
 BASE="https://github.com/Inforberi/ArcNet/releases/download/v$RELEASE_VERSION"
 VERIFY=0
@@ -57,7 +57,7 @@ fetch "$FILE.manifest.sig" 64
 [[ $(wc -c < "$WORK/$FILE.manifest.sig") == 64 ]] || fail 'Invalid signature size'
 cat > "$WORK/public.pem" <<'PEM'
 -----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAEfT0Utf+sF6hBv7c03uVltCm0mWnqeOeVFVbsA22GzE=
+MCowBQYDK2VwAyEAAdJGvB77glcTCEMmNLJF+Yac5kc1fWzfilW48+EAQSc=
 -----END PUBLIC KEY-----
 PEM
 { printf 'ArcVPN installer manifest v1\n'; cat "$WORK/$FILE.manifest.json"; } > "$WORK/signed"

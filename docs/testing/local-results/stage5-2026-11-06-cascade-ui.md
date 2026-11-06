@@ -1,3 +1,7 @@
+## Завершение браузерной проверки — A3, 2026-11-06
+
+Один свежий запуск существующего fixture без Go test cache: `/cascade-ui.test -test.run=^TestCascadeUIBrowserFixture$ -test.v -test.timeout=2m` в одноразовом Linux-контейнере; сценарий `tests/cascade_ui_e2e.mjs` через существующий Playwright и Chrome — **PASS**. Fixture завершился сам после теста (23,78 с). Проверены preview и invalidation, явное применение, ACK B→A, сохранение после reload, rollback A→B, удаление журнала и отсутствие горизонтального overflow390/1280. Production UI/API не потребовали исправлений. ACK синтетические; это не VPN-приёмка. Прежний browser-pending статус ниже исторический.
+
 # Каскады из UI — сохранённый этап 2026-11-06
 
 По просьбе пользователя работа остановлена для сохранения при4% батареи.

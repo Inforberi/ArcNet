@@ -6,7 +6,7 @@
 
 ## Что скачать
 
-Тестовый [GitHub Release 0.7.0-stage5-a2](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a2) содержит подписанный installer, закреплённый bootstrap и точный source snapshot сборки. Используйте [проверенную установочную команду](vps-preview-acceptance.md); source ZIP не заменяет installer.
+Тестовый [GitHub Release 0.7.0-stage5-a3](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a3) содержит подписанный installer, закреплённый bootstrap и точный source snapshot сборки. Используйте [проверенную установочную команду](vps-preview-acceptance.md); source ZIP не заменяет installer.
 
 Пакет содержит core со встроенным React, `install.sh`, требуемые `deploy/`-скрипты, README/лицензию/руководство, `dist/VERSION` и `dist/SHA256SUMS`. Приватные ключи подписи, SQLite, пользовательские данные и случайные файлы `dist` в него не включаются. Стандартная сборка не требует AmneziaWG.
 
@@ -40,7 +40,7 @@ sudo env ARCVPN_PUBLIC_IP=203.0.113.10 ARCVPN_PANEL_PORT=8443 bash install.sh
 
 Сохраните показанные учётные данные. Войдите по HTTPS, включите 2FA, создайте подключение и пользователя. Проверяйте трафик независимым клиентом: статус службы/heartbeat не доказывает VPN. Перед выдачей доступа другим людям проверьте egress, subscription, расход, срок, отзыв, перезапуск и восстановление. WireGuard выдаётся устройству отдельным `.conf`.
 
-TCP REALITY/XHTTP/Hysteria2/WireGuard можно создать первым: отдельная настройка TCP REALITY не требуется. Адрес задаётся первым сохранённым профилем и должен совпадать у остальных. Hysteria2 требует установленного сертификата того же IP. Backup v10 переносит состояние без TCP REALITY; старый core такой архив не читает. [Подробности](../adr/012-independent-first-local-protocol.md).
+TCP REALITY/XHTTP/Hysteria2/WireGuard можно создать первым: отдельная настройка TCP REALITY не требуется. Адрес задаётся первым сохранённым профилем и должен совпадать у остальных. Hysteria2 требует установленного сертификата того же IP. Backup v11 переносит состояние без TCP REALITY; старый core такой архив не читает. [Подробности](../adr/012-independent-first-local-protocol.md).
 
 ## Обновление существующей установки
 
@@ -78,4 +78,4 @@ Keygen не перезаписывает существующие ключи; п
 
 ## Восстановление доступа
 
-`sudo arcvpn settings` показывает адрес/логин без секретов. `sudo arcvpn password reset` меняет пароль, отзывает сессии и сохраняет 2FA; утрата 2FA требует явного `--reset-2fa`. [Подробное recovery руководство](local-admin-recovery.md). При восстановлении backup v10 уже известные расходы и локальные отзывы не отменяются. На новом IP старые ссылки сами не перенаправляются.
+`sudo arcvpn settings` показывает адрес/логин без секретов. `sudo arcvpn password reset` меняет пароль, отзывает сессии и сохраняет 2FA; утрата 2FA требует явного `--reset-2fa`. [Подробное recovery руководство](local-admin-recovery.md). При восстановлении backup v11 уже известные расходы и локальные отзывы не отменяются. На новом IP старые ссылки сами не перенаправляются.
