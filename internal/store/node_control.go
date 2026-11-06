@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -187,6 +188,9 @@ func (s *Store) NodeControl(ctx context.Context, id string) (NodeControl, error)
 func (s *Store) SetNodeDraining(ctx context.Context, id string, draining bool) (NodeControl, error) {
 	var state NodeControl
 	err := s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNodeWithoutCascade(tx, id); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT * FROM node_control WHERE node_id=?", id)
 		if e != nil {
 			return e
@@ -381,6 +385,21 @@ func (s *Store) openNodeConfig(sealed, ad string) ([]byte, error) {
 // QueueNodeDeployment replaces the desired config only while the previous
 // operation is terminal, ensuring a serial, monotonic per-node revision.
 func (s *Store) QueueNodeDeployment(ctx context.Context, id string, config []byte) (NodeOperation, error) {
+	var op NodeOperation
+	err := s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := requireNodeWithoutCascade(tx, id); err != nil {
+			return err
+		}
+		var err error
+		op, err = s.queueNodeDeployment(tx, id, config, "apply_xray_v1")
+		return err
+	})
+	return op, err
+}
+func (s *Store) queueNodeDeployment(tx *db.Tx, id string, config []byte, kind string) (NodeOperation, error) {
+	if kind != "apply_xray_v1" && kind != "apply_cascade_xray_v1" {
+		return NodeOperation{}, ErrRouteInvalid
+	}
 	if len(config) == 0 || len(config) > 256<<10 || !json.Valid(config) {
 		return NodeOperation{}, errors.New("invalid Xray JSON")
 	}
@@ -396,35 +415,34 @@ func (s *Store) QueueNodeDeployment(ctx context.Context, id string, config []byt
 		return NodeOperation{}, e
 	}
 	var op NodeOperation
-	// The sealed payload is generated once. The revision is bound into AES AAD.
-	e = s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		rows, e := tx.Query("SELECT desired_revision,deployment_status FROM node_control WHERE node_id=?", id)
-		if e != nil {
-			return e
-		}
-		if len(rows) == 0 {
-			return ErrNotFound
-		}
-		if rows[0]["deployment_status"] == "queued" || rows[0]["deployment_status"] == "running" {
-			return ErrNodeBusy
-		}
-		previous, _ := strconv.ParseInt(rows[0]["desired_revision"], 10, 64)
-		rev := previous + 1
-		sealed, e := s.sealNodeConfig(config, fmt.Sprintf("%s:%d:%s", id, rev, digest))
-		if e != nil {
-			return e
-		}
-		now := time.Now().Unix()
-		op = NodeOperation{ID: operationID, NodeID: id, Kind: "apply_xray_v1", Revision: rev, Digest: digest, State: "queued", CreatedAt: now, UpdatedAt: now}
-		if e = tx.Exec("UPDATE node_control SET desired_revision=?,desired_digest=?,desired_ciphertext=?,deployment_id=?,deployment_status='queued',last_error='',probe='unknown',probe_revision=0,probe_checked_at=0,published=0,updated_at=? WHERE node_id=?", strconv.FormatInt(rev, 10), digest, sealed, operationID, strconv.FormatInt(now, 10), id); e != nil {
-			return e
-		}
-		if e = tx.Exec("INSERT INTO node_operations(id,node_id,kind,revision,digest,state,created_at,updated_at) VALUES(?,?,?, ?,?,'queued',?,?)", operationID, id, op.Kind, strconv.FormatInt(rev, 10), digest, strconv.FormatInt(now, 10), strconv.FormatInt(now, 10)); e != nil {
-			return e
-		}
-		return pruneNodeOperations(tx, id, now)
-	})
-	return op, e
+	rows, e := tx.Query("SELECT desired_revision,deployment_status FROM node_control WHERE node_id=?", id)
+	if e != nil {
+		return NodeOperation{}, e
+	}
+	if len(rows) == 0 {
+		return NodeOperation{}, ErrNotFound
+	}
+	if rows[0]["deployment_status"] == "queued" || rows[0]["deployment_status"] == "running" {
+		return NodeOperation{}, ErrNodeBusy
+	}
+	previous, parseErr := strconv.ParseInt(rows[0]["desired_revision"], 10, 64)
+	if parseErr != nil || previous < 0 || previous == math.MaxInt64 {
+		return NodeOperation{}, ErrConflict
+	}
+	rev := previous + 1
+	sealed, e := s.sealNodeConfig(config, fmt.Sprintf("%s:%d:%s", id, rev, digest))
+	if e != nil {
+		return NodeOperation{}, e
+	}
+	now := time.Now().Unix()
+	op = NodeOperation{ID: operationID, NodeID: id, Kind: kind, Revision: rev, Digest: digest, State: "queued", CreatedAt: now, UpdatedAt: now}
+	if e = tx.Exec("UPDATE node_control SET desired_revision=?,desired_digest=?,desired_ciphertext=?,deployment_id=?,deployment_status='queued',last_error='',probe='unknown',probe_revision=0,probe_checked_at=0,published=0,updated_at=? WHERE node_id=?", strconv.FormatInt(rev, 10), digest, sealed, operationID, strconv.FormatInt(now, 10), id); e != nil {
+		return NodeOperation{}, e
+	}
+	if e = tx.Exec("INSERT INTO node_operations(id,node_id,kind,revision,digest,state,created_at,updated_at) VALUES(?,?,?, ?,?,'queued',?,?)", operationID, id, op.Kind, strconv.FormatInt(rev, 10), digest, strconv.FormatInt(now, 10), strconv.FormatInt(now, 10)); e != nil {
+		return NodeOperation{}, e
+	}
+	return op, pruneNodeOperations(tx, id, now)
 }
 
 // pruneNodeOperations is transactional with creating a new deployment. Never
@@ -504,13 +522,34 @@ func (s *Store) PendingNodeCommand(ctx context.Context, nodeID, secret string) (
 		if r["deployment_status"] != "queued" && r["deployment_status"] != "running" {
 			return nil
 		}
-		attemptRows, e := tx.Query("SELECT attempts FROM node_operations WHERE id=?", r["deployment_id"])
+		attemptRows, e := tx.Query("SELECT attempts,kind FROM node_operations WHERE id=?", r["deployment_id"])
 		if e != nil {
 			return e
 		}
 		if len(attemptRows) != 1 {
 			return errors.New("missing deployment journal")
 		}
+		if attemptRows[0]["kind"] == "apply_cascade_xray_v1" {
+			caps, e := tx.Query("SELECT protocol,checked_at FROM cascade_capabilities WHERE node_id=?", nodeID)
+			if e != nil {
+				return e
+			}
+			checked := int64(0)
+			if len(caps) == 1 {
+				checked, _ = strconv.ParseInt(caps[0]["checked_at"], 10, 64)
+			}
+			if len(caps) != 1 || caps[0]["protocol"] != "1" || time.Now().Unix()-checked > 180 {
+				now := strconv.FormatInt(time.Now().Unix(), 10)
+				if e := tx.Exec("UPDATE node_control SET deployment_status='failed',last_error='cascade helper capability expired or was withdrawn',updated_at=? WHERE node_id=?", now, nodeID); e != nil {
+					return e
+				}
+				if e := tx.Exec("UPDATE node_operations SET state='failed',error='cascade helper capability unavailable',updated_at=? WHERE id=?", now, r["deployment_id"]); e != nil {
+					return e
+				}
+				return markCascadeOperationUnknown(tx, r["deployment_id"])
+			}
+		}
+
 		attempts, e := strconv.Atoi(attemptRows[0]["attempts"])
 		if e != nil {
 			return errors.New("invalid attempt count")
@@ -520,7 +559,10 @@ func (s *Store) PendingNodeCommand(ctx context.Context, nodeID, secret string) (
 			if e = tx.Exec("UPDATE node_control SET deployment_status='failed',last_error='agent did not acknowledge after bounded retries',updated_at=? WHERE node_id=?", now, nodeID); e != nil {
 				return e
 			}
-			return tx.Exec("UPDATE node_operations SET state='failed',error='agent did not acknowledge after bounded retries',updated_at=? WHERE id=?", now, r["deployment_id"])
+			if e := tx.Exec("UPDATE node_operations SET state='failed',error='agent did not acknowledge after bounded retries',updated_at=? WHERE id=?", now, r["deployment_id"]); e != nil {
+				return e
+			}
+			return markCascadeOperationUnknown(tx, r["deployment_id"])
 		}
 		rev, _ := strconv.ParseInt(r["desired_revision"], 10, 64)
 		plain, e := s.openNodeConfig(r["desired_ciphertext"], fmt.Sprintf("%s:%d:%s", nodeID, rev, r["desired_digest"]))
@@ -538,7 +580,7 @@ func (s *Store) PendingNodeCommand(ctx context.Context, nodeID, secret string) (
 		if e = tx.Exec("UPDATE node_operations SET state='running',attempts=attempts+1,updated_at=? WHERE id=?", now, r["deployment_id"]); e != nil {
 			return e
 		}
-		cmd = &NodeCommand{ProtocolVersion: 1, Kind: "apply_xray_v1", OperationID: r["deployment_id"], Revision: rev, SHA256: r["desired_digest"], Config: json.RawMessage(plain)}
+		cmd = &NodeCommand{ProtocolVersion: 1, Kind: attemptRows[0]["kind"], OperationID: r["deployment_id"], Revision: rev, SHA256: r["desired_digest"], Config: json.RawMessage(plain)}
 		return nil
 	})
 	return cmd, e
@@ -594,7 +636,10 @@ func (s *Store) AcknowledgeNodeOperation(ctx context.Context, nodeID, secret, op
 				return e
 			}
 		}
-		return tx.Exec("UPDATE node_operations SET state=?,error=?,updated_at=? WHERE id=?", status, errorText, now, operationID)
+		if e := tx.Exec("UPDATE node_operations SET state=?,error=?,updated_at=? WHERE id=?", status, errorText, now, operationID); e != nil {
+			return e
+		}
+		return s.advanceCascadeACK(tx, operationID, result)
 	})
 }
 
@@ -605,6 +650,9 @@ func (s *Store) AcknowledgeNodeOperation(ctx context.Context, nodeID, secret, op
 func (s *Store) RetryNodeDeployment(ctx context.Context, nodeID string) (NodeOperation, error) {
 	var op NodeOperation
 	e := s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNodeWithoutCascade(tx, nodeID); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT desired_revision,desired_digest,deployment_status,deployment_id FROM node_control WHERE node_id=?", nodeID)
 		if e != nil {
 			return e
@@ -653,12 +701,18 @@ func (s *Store) MarkNodeStalled(ctx context.Context, olderThan time.Duration) er
 			if e = tx.Exec("UPDATE node_operations SET state='failed',error='agent did not acknowledge before deadline',updated_at=? WHERE id=?", strconv.FormatInt(now, 10), r["deployment_id"]); e != nil {
 				return e
 			}
+			if e := markCascadeOperationUnknown(tx, r["deployment_id"]); e != nil {
+				return e
+			}
 		}
 		return nil
 	})
 }
 func (s *Store) CancelNodeDeployment(ctx context.Context, nodeID string) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNodeWithoutCascade(tx, nodeID); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT deployment_id,deployment_status FROM node_control WHERE node_id=?", nodeID)
 		if e != nil {
 			return e

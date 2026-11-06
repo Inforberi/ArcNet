@@ -81,3 +81,20 @@ func TestCascadeApplyReceiptAndRollback(t *testing.T) {
 		})
 	}
 }
+
+func TestCascadeCapabilityReadOnlyAndStrict(t *testing.T) {
+	runner := &fakeRunner{}
+	installer := noderuntime.Installer{ConfigPath: filepath.Join(t.TempDir(), "must-not-exist"), Runner: runner}
+	query := noderuntime.ApplyRequest{ProtocolVersion: 1, Kind: "capabilities_v1"}
+	response, e := installer.Apply(context.Background(), query)
+	if e != nil || response.Status != "capabilities" || response.CascadeProtocol != 1 || len(runner.calls) != 0 {
+		t.Fatal("capability query changed runtime", e)
+	}
+	if _, e := os.Stat(installer.ConfigPath); !os.IsNotExist(e) {
+		t.Fatal("capability query wrote a config")
+	}
+	query.Config = []byte(`{}`)
+	if e := noderuntime.ValidateRequest(query); e == nil {
+		t.Fatal("capability query accepted payload")
+	}
+}

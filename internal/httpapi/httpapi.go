@@ -725,6 +725,10 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }
 func handleErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, store.ErrCascadeBusy) {
+		fail(w, 409, "Изменение заблокировано журналом каскада; сначала завершите или откатите операцию")
+		return
+	}
 	if errors.Is(err, store.ErrUsageUnsupported) {
 		fail(w, 409, "Для этого подключения пока нет полного учёта трафика. Сначала снимите конечные пакеты или используйте локальный Xray.")
 		return

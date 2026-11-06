@@ -1,3 +1,7 @@
+## 2026-11-06: постоянный журнал каскада
+
+`internal/store/cascade{,_test}.go` — encrypted snapshots/leases/CAS/stages; `node_control.go` — typed queue/poll/ACK transitions; `nodes.go`, `internal/nodeagent/agent.go`, `internal/noderuntime/runtime.go` — helper capability/heartbeat. `internal/app/cascade{,_test}.go` — internal preparation. Guards: store/routes/devices/usage/node_profile/node_bootstrap/store; `internal/httpapi/{httpapi,cascade_test}.go` —409. [ADR-016](../adr/016-persistent-cascade-deployment.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-journal.md). Admin UI/start API не подключены.
+
 ## 2026-11-06: каскадный канал
 
 `internal/xray/cascade{,_test,_integration_test}.go` — machine identity/renderer/real Xray test; `internal/noderuntime/cascade{,_test}.go`, `runtime.go` — отдельная allowlisted apply operation с receipt/rollback. Controller/UI queue не подключены. [ADR-015](../adr/015-cascade-channel-and-node-operation.md), [результаты](../testing/local-results/stage5-2026-11-06-cascade-channel.md).

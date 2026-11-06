@@ -17,3 +17,8 @@
 ## Следующая обязательная часть
 
 Стабильный LogicalEndpoint/user binding; encrypted persistence и ротация machine identity; desired/applied/last-good snapshots; persistent multi-node journal с подготовкой B перед A, CAS/ACK/reconcile и компенсацией; node capability gate; сохранение устройств/лимитов при изменениях; независимая revision-bound egress/DNS/UDP probe; отдельная publication revision. Генератор не подключён к UI/apply/poll и не меняет существующие черновики или подписки. Firewall автоматически не меняется. Не применять пару конфигов вручную к работающей панели вместо отсутствующей оркестрации.
+
+
+## Продолжение
+
+Persistence, capability query и внутренний staged queue/ACK/rollback добавлены в [ADR-016](016-persistent-cascade-deployment.md). Прежнее отсутствие controller queue выше относится к первому снимку; публичной UI-активации по-прежнему нет.

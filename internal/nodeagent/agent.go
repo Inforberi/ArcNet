@@ -200,7 +200,10 @@ func heartbeat(ctx context.Context, client *http.Client, c Configuration) error 
 		state = "inactive"
 	}
 	cancel()
-	b, err := json.Marshal(store.NodeHeartbeat{Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
+	capsCtx, capsCancel := context.WithTimeout(ctx, 2*time.Second)
+	caps, _ := noderuntime.CallHelper(capsCtx, "", noderuntime.ApplyRequest{ProtocolVersion: 1, Kind: "capabilities_v1"})
+	capsCancel()
+	b, err := json.Marshal(store.NodeHeartbeat{CascadeProtocol: caps.CascadeProtocol, Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
 	if err != nil {
 		return err
 	}

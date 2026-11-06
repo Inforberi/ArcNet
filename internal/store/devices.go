@@ -101,6 +101,9 @@ func (s *Store) HasManagedDevices(ctx context.Context) (bool, error) {
 // the common credential. Revocation is monotonic; slots count active credentials.
 func (s *Store) ChangeDevices(ctx context.Context, id, version int64, change func(*devices.Record) error) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
 		state, err := readDevices(tx)
 		if err != nil {
 			return err

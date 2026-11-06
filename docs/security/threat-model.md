@@ -99,3 +99,8 @@ Private loopback API `127.0.0.1:19823` требует случайный маш�
 ## Каскадный канал/helper — 2026-11-06
 
 [ADR-015](../adr/015-cascade-channel-and-node-operation.md): отдельные machine credentials и listener; новая fixed-shape операция без shell/paths/API, no direct fallback на A, default block, duplicate-key rejection. Скомпрометированные controller/node UID/root остаются доверенной границей, receipt/active не аттестуют egress. Политика AsIs/CIDR блокирует буквальные private destinations, но не гарантирует запрет domain→private или отсутствие DNS leaks: это открытый gate перед публикацией. Новая операция не ставится в controller queue; старые агенты не считаются совместимыми по одному protocol1. Firewall/OS не меняются. Нужны persistent encrypted credentials/rotation, LogicalEndpoint bindings, CAS многоузловых revisions, rollback/reconcile, независимая egress/DNS/UDP приёмка и отдельный publish.
+
+
+## Постоянный журнал каскада — 2026-11-06
+
+[ADR-016](../adr/016-persistent-cascade-deployment.md): AES-GCM/AAD per deployment/step/digest, monotonic compensation revisions, transaction ACK→next-stage, node leases и guards на users/routes/endpoint/deploy/SSH lifecycle/restore. ACK loss не доказывает отсутствие apply; attention сохраняет резервации и last-good snapshots. Восстановление A предшествует удалению канала B. Capability read-only/2s deadline и freshness180s не являются root attestation: агент/root доверены, публикация остаётся запрещена. Runtime journal отсутствует в portable backup; нужен согласованный SQLite+node-control.key/OS snapshot. Admin UI/start API ещё нет, internal method не должен становиться обычным Save. Внешние process/systemd/VPS crash/egress/DNS gates открыты.

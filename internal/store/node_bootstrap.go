@@ -240,6 +240,9 @@ func (s *Store) CreateNodeUpgrade(ctx context.Context, nodeID, targetVersion str
 		SSHPort: original.SSHPort, VPNPort: original.VPNPort, Status: "running", Step: "queued",
 		OperationType: "upgrade", TargetVersion: targetVersion, CreatedAt: now, UpdatedAt: now}
 	err = s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNodeWithoutCascade(tx, nodeID); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT id FROM managed_nodes WHERE id=?", nodeID)
 		if e != nil {
 			return e

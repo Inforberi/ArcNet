@@ -38,8 +38,9 @@ type ApplyRequest struct {
 	Config          json.RawMessage `json:"config"`
 }
 type ApplyResponse struct {
-	Status string `json:"status"`
-	Error  string `json:"error,omitempty"`
+	CascadeProtocol int    `json:"cascade_protocol,omitempty"`
+	Status          string `json:"status"`
+	Error           string `json:"error,omitempty"`
 }
 
 type Runner interface {
@@ -210,6 +211,12 @@ func stringValue(raw json.RawMessage) string {
 }
 
 func ValidateRequest(req ApplyRequest) error {
+	if req.Kind == "capabilities_v1" {
+		if req.ProtocolVersion == 1 && req.OperationID == "" && req.Revision == 0 && req.SHA256 == "" && len(req.Config) == 0 {
+			return nil
+		}
+		return errors.New("invalid capability query")
+	}
 	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
 		return errors.New("unsupported or malformed apply operation")
 	}
@@ -304,6 +311,9 @@ func (raw Installer) Apply(ctx context.Context, request ApplyRequest) (ApplyResp
 	i := raw.defaults()
 	if err := ValidateRequest(request); err != nil {
 		return ApplyResponse{Status: "failed"}, err
+	}
+	if request.Kind == "capabilities_v1" {
+		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1}, nil
 	}
 	if receipt, err := readPrivilegedState(i.ReceiptPath, 4096); err == nil {
 		var prior struct {
@@ -422,13 +432,23 @@ func CallHelper(ctx context.Context, socket string, req ApplyRequest) (ApplyResp
 		return ApplyResponse{}, err
 	}
 	defer c.Close()
-	_ = c.SetDeadline(time.Now().Add(80 * time.Second))
+	deadline := time.Now().Add(80 * time.Second)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	_ = c.SetDeadline(deadline)
 	if _, err = c.Write(append(b, '\n')); err != nil {
 		return ApplyResponse{}, err
 	}
 	var response ApplyResponse
 	if err = json.NewDecoder(io.LimitReader(c, 2048)).Decode(&response); err != nil {
 		return response, err
+	}
+	if req.Kind == "capabilities_v1" {
+		if response.Status != "capabilities" || response.CascadeProtocol != 1 {
+			return ApplyResponse{}, errors.New("helper does not support cascade protocol")
+		}
+		return response, nil
 	}
 	if response.Status != "applied" && response.Status != "rolled_back" && response.Status != "failed" {
 		return response, errors.New("invalid helper reply")

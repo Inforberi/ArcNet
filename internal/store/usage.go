@@ -238,6 +238,9 @@ func (s *Store) SavePackage(ctx context.Context, id, quota, expires, version int
 		return usage.ErrInvalid
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
 		items, err := readPackages(tx)
 		if err != nil {
 			return err

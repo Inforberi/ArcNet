@@ -1,3 +1,5 @@
+**2026-11-06, часть S5-12/14/15:** encrypted channel/snapshots, CAS/leases, persistent B→A/ACK/compensation, helper capability и lost-ACK recovery реализованы: [ADR-016](../adr/016-persistent-cascade-deployment.md), [локальные проверки](../testing/local-results/stage5-2026-11-06-cascade-journal.md). Пункты целиком не закрыты: нет LogicalEndpoint/UI/rotation, независимого egress/DNS/UDP/publish и VM/VPS crash acceptance.
+
 **2026-11-06, частично S5-12/13:** отдельные machine credentials, TCP/REALITY renderer A→B и restricted helper operation реализованы; [контракт/остаток](../adr/015-cascade-channel-and-node-operation.md), [проверки](../testing/local-results/stage5-2026-11-06-cascade-channel.md). Пункты не закрываются: encrypted persistence, LogicalEndpoint/bindings, multi-node journal/ACK/compensation, DNS/egress/publish и VPS не реализованы/не приняты.
 
 # ArcVPN — этап 5: маршруты, каскады, резервирование

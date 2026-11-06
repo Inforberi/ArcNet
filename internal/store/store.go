@@ -81,7 +81,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 				return err
 			}
 		}
-		for _, q := range []string{nodeControlSchema, nodeOpSchema, nodeEnrollMetaSchema, nodeProfileSchema, nodeBootstrapSchema, `CREATE INDEX IF NOT EXISTS node_operations_node_idx ON node_operations(node_id,created_at DESC)`, `INSERT OR IGNORE INTO node_control(node_id) SELECT id FROM managed_nodes`} {
+		for _, q := range []string{nodeControlSchema, nodeOpSchema, cascadeSchema, cascadeStepsSchema, cascadeLeasesSchema, cascadeCapabilitySchema, `CREATE INDEX IF NOT EXISTS cascade_steps_operation_idx ON cascade_steps(operation_id)`, nodeEnrollMetaSchema, nodeProfileSchema, nodeBootstrapSchema, `CREATE INDEX IF NOT EXISTS node_operations_node_idx ON node_operations(node_id,created_at DESC)`, `INSERT OR IGNORE INTO node_control(node_id) SELECT id FROM managed_nodes`} {
 			if err := tx.Exec(q); err != nil {
 				return err
 			}
@@ -267,6 +267,9 @@ func (s *Store) ByID(ctx context.Context, id int64) (User, error) {
 }
 func (s *Store) InsertUser(ctx context.Context, u User) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
 		if err := tx.Exec("INSERT INTO users(name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?)", u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
 			if strings.Contains(err.Error(), "UNIQUE") {
 				return ErrConflict
@@ -278,6 +281,9 @@ func (s *Store) InsertUser(ctx context.Context, u User) error {
 }
 func (s *Store) SetEnabled(ctx context.Context, id int64, enabled bool) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT id FROM users WHERE id=?", strconv.FormatInt(id, 10))
 		if e != nil {
 			return e
@@ -289,10 +295,18 @@ func (s *Store) SetEnabled(ctx context.Context, id int64, enabled bool) error {
 	})
 }
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	return s.DB.WithTx(ctx, func(tx *db.Tx) error { return tx.Exec("DELETE FROM users WHERE id=?", strconv.FormatInt(id, 10)) })
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
+		return tx.Exec("DELETE FROM users WHERE id=?", strconv.FormatInt(id, 10))
+	})
 }
 func (s *Store) RestoreUser(ctx context.Context, u User) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascadeLeases(tx); e != nil {
+			return e
+		}
 		return tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10))
 	})
 }
@@ -371,6 +385,9 @@ func (s *Store) VerifyUserToken(ctx context.Context, token string) (User, error)
 // The caller must serialize updates with other application mutations and validate inputs.
 func (s *Store) ReplaceState(ctx context.Context, reality *Reality, users []User) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascades(tx); e != nil {
+			return e
+		}
 		if err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}
@@ -434,6 +451,9 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 		return ErrInvalidLogBudget
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNoCascades(tx); e != nil {
+			return e
+		}
 		previousDevices, err := readDevices(tx)
 		if err != nil {
 			return err

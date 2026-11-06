@@ -73,6 +73,9 @@ func (s *Store) UpdateNodeEndpoint(ctx context.Context, id, address string, port
 		return errors.New("invalid endpoint")
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireNodeWithoutCascade(tx, id); e != nil {
+			return e
+		}
 		return tx.Exec("UPDATE node_control SET address=?,port=?,published=0,probe='unknown' WHERE node_id=?", address, strconv.Itoa(port), id)
 	})
 }

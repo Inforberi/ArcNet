@@ -36,6 +36,9 @@ func (e *NodeRouteDependencyError) Unwrap() error { return ErrNodeInUse }
 // Called in the same transaction as revocation/removal, so a concurrent route
 // cannot acquire a reference between checking dependencies and removing a node.
 func requireNodeWithoutRoutes(tx *db.Tx, id string) error {
+	if e := requireNodeWithoutCascade(tx, id); e != nil {
+		return e
+	}
 	policies, err := readRoutes(tx)
 	if err != nil {
 		return err
@@ -239,6 +242,9 @@ func (s *Store) SaveRoute(ctx context.Context, p routes.Policy, expectedVersion 
 	p.UpdatedAt = 0
 	var result routes.Policy
 	err := s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireRouteWithoutCascade(tx, p.ID); e != nil {
+			return e
+		}
 		existing, e := readRoutes(tx)
 		if e != nil {
 			return e
@@ -291,6 +297,9 @@ func (s *Store) DeleteRoute(ctx context.Context, id string, expectedVersion int6
 		return ErrConflict
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if e := requireRouteWithoutCascade(tx, id); e != nil {
+			return e
+		}
 		rows, e := tx.Query("SELECT version FROM route_policies WHERE id=?", id)
 		if e != nil {
 			return e
