@@ -118,13 +118,15 @@ type Controller struct {
 // GenerateWithProfiles keeps the existing Reality TCP listener and adds
 // independent XHTTP listeners to the same Xray process.
 func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.Protocol) ([]byte, error) {
-	base, err := Generate(r, users)
-	if err != nil {
-		return nil, err
-	}
-	var root map[string]any
-	if err := json.Unmarshal(base, &root); err != nil {
-		return nil, err
+	root := map[string]any{"log": map[string]any{"loglevel": "warning"}, "inbounds": []any{}, "outbounds": []any{map[string]any{"protocol": "freedom", "tag": "direct"}, map[string]any{"protocol": "blackhole", "tag": "block"}}}
+	if r.Enabled {
+		base, err := Generate(r, users)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(base, &root); err != nil {
+			return nil, err
+		}
 	}
 	inbounds := root["inbounds"].([]any)
 	for _, p := range profiles {

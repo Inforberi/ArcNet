@@ -40,8 +40,27 @@ func (a *App) Setup(ctx context.Context, address, target string, port int) error
 		return errors.New("VPN TCP port conflicts with HTTPS panel or ACME HTTP validation")
 	}
 	old, oldErr := a.Store.ReadReality(ctx)
+	if oldErr != nil && !errors.Is(oldErr, store.ErrNotFound) {
+		return oldErr
+	}
 	if oldErr == nil && old.Enabled {
 		return errors.New("VPN already configured; changing keys requires a separate migration")
+	}
+	server, serverErr := a.Store.LocalServer(ctx)
+	if serverErr != nil && !errors.Is(serverErr, store.ErrNotFound) {
+		return serverErr
+	}
+	if serverErr == nil && server.Address != address {
+		return errors.New("protocol address must match local VPN address")
+	}
+	profiles, err := a.Store.ListProtocols(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range profiles {
+		if p.Enabled && ((p.Kind == "vless-xhttp" && p.Port == port) || (p.Kind == "hysteria2" && port == engines.HysteriaStatsPort)) {
+			return errors.New("TCP port reserved by an existing protocol")
+		}
 	}
 	users, err := a.Store.ListUsers(ctx)
 	if err != nil {
@@ -51,9 +70,7 @@ func (a *App) Setup(ctx context.Context, address, target string, port int) error
 		return err
 	}
 	if err = a.Store.SaveReality(ctx, candidate); err != nil {
-		if oldErr == nil {
-			_ = a.applyAll(context.Background(), old, users)
-		}
+		_ = a.applyAll(context.Background(), old, users)
 		return err
 	}
 	a.Store.Event(ctx, "vpn.setup", fmt.Sprintf("port %d", port))
@@ -66,9 +83,15 @@ func (a *App) AddUser(ctx context.Context, name string) (store.User, error) {
 	if len([]rune(name)) < 1 || len([]rune(name)) > 60 || strings.ContainsAny(name, "\r\n\x00") {
 		return store.User{}, errors.New("name must contain 1–60 characters")
 	}
-	r, err := a.Store.ReadReality(ctx)
+	if _, err := a.Store.LocalServer(ctx); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return store.User{}, errors.New("configure VPN first")
+		}
+		return store.User{}, err
+	}
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
-		return store.User{}, errors.New("configure VPN first")
+		return store.User{}, err
 	}
 	uuid, err := auth.UUID()
 	if err != nil {
@@ -122,7 +145,7 @@ func (a *App) ToggleUser(ctx context.Context, id int64, enabled bool) error {
 	if old.Enabled == enabled {
 		return nil
 	}
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return err
 	}
@@ -162,7 +185,7 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return err
 	}

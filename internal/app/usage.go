@@ -32,12 +32,9 @@ func (a *App) effectiveUsers(ctx context.Context, users []store.User) ([]store.U
 	return a.xrayUsers(ctx, result)
 }
 func (a *App) collectUsageLocked(ctx context.Context) error {
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return err
-	}
-	if !r.Enabled {
-		return errors.New("local Xray is disabled")
 	}
 	users, err := a.Store.ListUsers(ctx)
 	if err != nil {
@@ -47,16 +44,24 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	counters, observed, err := a.Core.Statistics(ctx, users, true)
 	var xrayErr error
-	if err != nil {
-		xrayErr = err
-	} else {
-		xrayErr = a.Store.RecordUsage(ctx, counters, observed)
-	}
 	profiles, err := a.Store.ListProtocols(ctx)
 	if err != nil {
 		return errors.Join(xrayErr, err)
+	}
+	xrayEnabled := r.Enabled
+	for _, p := range profiles {
+		if p.Kind == protocols.XHTTP && p.Enabled {
+			xrayEnabled = true
+		}
+	}
+	if xrayEnabled {
+		counters, observed, err := a.Core.Statistics(ctx, users, true)
+		if err != nil {
+			xrayErr = err
+		} else {
+			xrayErr = a.Store.RecordUsage(ctx, counters, observed)
+		}
 	}
 	var hysteriaErr error
 	var wireGuardErr error
@@ -120,7 +125,7 @@ func (a *App) collectHysteriaUsage(ctx context.Context, users []store.User, prev
 }
 
 func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return err
 	}

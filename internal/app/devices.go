@@ -95,15 +95,15 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 	if err != nil {
 		return nil, err
 	}
-	reality, err := a.Store.ReadReality(ctx)
+	reality, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !reality.Enabled {
-		return nil, store.ErrNotFound
-	}
 	user := store.User{ID: id, Name: selected.Name, UUID: selected.UUID, Enabled: true}
-	links := []string{xray.Link(reality, user)}
+	links := []string{}
+	if reality.Enabled {
+		links = append(links, xray.Link(reality, user))
+	}
 	profiles, err := a.Store.ListProtocols(ctx)
 	if err != nil {
 		return nil, err

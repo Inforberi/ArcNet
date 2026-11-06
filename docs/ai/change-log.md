@@ -1,3 +1,8 @@
+## 2026-11-06 — независимый первый локальный протокол
+
+Убрана обязательная настройка TCP REALITY перед XHTTP/Hysteria/WG: отдельная identity-проекция адреса, optional TCP, согласованные users/devices/подписки/учёт и backup v10. Никакого скрытого VLESS или новых dependencies/RPC/schema. Сохранены credentials и legacy backup compatibility; добавлены first-create/restore failure/port/address/freshness/export regression. Targeted Linux tests/vet/race и TypeScript/build PASS; отдельный Chromium UI/API сценарий с simulated engines. Реальный VPS/VPN NOT RUN, remote/Geo/cascade/failover остаются открытыми. [ADR-012](../adr/012-independent-first-local-protocol.md), [результаты](../testing/local-results/stage5-2026-11-06-first-protocol.md).
+
+
 ## 2026-11-05 — локальные пакеты Xray, accounting и backup v6
 
 Подтверждённые пользовательские counters через private Unix StatsService, транзакционные суммы/минутные списания/checkpoints, пакет/срок/явный новый период, CAS и reconcile. UI использует Dialog/Advanced и показывает план изменения, unknown/pending/разрыв учёта. При failed delete восстанавливаются credentials и accounting; v6 переносит состояние без тихого уменьшения уже известного расхода. Point access lookup измерен на 10000 fixture users. [Объём](../release-0.7.0-stage5-user-packages.md), [результаты и ограничения](../testing/local-results/stage5-2026-11-05-user-packages.md). Только локальный Xray; устройства и distributed/UDP исполнение пока отсутствуют, VPS acceptance нет.

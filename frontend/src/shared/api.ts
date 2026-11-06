@@ -71,6 +71,7 @@ export interface Overview {
 export interface Subscription {
   url: string;
   link: string;
+  links: string[];
 }
 
 export interface AuditEvent {

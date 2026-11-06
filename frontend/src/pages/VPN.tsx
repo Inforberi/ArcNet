@@ -13,6 +13,7 @@ export default function VPN() {
   const health = useQuery({queryKey:['protocol-health'],queryFn:()=>api<{items:ProtocolHealth[]}>('/api/protocols/health')});
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [addingReality, setAddingReality] = useState(false);
 
   const configuredKinds = new Set(protocols.data?.items.map(item => item.kind) ?? []);
 
@@ -22,7 +23,7 @@ export default function VPN() {
   });
   const create = useMutation({
     mutationFn: (input: ProtocolInput) => api('/api/protocols', 'POST', input),
-    onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['protocols'] }), client.invalidateQueries({queryKey:['connection-defaults']}), client.invalidateQueries({ queryKey: ['users'] }),client.invalidateQueries({queryKey:['protocol-health']})]); },
+    onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['vpn'] }), client.invalidateQueries({ queryKey: ['protocols'] }), client.invalidateQueries({queryKey:['connection-defaults']}), client.invalidateQueries({ queryKey: ['users'] }),client.invalidateQueries({queryKey:['protocol-health']})]); },
   });
   const toggle = useMutation({
     mutationFn: (p: ProtocolProfile) => api(`/api/protocols/${p.kind}`, 'PATCH', { enabled: !p.enabled }),
@@ -30,7 +31,7 @@ export default function VPN() {
   });
   const remove = useMutation({
     mutationFn: (p: ProtocolProfile) => api(`/api/protocols/${p.kind}`, 'DELETE'),
-    onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['protocols'] }), client.invalidateQueries({queryKey:['connection-defaults']}),client.invalidateQueries({queryKey:['protocol-health']})]); },
+    onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['vpn'] }), client.invalidateQueries({ queryKey: ['protocols'] }), client.invalidateQueries({queryKey:['connection-defaults']}),client.invalidateQueries({queryKey:['protocol-health']})]); },
   });
 
   async function configureReality(input: RealityInput) { setError(''); setMessage('');
@@ -58,22 +59,27 @@ export default function VPN() {
     {error && <p className="error" role="alert">{error}</p>}
     {message && <p className="notice" role="status">{message}</p>}
     {vpn.isPending ? <Loading /> : vpn.isError ? <Notice>{explanation(vpn.error)}</Notice> : !vpn.data.configured ? (
-      <Panel title="Основной VLESS + Reality TCP">
-        <RealitySetup busy={setup.isPending} onSubmit={configureReality}/>
+      <Panel title="VLESS + Reality TCP">
+        {addingReality ? <RealitySetup busy={setup.isPending} onSubmit={configureReality}/> : <div className="panel-body">
+          <p className="muted">Необязательное подключение. XHTTP, Hysteria2 и WireGuard можно создать независимо ниже.</p>
+          <Button onClick={() => setAddingReality(true)}>Добавить VLESS + Reality TCP</Button>
+        </div>}
       </Panel>
-    ) : <>
-      <Panel title="Основной VLESS + Reality TCP">
+    ) : (
+      <Panel title="VLESS + Reality TCP">
         <div className="panel-body">
           {([['Сервер', vpn.data.address], ['TCP-порт', vpn.data.port], ['Reality SNI', vpn.data.sni], ['Публичный ключ', vpn.data.public_key], ['Short ID', vpn.data.short_id]] as const).map(([label, value]) =>
             <div className="kv" key={label}><span>{label}</span><span>{value}</span></div>)}
           <p className="muted">Ключ Reality привязан к подпискам. Изменение требует контролируемой миграции.</p>
         </div>
       </Panel>
-      <Panel title="Дополнительные протоколы">
+    )}
+    {!vpn.isPending && !vpn.isError && <>
+      <Panel title="Протоколы подключения">
         <div className="panel-body">
           <Notice>Активная конфигурация не гарантирует доступность из сети пользователя. Для WireGuard и AmneziaWG нужны настройки маршрутизации/NAT, а для Hysteria2 — действующий сертификат и установленный движок.</Notice>
           {protocols.isPending ? <Loading /> : protocols.isError ? <Notice>{explanation(protocols.error)}</Notice> : protocols.data.items.length === 0 ? (
-            <p className="muted">Дополнительные протоколы пока не созданы.</p>
+            <p className="muted">Выберите любой протокол ниже. Предварительная настройка VLESS TCP не требуется.</p>
           ) : <div className="protocol-grid">
             {protocols.data.items.map(profile => <article className="protocol-card" key={profile.kind}>
               <div className="flex wrap protocol-header"><strong>{catalog.find(v => v.kind === profile.kind)?.name ?? profile.kind}</strong>

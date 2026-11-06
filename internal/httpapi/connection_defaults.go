@@ -28,6 +28,12 @@ func (s *Server) connectionDefaults(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if server, err := s.App.Store.LocalServer(r.Context()); err == nil {
+		address, source = server.Address, "configured"
+	} else if !errors.Is(err, store.ErrNotFound) {
+		fail(w, 500, "Не удалось прочитать адрес сервера")
+		return
+	}
 	profiles, err := s.App.Store.ListProtocols(r.Context())
 	if err != nil {
 		fail(w, 500, "Не удалось прочитать подключения")

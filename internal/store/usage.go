@@ -19,6 +19,7 @@ const debitsSchema = `CREATE TABLE IF NOT EXISTS traffic_debits(user_id INTEGER 
 // Hysteria observation fresh, and disabling Hysteria removes only its freshness gate.
 const accountingLastSQL = `SELECT min(last) FROM (
  SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='xray_accounting_last_success'),'0') AS INTEGER) AS last
+ WHERE EXISTS(SELECT 1 FROM config WHERE enabled=1) OR EXISTS(SELECT 1 FROM protocols WHERE kind='vless-xhttp' AND enabled=1)
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='hysteria_accounting_last_success'),'0') AS INTEGER)
  WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1)
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='wireguard_accounting_last_success'),'0') AS INTEGER)

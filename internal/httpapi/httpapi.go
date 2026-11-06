@@ -28,7 +28,6 @@ import (
 	"github.com/arcvpn/arcvpn/internal/publicnet"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/targetcheck"
-	"github.com/arcvpn/arcvpn/internal/xray"
 	"github.com/arcvpn/arcvpn/web"
 )
 
@@ -641,11 +640,6 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	cfg, err := s.App.Store.ReadReality(r.Context())
-	if err != nil {
-		handleErr(w, err)
-		return
-	}
 	base := s.origin(r)
 	if base == "" {
 		scheme := "http"
@@ -659,12 +653,23 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, linkErr)
 		return
 	}
-	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": xray.Link(cfg, user), "links": links})
+	link := ""
+	if len(links) > 0 {
+		link = links[0]
+	}
+	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": link, "links": links})
 }
 func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.App.Store.ReadReality(r.Context())
 	if errors.Is(err, store.ErrNotFound) {
-		respond(w, 200, map[string]any{"configured": false})
+		address := ""
+		if server, serverErr := s.App.Store.LocalServer(r.Context()); serverErr == nil {
+			address = server.Address
+		} else if !errors.Is(serverErr, store.ErrNotFound) {
+			handleErr(w, serverErr)
+			return
+		}
+		respond(w, 200, map[string]any{"configured": false, "address": address})
 		return
 	}
 	if err != nil {

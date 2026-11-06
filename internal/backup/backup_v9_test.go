@@ -8,6 +8,7 @@ import (
 
 func TestV9WireGuardDeviceAndAccounting(t *testing.T) {
 	s := sample()
+	s.Version = 9
 	u := s.Users[0]
 	priv, pub, _ := devices.NewWireGuardKeys()
 	state := devices.State{{UserID: u.ID, Identity: u.UUID, Version: 1, Devices: []devices.Device{{ID: "22222222-2222-4222-8222-222222222222", UUID: "33333333-3333-4333-8333-333333333333", Token: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", Name: "Phone", CreatedAt: 100, WGPrivate: priv, WGPublic: pub, WGAddress: "10.76.255.254"}}}}

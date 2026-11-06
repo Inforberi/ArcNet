@@ -69,9 +69,6 @@ func (a *App) RestoreState(ctx context.Context, candidate backup.Snapshot) error
 	if err := candidate.Validate(); err != nil {
 		return err
 	}
-	if candidate.VPN == nil {
-		return errors.New("restoring a backup without a configured VPN is not yet supported")
-	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	old, err := a.exportLocked(ctx)
@@ -99,17 +96,23 @@ func (a *App) RestoreState(ctx context.Context, candidate backup.Snapshot) error
 	if err = a.Store.ReplaceFullStateWithDevices(ctx, newVPN, newUsers, newProfiles, newCreds, importedNodes, importedBudget, importedRoutes, importedRoutingProfiles, candidate.Usage, candidate.Devices); err != nil {
 		return err
 	}
-	if err = a.applyAll(ctx, *newVPN, newUsers); err != nil {
+	newReality := store.Reality{}
+	if newVPN != nil {
+		newReality = *newVPN
+	}
+	if err = a.applyAll(ctx, newReality, newUsers); err != nil {
 		undoCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
 		dbErr := a.Store.RollbackFullStateWithDevices(undoCtx, oldVPN, oldUsers, oldProfiles, oldCreds, &old.Nodes, old.LogBudgetMB, &old.Routes, &old.RoutingProfiles, old.Usage, old.Devices)
 		if dbErr != nil {
 			return fmt.Errorf("Xray update failed (%v), database rollback also failed: %w", err, dbErr)
 		}
+		oldReality := store.Reality{}
 		if oldVPN != nil {
-			if recovery := a.applyAll(undoCtx, *oldVPN, oldUsers); recovery != nil {
-				return fmt.Errorf("Xray update failed (%v), recovery of previous Xray configuration failed: %w", err, recovery)
-			}
+			oldReality = *oldVPN
+		}
+		if recovery := a.applyAll(undoCtx, oldReality, oldUsers); recovery != nil {
+			return fmt.Errorf("Xray update failed (%v), recovery of previous Xray configuration failed: %w", err, recovery)
 		}
 		return fmt.Errorf("backup not restored; previous database state restored: %w", err)
 	}

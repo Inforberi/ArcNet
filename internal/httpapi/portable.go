@@ -13,7 +13,6 @@ import (
 	"github.com/arcvpn/arcvpn/internal/backup"
 	"github.com/arcvpn/arcvpn/internal/qrcode"
 	"github.com/arcvpn/arcvpn/internal/store"
-	"github.com/arcvpn/arcvpn/internal/xray"
 )
 
 func (s *Server) origin(r *http.Request) string {
@@ -34,11 +33,15 @@ func (s *Server) userURL(r *http.Request, id int64) (string, string, error) {
 	if s.App.UserAllowed(r.Context(), user.ID) != nil {
 		return "", "", store.ErrNotFound
 	}
-	cfg, err := s.App.Store.ReadReality(r.Context())
+	links, err := s.App.SubscriptionLinks(r.Context(), user)
 	if err != nil {
 		return "", "", err
 	}
-	return s.origin(r) + "/sub/" + user.Subscription, xray.Link(cfg, user), nil
+	link := ""
+	if len(links) > 0 {
+		link = links[0]
+	}
+	return s.origin(r) + "/sub/" + user.Subscription, link, nil
 }
 func (s *Server) userExport(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -94,6 +97,10 @@ func (s *Server) userQRCode(w http.ResponseWriter, r *http.Request) {
 	case "subscription":
 		value = url
 	case "vless":
+		if link == "" {
+			fail(w, 409, "Для этого протокола скачайте отдельную конфигурацию подключения")
+			return
+		}
 		value = link
 	default:
 		fail(w, 400, "Выбери subscription или vless")
@@ -180,6 +187,8 @@ func (s *Server) backupPreview(w http.ResponseWriter, r *http.Request) {
 	if snapshot.VPN != nil {
 		summary["vpn_address"] = snapshot.VPN.Address
 		summary["vpn_port"] = snapshot.VPN.Port
+	} else if len(snapshot.Protocols) > 0 {
+		summary["vpn_address"] = snapshot.Protocols[0].Address
 	}
 	summary["routes"] = len(snapshot.Routes)
 	summary["current_routes"] = len(current.Routes)

@@ -54,7 +54,7 @@ func TestBackupV2RoundtripAllProfiles(t *testing.T) {
 		{"credential missing", func(s *Snapshot) { s.Credentials = s.Credentials[:1] }},
 		{"untrusted cert path", func(s *Snapshot) { s.Protocols[0].TLSCert = "/tmp/unsafe" }},
 		{"wrong protocol server IP", func(s *Snapshot) { s.Protocols[0].Address = "198.51.100.99" }},
-		{"no VPN with protocols", func(s *Snapshot) { s.VPN = nil }},
+		{"legacy no VPN with protocols", func(s *Snapshot) { s.Version = 2; s.VPN = nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			copyState := original.WithProtocols(profiles, credentials)

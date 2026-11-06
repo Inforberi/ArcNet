@@ -1,3 +1,12 @@
+## 2026-11-06: первый протокол без обязательного TCP REALITY
+
+- `internal/store/local_server.go` — самостоятельная read-only модель local host address, `OptionalReality`, guard последнего профиля.
+- `internal/app/{app,protocols,devices,usage,backup}.go`, `internal/xray/{xray,statistics}.go` — отсутствие скрытого listener, users/учёт/экспорт/restore auxiliary-only.
+- `internal/backup/backup.go` — v10, legacy v1–v9 и independent remap; API в `internal/httpapi/{httpapi,protocols,portable,connection_defaults,dashboard}.go`.
+- `frontend/src/features/connections/ConnectionForms.tsx`, `frontend/src/pages/{VPN,Users,Backup}.tsx` — доступное первое создание, общие URI/QR подписи и `.conf`.
+- Новые `first_protocol_test.go`, `local_server_test.go`, `backup_v10_test.go`, `tests/first_protocol_e2e.mjs`; [ADR-012](../adr/012-independent-first-local-protocol.md), [результаты](../testing/local-results/stage5-2026-11-06-first-protocol.md).
+
+
 ## 2026-11-05: локальные пакеты трафика Xray
 
 - `internal/usage/{usage,state}.go` — counters/epoch, пакет, причины ограничения, portable accounting.

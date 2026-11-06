@@ -49,7 +49,10 @@ try {
  }
  await page.goto(origin+'/vpn',{waitUntil:'domcontentloaded'});
  await page.getByRole('heading',{name:'Подключения',exact:true}).waitFor();
- const advanced = page.locator('details').filter({has:page.locator('summary').getByText('Расширенные настройки',{exact:true})});
+ if (process.env.ARCVPN_E2E_CONFIGURED !== '1') {
+  await page.getByRole('button',{name:'Добавить VLESS + Reality TCP',exact:true}).click();
+ }
+ const advanced = page.locator('details').filter({has:page.locator('summary').getByText('Расширенные настройки',{exact:true})}).first();
  await advanced.waitFor(); assert.equal(await advanced.getAttribute('open'),null);
  await advanced.locator('summary').first().click();
  if (process.env.ARCVPN_E2E_CONFIGURED === '1') {

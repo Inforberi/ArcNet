@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 9
+	Version         = 10
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -226,7 +226,7 @@ func (s Snapshot) Validate() error {
 			return ErrInvalid
 		}
 	}
-	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0)) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
+	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0) && (s.Version < 10 || len(s.Protocols) == 0)) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
 		return ErrInvalid
 	}
 	if (s.Version < 5 && len(s.RoutingProfiles) > 0) || len(s.RoutingProfiles) > routingprofile.MaxProfiles {
@@ -307,13 +307,23 @@ func (s Snapshot) Validate() error {
 		endpoints[fmt.Sprintf("tcp/%s/%d", s.VPN.Address, s.VPN.Port)] = true
 	}
 	profiles, creds := s.ToProtocols()
+	address := ""
+	if s.VPN != nil {
+		address = s.VPN.Address
+	}
 	for _, p := range profiles {
+		if s.VPN == nil && p.Kind == protocols.AmneziaWG {
+			return ErrInvalid
+		}
 		if types[p.Kind] || protocols.Validate(p) != nil {
 			return fmt.Errorf("%w: invalid or duplicate protocol", ErrInvalid)
 		}
 		// The listener address is the local server's public IP, not an
 		// arbitrary endpoint supplied by a backup file.
-		if s.VPN == nil || p.Address != s.VPN.Address || (p.Kind == protocols.XHTTP && p.Port == 80) {
+		if address == "" {
+			address = p.Address
+		}
+		if p.Address != address || (p.Kind == protocols.XHTTP && p.Port == 80) {
 			return fmt.Errorf("%w: protocol endpoint incompatible with local server", ErrInvalid)
 		}
 		if (p.Kind == protocols.WireGuard || p.Kind == protocols.AmneziaWG) && !validTunnelKeypair(p.PrivateKey, p.PublicKey) {
@@ -517,13 +527,17 @@ func (s Snapshot) RemapAddress(raw string) (Snapshot, error) {
 	if err != nil || !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
 		return Snapshot{}, ErrInvalid
 	}
-	if s.VPN == nil {
+	if s.VPN == nil && len(s.Protocols) == 0 {
 		return Snapshot{}, ErrInvalid
 	}
-	s.VPN = &VPN{Address: s.VPN.Address, Port: s.VPN.Port, Target: s.VPN.Target, SNI: s.VPN.SNI, PrivateKey: s.VPN.PrivateKey, PublicKey: s.VPN.PublicKey, ShortID: s.VPN.ShortID, Enabled: s.VPN.Enabled}
-	s.VPN.Address = raw
+	if s.VPN != nil {
+		s.VPN = &VPN{Address: raw, Port: s.VPN.Port, Target: s.VPN.Target, SNI: s.VPN.SNI, PrivateKey: s.VPN.PrivateKey, PublicKey: s.VPN.PublicKey, ShortID: s.VPN.ShortID, Enabled: s.VPN.Enabled}
+	}
 	s.Protocols = append([]Protocol(nil), s.Protocols...)
 	for i := range s.Protocols {
+		if s.Protocols[i].Kind == protocols.Hysteria2 && s.Protocols[i].SNI == s.Protocols[i].Address {
+			s.Protocols[i].SNI = raw
+		}
 		s.Protocols[i].Address = raw
 	}
 	if err := s.Validate(); err != nil {

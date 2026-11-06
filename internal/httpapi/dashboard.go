@@ -96,23 +96,40 @@ func (s *Server) RunTelemetry(ctx context.Context) {
 }
 
 func localService(ctx context.Context, s *Server) (string, string, error) {
-	reality, err := s.App.Store.ReadReality(ctx)
-	if errors.Is(err, store.ErrNotFound) {
-		return "not-configured", "", nil
-	}
+	reality, err := s.App.Store.OptionalReality(ctx)
 	if err != nil {
 		return "unknown", "", err
 	}
-	if !reality.Enabled {
-		return "disabled", reality.Address, nil
+	address := reality.Address
+	if server, err := s.App.Store.LocalServer(ctx); err == nil {
+		address = server.Address
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return "unknown", "", err
+	}
+	profiles, err := s.App.Store.ListProtocols(ctx)
+	if err != nil {
+		return "unknown", address, err
+	}
+	configured, enabled := reality.Address != "", reality.Enabled
+	for _, p := range profiles {
+		if p.Kind == "vless-xhttp" {
+			configured = true
+			enabled = enabled || p.Enabled
+		}
+	}
+	if !configured {
+		return "not-configured", address, nil
+	}
+	if !enabled {
+		return "disabled", address, nil
 	}
 	if s.App.Core.SkipRestart {
-		return "unverified", reality.Address, nil
+		return "unverified", address, nil
 	}
 	if s.App.Core.Service == "" {
-		return "unknown", reality.Address, nil
+		return "unknown", address, nil
 	}
-	return s.serviceState(ctx, s.App.Core.Service), reality.Address, nil
+	return s.serviceState(ctx, s.App.Core.Service), address, nil
 }
 func (s *Server) localDashboard(ctx context.Context) (serverDashboard, bool, error) {
 	snapshot := s.telemetry.Sample()

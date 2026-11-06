@@ -164,6 +164,7 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 	}
 	var active struct {
 		Inbounds []struct {
+			Tag      string `json:"tag"`
 			Settings struct {
 				Clients []struct {
 					ID    string `json:"id"`
@@ -214,5 +215,23 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 	}
 	now := time.Now().Unix()
 	counters, err := ParseStatistics(output.Bytes(), users, xhttp, epoch, started, now)
+	if err == nil {
+		enabled := map[string]bool{}
+		for _, in := range active.Inbounds {
+			if in.Tag == "vless-reality" {
+				enabled["vless-reality"] = true
+			}
+			if in.Tag == "vless-xhttp-reality" {
+				enabled["vless-xhttp"] = true
+			}
+		}
+		filtered := counters[:0]
+		for _, counter := range counters {
+			if enabled[counter.Stream] {
+				filtered = append(filtered, counter)
+			}
+		}
+		counters = filtered
+	}
 	return counters, now, err
 }

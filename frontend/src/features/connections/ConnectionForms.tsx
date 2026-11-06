@@ -50,32 +50,35 @@ type Draft = {port?: number; target?: string; sni?: string; targetManual?: boole
 export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig; available: ProtocolKind[]; busy: boolean; onSubmit: (input: ProtocolInput) => Promise<void>}) {
  const defaults = useDefaults();
  const [selection, setSelection] = useState<ProtocolKind>('vless-xhttp');
+ const [manualAddress, setAddress] = useState<string>();
+ const address = manualAddress ?? (vpn.address || defaults.data?.address || '');
  const kind = available.includes(selection) ? selection : available[0];
  const [drafts, setDrafts] = useState<Partial<Record<ProtocolKind, Draft>>>({});
  const chosen = protocolCatalog.find(item => item.kind === kind)!;
  const draft = drafts[kind] ?? {};
  const port = draft.port ?? defaults.data?.ports[kind] ?? chosen.port;
  const target = kind === 'vless-xhttp' ? draft.target ?? vpn.target ?? '' : '';
- const sni = kind === 'vless-xhttp' ? draft.sni ?? vpn.sni ?? target : kind === 'hysteria2' ? vpn.address ?? '' : '';
+ const sni = kind === 'vless-xhttp' ? draft.sni ?? vpn.sni ?? target : kind === 'hysteria2' ? address : '';
  const update = (values: Draft) => setDrafts(all => ({...all, [kind]: {...all[kind], ...values}}));
- const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({kind, address: vpn.address ?? '', port, target, sni});};
+ const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({kind, address, port, target, sni});};
  return <form className="panel-body" onSubmit={submit}>
   <label className="field"><span>Тип подключения</span><select aria-label="Тип подключения" value={kind} onChange={event => setSelection(event.target.value as ProtocolKind)}>{protocolCatalog.filter(item => available.includes(item.kind)).map(item => <option value={item.kind} key={item.kind}>{item.name}</option>)}</select></label>
   <p className="muted">{chosen.description}</p>
-  <div className="kv"><span>Сервер и порт</span><span>{vpn.address}:{port} · {kind === 'vless-xhttp' ? 'TCP' : 'UDP'}</span></div>
+  {!vpn.address && !defaults.data?.address && <Field label="Публичный IP" required value={address} onChange={event => setAddress(event.target.value)}/>}
+  <div className="kv"><span>Сервер и порт</span><span>{address || 'Укажите публичный IP'}:{port} · {kind === 'vless-xhttp' ? 'TCP' : 'UDP'}</span></div>
   {sni && <div className="kv"><span>TLS / SNI</span><span>{sni}</span></div>}
-  {kind === 'hysteria2' && <Notice>Сертификат должен покрывать IP {vpn.address}. Посторонний SNI не подставляется.</Notice>}
+  {kind === 'hysteria2' && <Notice>Сертификат должен покрывать IP {address}. Посторонний SNI не подставляется.</Notice>}
   <Advanced>
-   <Field label="Публичный IP" value={vpn.address ?? ''} readOnly/>
+   {!!(vpn.address || defaults.data?.address) && <Field label="Публичный IP" required value={address} readOnly={!!vpn.address} onChange={event => setAddress(event.target.value)}/>}
    <Field label={kind === 'vless-xhttp' ? 'TCP-порт' : 'UDP-порт'} type="number" required min={1} max={65535} value={port} onChange={event => update({port: Number(event.target.value)})}/>
    {kind === 'vless-xhttp' && <>
     <TargetPicker automatic onSelect={candidate => update({target: candidate.host, sni: candidate.sni, targetManual: true})} onRecommend={candidate => setDrafts(all => all[kind]?.targetManual ? all : {...all, [kind]: {...all[kind], target: candidate.host, sni: candidate.sni}})}/>
-    <Field label="Reality target (если пусто — как у основного VLESS)" value={target} onChange={event => update({target: event.target.value, targetManual: true})}/>
+    <Field label="Reality target" required value={target} onChange={event => update({target: event.target.value, targetManual: true})}/>
     <Field label="SNI" value={sni} onChange={event => update({sni: event.target.value, targetManual: true})}/>
    </>}
-   <Button type="button" onClick={() => setDrafts(all => ({...all, [kind]: {}}))}>Вернуть автоматические параметры</Button>
+   <Button type="button" onClick={() => {setAddress(undefined); setDrafts(all => ({...all, [kind]: {}}));}}>Вернуть автоматические параметры</Button>
   </Advanced>
   <p className="muted">Ключи и служебные параметры создаются автоматически. Доступность порта и движка проверяется при применении.</p>
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending}>Создать и применить</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>Создать и применить</Button></div>
  </form>;
 }

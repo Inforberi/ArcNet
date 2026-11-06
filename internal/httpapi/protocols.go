@@ -84,6 +84,10 @@ func (s *Server) protocolDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.App.DeleteProtocol(r.Context(), kind); err != nil {
+		if errors.Is(err, store.ErrLocalServerInUse) {
+			fail(w, 409, "Последний профиль хранит адрес сервера для существующих пользователей. Оставьте его отключённым, добавьте другой протокол или сначала удалите пользователей.")
+			return
+		}
 		if strings.Contains(err.Error(), "disable protocol") {
 			fail(w, 409, "Сначала отключи протокол")
 			return
@@ -112,7 +116,7 @@ func (s *Server) userConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	reality, err := s.App.Store.ReadReality(r.Context())
+	reality, err := s.App.Store.OptionalReality(r.Context())
 	if err != nil {
 		handleErr(w, err)
 		return

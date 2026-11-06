@@ -169,23 +169,23 @@ export default function Users() {
           <div className="panel-body">
             <p className="muted">Ссылки содержат секретные данные. Не пересылай их посторонним.</p>
             <div className="field"><label>HTTPS-ссылка подписки</label><pre className="code">{subscription.url}</pre></div>
-            <div className="field"><label>Прямая VLESS-ссылка</label><pre className="code">{subscription.link}</pre></div>
+            {subscription.link ? <div className="field"><label>Прямая ссылка подключения</label><pre className="code">{subscription.link}</pre></div> : <Notice>Для WireGuard скачайте отдельную конфигурацию ниже или в доступах устройства.</Notice>}
             <div className="flex wrap">
               <Button onClick={() => void copy(subscription.url)}>Копировать подписку</Button>
-              <Button onClick={() => void copy(subscription.link)}>Копировать VLESS</Button>
-              <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать VLESS</a>
+              {subscription.link && <Button onClick={() => void copy(subscription.link)}>Копировать подключение</Button>}
+              {subscription.links.length > 0 && <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a>}
               <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a>
               <a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a>
             </div>
             <div className="flex wrap qr-actions" role="group" aria-label="Вид QR-кода">
               <Button onClick={() => setQRFormat('subscription')} variant={qrFormat === 'subscription' ? 'primary' : 'default'}>QR подписки</Button>
-              <Button onClick={() => setQRFormat('vless')} variant={qrFormat === 'vless' ? 'primary' : 'default'}>QR VLESS</Button>
+              {subscription.link && <Button onClick={() => setQRFormat('vless')} variant={qrFormat === 'vless' ? 'primary' : 'default'}>QR подключения</Button>}
             </div>
             <img
               key={`${subscriptionUser.id}-${qrFormat}`}
               className="qr-image"
               src={`/api/users/${subscriptionUser.id}/qr?format=${qrFormat}`}
-              alt={`QR-код ${qrFormat === 'subscription' ? 'подписки' : 'VLESS-подключения'}`}
+              alt={`QR-код ${qrFormat === 'subscription' ? 'подписки' : 'подключения'}`}
             />
             <div className="protocol-grid" aria-label="Отдельные VPN-подключения">
               {connections.map(connection => <div className="protocol-card" key={connection.kind}>

@@ -67,8 +67,18 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	if readErr != nil {
 		return readErr
 	}
-	if err := a.Core.ApplyWithProfiles(ctx, reality, users, profiles); err != nil {
-		return err
+	xrayNeeded := reality.Enabled
+	for _, p := range profiles {
+		if p.Kind == protocols.XHTTP && p.Enabled {
+			xrayNeeded = true
+		}
+	}
+	// Auxiliary-only hosts do not need an Xray process, key or stats socket.
+	// An existing config still needs clearing when removing its last listener.
+	if xrayNeeded || len(before) > 0 {
+		if err := a.Core.ApplyWithProfiles(ctx, reality, users, profiles); err != nil {
+			return err
+		}
 	}
 	if a.Engines == nil {
 		a.recordAppliedUsage(ctx, users, previousEpoch)
@@ -77,12 +87,16 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	if err := a.Engines.Apply(ctx, profiles, users, credentials); err != nil {
 		undoCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		if undoErr := a.Core.Restore(undoCtx, before); undoErr != nil {
-			return fmt.Errorf("auxiliary engine apply failed (%v); Xray rollback also failed: %w", err, undoErr)
+		if xrayNeeded || len(before) > 0 {
+			if undoErr := a.Core.Restore(undoCtx, before); undoErr != nil {
+				return fmt.Errorf("auxiliary engine apply failed (%v); Xray rollback also failed: %w", err, undoErr)
+			}
 		}
 		return fmt.Errorf("auxiliary engine apply failed; prior Xray configuration restored: %w", err)
 	}
-	a.recordAppliedUsage(ctx, users, previousEpoch)
+	if xrayNeeded {
+		a.recordAppliedUsage(ctx, users, previousEpoch)
+	}
 	for _, p := range profiles {
 		if p.Kind == protocols.WireGuard && p.Enabled {
 			_, _ = a.collectWireGuardUsage(ctx, users, previousWireGuardEpoch)
@@ -146,11 +160,18 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return store.Protocol{}, err
 	}
-	reality, err := a.Store.ReadReality(ctx)
-	if err != nil || !reality.Enabled {
-		return store.Protocol{}, errors.New("configure VLESS Reality TCP first")
+	reality, err := a.Store.OptionalReality(ctx)
+	if err != nil {
+		return store.Protocol{}, err
 	}
-	if strings.TrimSpace(address) != reality.Address {
+	if kind == protocols.AmneziaWG && reality.Address == "" {
+		return store.Protocol{}, errors.New("legacy AmneziaWG requires the existing Reality configuration")
+	}
+	server, err := a.Store.LocalServer(ctx)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return store.Protocol{}, err
+	}
+	if err == nil && strings.TrimSpace(address) != server.Address {
 		return store.Protocol{}, errors.New("protocol address must match local VPN address")
 	}
 	// Reuse the already selected, explicitly configured Reality target.
@@ -164,7 +185,7 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 	}
 	// The bundled certificate is issued for the public IP. An arbitrary DNS
 	// SNI without a matching certificate would silently break TLS clients.
-	if kind == protocols.Hysteria2 && strings.TrimSpace(sni) != "" && strings.TrimSpace(sni) != reality.Address {
+	if kind == protocols.Hysteria2 && strings.TrimSpace(sni) != "" && strings.TrimSpace(sni) != strings.TrimSpace(address) {
 		return store.Protocol{}, errors.New("Hysteria2 requires an SNI matching the installed IP certificate")
 	}
 	profiles, err := a.Store.ListProtocols(ctx)
@@ -179,7 +200,7 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 	if a.Engines == nil && kind != protocols.XHTTP {
 		return store.Protocol{}, errors.New("auxiliary engine controller not configured")
 	}
-	if kind == protocols.XHTTP && (port == reality.Port || port == 80 || port == a.ReservedTCPPort) {
+	if kind == protocols.XHTTP && ((reality.Enabled && port == reality.Port) || port == 80 || port == a.ReservedTCPPort) {
 		return store.Protocol{}, errors.New("TCP port already reserved by Reality, HTTPS panel or ACME")
 	}
 	if kind == protocols.Hysteria2 {
@@ -250,7 +271,7 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 	}
 	// Snapshot dependencies before mutation; a failed read must not leave
 	// the persisted enabled flag out of sync with running services.
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return err
 	}
@@ -290,6 +311,23 @@ func (a *App) DeleteProtocol(ctx context.Context, kind string) error {
 	}
 	if p.Enabled {
 		return errors.New("disable protocol before deletion")
+	}
+	reality, err := a.Store.OptionalReality(ctx)
+	if err != nil {
+		return err
+	}
+	if reality.Address == "" {
+		profiles, err := a.Store.ListProtocols(ctx)
+		if err != nil {
+			return err
+		}
+		total, _, err := a.Store.UserCounts(ctx)
+		if err != nil {
+			return err
+		}
+		if len(profiles) == 1 && total > 0 {
+			return store.ErrLocalServerInUse
+		}
 	}
 	if err := a.Store.DeleteProtocol(ctx, kind); err != nil {
 		return err
@@ -347,16 +385,18 @@ func (a *App) SubscriptionLinks(ctx context.Context, u store.User) ([]string, er
 	if err := a.UserAllowed(ctx, u.ID); err != nil {
 		return nil, err
 	}
-	r, err := a.Store.ReadReality(ctx)
+	r, err := a.Store.OptionalReality(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !u.Enabled || !r.Enabled {
+	if !u.Enabled {
 		return nil, store.ErrNotFound
 	}
 	links := []string{}
 	// Existing VLESS URI remains stable for backwards compatibility.
-	links = append(links, xray.Link(r, u))
+	if r.Enabled {
+		links = append(links, xray.Link(r, u))
+	}
 	extra, err := a.Connections(ctx, u.ID)
 	if err != nil {
 		return nil, err
