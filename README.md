@@ -8,7 +8,7 @@
 
 Общие `sudo arcvpn start / stop / restart / status` реализованы для локальной установки. Опубликован тестовый [prerelease 0.7.0-stage5-a3](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a3): подписанный Linux x86_64 пакет со встроенным UI, закреплённый bootstrap и [установка одной командой / приёмка](docs/ops/vps-preview-acceptance.md). Серверная приёмка остаётся открытой.
 
-В `main` после A3 добавлен исходный блок удалённого TCP-учёта и backup v12 ([статус](docs/ai/current-task.md)); опубликованный A3 его ещё не содержит. Конечные пакеты на удалённых нодах остаются заблокированы.
+В [A4 preview](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a4) включены удалённый TCP-учёт и backup v12 ([статус](docs/ai/current-task.md)). Его VPS-приёмка выявила сбой ACME через IPv6; для остановки строго до создания БД/служб подготовлено [ограниченное продолжение установки](docs/ops/install-and-update.md#восстановление-a4-после-сбоя-acme). Конечные пакеты на удалённых нодах остаются заблокированы.
 
 ## Возможности
 

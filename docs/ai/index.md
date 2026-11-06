@@ -1,3 +1,7 @@
+## 2026-11-07: A4 recovery после ACME
+
+`deploy/recover-a4-certificate.sh` — ограниченное продолжение pinned A4 до создания данных/units, scoped IPv4 renew; `scripts/testing/recover-a4-fixture.sh` — disposable offline guard fixture. [Результаты и ограничения](../testing/local-results/stage5-2026-11-07-a4-recovery.md). Это не общий resume/updater.
+
 ## 2026-11-06: remote TCP accounting / backup v12
 
 `internal/usage/node.go`, Counter.Source/StorageStream — report/roster/source keys; `internal/xray/node_statistics.go` — fixed StatsService config; `internal/noderuntime/statistics.go` — narrow validator/query; `internal/nodeagent/usage.go` — collector; `internal/store/node_usage.go` и `internal/app/node_usage.go` — transactional ledger + mutation ownership; `internal/httpapi/node_usage.go` — scoped API. Backup v12, tests рядом. [ADR-019](../adr/019-direct-node-traffic-accounting.md), [доказательства/следующий шаг](../testing/local-results/stage5-2026-11-06-remote-usage.md).

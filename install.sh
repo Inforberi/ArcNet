@@ -80,7 +80,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates curl unzip
 "$ROOT/dist/arcvpn-linux-amd64" frontend-check >/dev/null || err "The binary has no valid embedded React frontend. Build release with scripts/build-release.sh"
 if ! getent group arcvpn >/dev/null; then groupadd --system arcvpn;fi
 if ! getent passwd arcvpn >/dev/null; then useradd --system --gid arcvpn --home-dir "$RUN_DIR" --shell /usr/sbin/nologin arcvpn;fi
-install -d -m 0755 "$OPT/bin"
+install -d -m 0755 "$OPT" "$OPT/bin"
 install -d -m 0700 -o arcvpn -g arcvpn "$RUN_DIR"
 install -d -m 0700 -o arcvpn -g arcvpn "$RUN_DIR/update"
 install -d -m 0750 -o root -g arcvpn "$CONFIG_DIR"
@@ -177,7 +177,18 @@ fi
 info "Requesting trusted Let's Encrypt IP certificate (port 80 must be reachable)"
 python3 -m venv "$CERTBOT_DIR"
 "$CERTBOT_DIR/bin/python" -m pip install --disable-pip-version-check --quiet 'certbot==5.9.0'
-"$CERTBOT_DIR/bin/certbot" certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email --preferred-profile shortlived --ip-address "$PUBLIC_IP"
+# The panel uses IPv4; a broken IPv6 route must not break issuance or renewal.
+cat > "$OPT/bin/arcvpn-certbot" <<'CERTBOT'
+#!/opt/arcvpn/certbot/bin/python
+import runpy
+import urllib3.util.connection as connection
+if not hasattr(connection, 'HAS_IPV6'):
+    raise RuntimeError('Unsupported urllib3 address-family API')
+connection.HAS_IPV6 = False
+runpy.run_path('/opt/arcvpn/certbot/bin/certbot', run_name='__main__')
+CERTBOT
+chmod 0755 "$OPT/bin/arcvpn-certbot"
+"$OPT/bin/arcvpn-certbot" certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email --preferred-profile shortlived --ip-address "$PUBLIC_IP"
 FULLCHAIN="/etc/letsencrypt/live/$PUBLIC_IP/fullchain.pem"
 PRIVATEKEY="/etc/letsencrypt/live/$PUBLIC_IP/privkey.pem"
 [[ -r "$FULLCHAIN" && -r "$PRIVATEKEY" ]] || err "Certbot did not create expected certificate files"
@@ -396,7 +407,7 @@ Description=Renew Let's Encrypt IP certificate for ArcVPN
 [Service]
 LogNamespace=arcvpn
 Type=oneshot
-ExecStart=$CERTBOT_DIR/bin/certbot renew --quiet --deploy-hook $OPT/bin/arcvpn-cert-deploy
+ExecStart=$OPT/bin/arcvpn-certbot renew --cert-name $PUBLIC_IP --quiet --deploy-hook $OPT/bin/arcvpn-cert-deploy
 UNIT
 cat > "$SYSTEMD/arcvpn-cert-renew.timer" <<'UNIT'
 [Unit]
