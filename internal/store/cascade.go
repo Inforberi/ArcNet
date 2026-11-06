@@ -254,10 +254,10 @@ func (s *Store) PrepareCascade(ctx context.Context, input CascadePreparation) (C
 			if e != nil {
 				return e
 			}
-			if len(ops) != 1 || ops[0]["kind"] != "apply_xray_v1" {
+			if len(ops) != 1 || (ops[0]["kind"] != "apply_xray_v1" && ops[0]["kind"] != "apply_xray_usage_v1") {
 				return ErrCascadeNotReady
 			}
-			if e := s.saveCascadeStep(tx, id, step, node, "apply_xray_v1", plain); e != nil {
+			if e := s.saveCascadeStep(tx, id, step, node, ops[0]["kind"], plain); e != nil {
 				return e
 			}
 		}

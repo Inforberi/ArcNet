@@ -196,14 +196,9 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 			}
 		}
 	}
-	call, cancel := context.WithTimeout(ctx, 4*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(call, c.Binary, "api", "statsquery", "--server=unix://"+path, "-timeout=3", "-pattern=user>>>", "-reset=false")
-	var output statsOutput
-	cmd.Stdout = &output
-	cmd.Stderr = io.Discard
-	if cmd.Run() != nil {
-		return nil, 0, errors.New("Xray statistics unavailable")
+	output, err := QueryStatistics(ctx, c.Binary, path)
+	if err != nil {
+		return nil, 0, err
 	}
 	after, _, err := socketEpoch(path)
 	if err != nil || epoch != after {
@@ -214,7 +209,7 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 		return nil, 0, errors.New("configuration changed during statistics query")
 	}
 	now := time.Now().Unix()
-	counters, err := ParseStatistics(output.Bytes(), users, xhttp, epoch, started, now)
+	counters, err := ParseStatistics(output, users, xhttp, epoch, started, now)
 	if err == nil {
 		enabled := map[string]bool{}
 		for _, in := range active.Inbounds {
@@ -234,4 +229,19 @@ func (c Controller) Statistics(ctx context.Context, users []store.User, xhttp bo
 		counters = filtered
 	}
 	return counters, now, err
+}
+
+// Callers bind binary/socket to trusted configuration and validate process and
+// config identity around the query. Never reset counters on collection.
+func QueryStatistics(ctx context.Context, binary, socket string) ([]byte, error) {
+	call, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(call, binary, "api", "statsquery", "--server=unix://"+socket, "-timeout=3", "-pattern=user>>>", "-reset=false")
+	var output statsOutput
+	cmd.Stdout = &output
+	cmd.Stderr = io.Discard
+	if cmd.Run() != nil {
+		return nil, errors.New("Xray statistics unavailable")
+	}
+	return output.Bytes(), nil
 }

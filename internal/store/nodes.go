@@ -136,6 +136,7 @@ func (s *Store) RegisterNode(ctx context.Context, enrollmentToken string) (Node,
 }
 
 type NodeHeartbeat struct {
+	UsageProtocol   int     `json:"usage_protocol,omitempty"`
 	CascadeProtocol int     `json:"cascade_protocol,omitempty"`
 	DeviceProtocol  int     `json:"device_protocol,omitempty"`
 	Version         string  `json:"version"`
@@ -151,7 +152,7 @@ func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) e
 	if len(bearer) < 40 || len(bearer) > 128 {
 		return ErrNotFound
 	}
-	if h.DeviceProtocol < 0 || h.DeviceProtocol > 1 || h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
+	if h.UsageProtocol < 0 || h.UsageProtocol > 1 || h.DeviceProtocol < 0 || h.DeviceProtocol > 1 || h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
 		return errors.New("invalid heartbeat")
 	}
 	if h.XrayState != "active" && h.XrayState != "inactive" && h.XrayState != "unknown" {
@@ -169,6 +170,9 @@ func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) e
 			return e
 		}
 		if e := tx.Exec("INSERT INTO node_device_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.DeviceProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
+			return e
+		}
+		if e := tx.Exec("INSERT INTO node_usage_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.UsageProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
 			return e
 		}
 		return tx.Exec("UPDATE managed_nodes SET last_seen=?,version=?,agent_protocol=?,xray_state=?,memory_total=?,memory_available=?,load_1=?,uptime_seconds=? WHERE id=?",
@@ -210,6 +214,14 @@ func (s *Store) RemoveNode(ctx context.Context, id string) error {
 			return err
 		}
 		if err := tx.Exec("DELETE FROM telemetry_samples WHERE node_id=?", id); err != nil {
+			return err
+		}
+		// The node identity and its bearer are retired below. Totals remain in
+		// user packages; its checkpoints cannot be replayed by a new enrollment.
+		if err := tx.Exec("DELETE FROM traffic_checkpoints WHERE stream=?", "node/"+id+"/vless-reality"); err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM settings WHERE key=?", "node_"+id+"_accounting_last_success"); err != nil {
 			return err
 		}
 		return tx.Exec("DELETE FROM managed_nodes WHERE id=?", id)

@@ -39,7 +39,7 @@ func (s *Server) userUsage(w http.ResponseWriter, r *http.Request) {
 	for _, p := range packages {
 		items = append(items, item{p, p.Reason(time.Now().Unix(), fresh)})
 	}
-	respond(w, 200, map[string]any{"items": items, "sampled_at": time.Now().Unix(), "source": "local-engines", "source_fresh": fresh, "source_last_success": last, "complete_coverage": coverageErr == nil, "runtime_state": state, "physical_devices_verified": false})
+	respond(w, 200, map[string]any{"items": items, "sampled_at": time.Now().Unix(), "source": "local-and-remote-engines", "source_fresh": fresh, "source_last_success": last, "complete_coverage": coverageErr == nil, "runtime_state": state, "physical_devices_verified": false})
 }
 func (s *Server) userPackageSave(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -95,7 +95,7 @@ func (s *Server) userDebits(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"items": items, "scope": "observed-local-engines", "history_limit": 60})
+	respond(w, 200, map[string]any{"items": items, "scope": "observed-local-and-remote-engines", "history_limit": 60})
 }
 func (s *Server) subscriptionUsage(w http.ResponseWriter, r *http.Request, id int64) {
 	if s.App.Store.CheckPackageCoverage(r.Context(), 1, 0) != nil {

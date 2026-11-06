@@ -13,9 +13,10 @@ func TestRemoteDeviceBackupV11PreservesCredentialsAndRejectsLegacyShape(t *testi
 	user := store.User{ID: 1, Name: "TV", UUID: "11111111-1111-4111-8111-111111111111", Subscription: strings.Repeat("t", 43), Enabled: true, CreatedAt: time.Now().Unix()}
 	state := devices.State{{UserID: 1, Identity: user.UUID, Version: 1, Limit: 2, Devices: []devices.Device{{ID: "22222222-2222-4222-8222-222222222222", Name: "TV", UUID: "33333333-3333-4333-8333-333333333333", Token: strings.Repeat("s", 43), CreatedAt: time.Now().Unix()}}}}
 	snapshot := FromStore(nil, []store.User{user}).WithManagement([]store.NodeIdentity{{ID: "44444444-4444-4444-8444-444444444444", Name: "Node", TokenHash: strings.Repeat("a", 64), CreatedAt: time.Now().Unix()}}, 100).WithDevices(state)
-	if snapshot.Version != 11 {
+	if snapshot.Version != Version {
 		t.Fatal("version")
 	}
+	snapshot.Version = 11 // Keep this legacy compatibility fixture on its original format.
 	if e := snapshot.Validate(); e != nil {
 		t.Fatal("remote-only device snapshot invalid", e)
 	}

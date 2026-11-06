@@ -397,7 +397,7 @@ func (s *Store) QueueNodeDeployment(ctx context.Context, id string, config []byt
 	return op, err
 }
 func (s *Store) queueNodeDeployment(tx *db.Tx, id string, config []byte, kind string) (NodeOperation, error) {
-	if kind != "apply_xray_v1" && kind != "apply_cascade_xray_v1" && kind != "apply_xray_devices_v1" {
+	if kind != "apply_xray_v1" && kind != "apply_cascade_xray_v1" && kind != "apply_xray_devices_v1" && kind != "apply_xray_usage_v1" {
 		return NodeOperation{}, ErrRouteInvalid
 	}
 	if len(config) == 0 || len(config) > 256<<10 || !json.Valid(config) {
@@ -528,6 +528,11 @@ func (s *Store) PendingNodeCommand(ctx context.Context, nodeID, secret string) (
 		}
 		if len(attemptRows) != 1 {
 			return errors.New("missing deployment journal")
+		}
+		if attemptRows[0]["kind"] == "apply_xray_usage_v1" {
+			if e := requireNodeUsage(tx, nodeID); e != nil {
+				return e
+			}
 		}
 		if attemptRows[0]["kind"] == "apply_xray_devices_v1" {
 			if e := requireDeviceNode(tx, nodeID); e != nil {

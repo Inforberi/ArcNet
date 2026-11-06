@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/arcvpn/arcvpn/internal/usage"
 )
 
 const Socket = "/run/arcvpn-node/helper.sock"
@@ -35,13 +37,15 @@ type ApplyRequest struct {
 	OperationID     string          `json:"operation_id"`
 	Revision        int64           `json:"revision"`
 	SHA256          string          `json:"sha256"`
-	Config          json.RawMessage `json:"config"`
+	Config          json.RawMessage `json:"config,omitempty"`
 }
 type ApplyResponse struct {
-	CascadeProtocol int    `json:"cascade_protocol,omitempty"`
-	DeviceProtocol  int    `json:"device_protocol,omitempty"`
-	Status          string `json:"status"`
-	Error           string `json:"error,omitempty"`
+	UsageProtocol   int               `json:"usage_protocol,omitempty"`
+	Usage           *usage.NodeReport `json:"usage,omitempty"`
+	CascadeProtocol int               `json:"cascade_protocol,omitempty"`
+	DeviceProtocol  int               `json:"device_protocol,omitempty"`
+	Status          string            `json:"status"`
+	Error           string            `json:"error,omitempty"`
 }
 
 type Runner interface {
@@ -212,13 +216,13 @@ func stringValue(raw json.RawMessage) string {
 }
 
 func ValidateRequest(req ApplyRequest) error {
-	if req.Kind == "capabilities_v1" {
+	if req.Kind == "capabilities_v1" || req.Kind == "statistics_v1" {
 		if req.ProtocolVersion == 1 && req.OperationID == "" && req.Revision == 0 && req.SHA256 == "" && len(req.Config) == 0 {
 			return nil
 		}
 		return errors.New("invalid capability query")
 	}
-	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1" && req.Kind != "apply_xray_devices_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
+	if req.ProtocolVersion != 1 || (req.Kind != "apply_xray_v1" && req.Kind != "apply_cascade_xray_v1" && req.Kind != "apply_xray_devices_v1" && req.Kind != "apply_xray_usage_v1") || !idPattern.MatchString(req.OperationID) || req.Revision < 1 || !hexPattern.MatchString(req.SHA256) {
 		return errors.New("unsupported or malformed apply operation")
 	}
 	sum := sha256.Sum256(req.Config)
@@ -227,6 +231,9 @@ func ValidateRequest(req ApplyRequest) error {
 	}
 	if req.Kind == "apply_cascade_xray_v1" {
 		return ValidateCascadeConfig(req.Config)
+	}
+	if req.Kind == "apply_xray_usage_v1" {
+		return ValidateStatisticsConfig(req.Config)
 	}
 	return ValidateConfig(req.Config)
 }
@@ -314,7 +321,11 @@ func (raw Installer) Apply(ctx context.Context, request ApplyRequest) (ApplyResp
 		return ApplyResponse{Status: "failed"}, err
 	}
 	if request.Kind == "capabilities_v1" {
-		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1, DeviceProtocol: 1}, nil
+		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1, DeviceProtocol: 1, UsageProtocol: 1}, nil
+	}
+	if request.Kind == "statistics_v1" {
+		report, err := i.Statistics(ctx)
+		return ApplyResponse{Status: "statistics", Usage: report}, err
 	}
 	if receipt, err := readPrivilegedState(i.ReceiptPath, 4096); err == nil {
 		var prior struct {
@@ -442,8 +453,18 @@ func CallHelper(ctx context.Context, socket string, req ApplyRequest) (ApplyResp
 		return ApplyResponse{}, err
 	}
 	var response ApplyResponse
-	if err = json.NewDecoder(io.LimitReader(c, 2048)).Decode(&response); err != nil {
+	limit := int64(2048)
+	if req.Kind == "statistics_v1" {
+		limit = MaxRequest
+	}
+	if err = json.NewDecoder(io.LimitReader(c, limit)).Decode(&response); err != nil {
 		return response, err
+	}
+	if req.Kind == "statistics_v1" {
+		if response.Status != "statistics" || response.Usage == nil {
+			return ApplyResponse{}, errors.New("node statistics unavailable")
+		}
+		return response, nil
 	}
 	if req.Kind == "capabilities_v1" {
 		if response.Status != "capabilities" || response.CascadeProtocol != 1 {

@@ -70,6 +70,17 @@ func (a *App) DeployNode(ctx context.Context, nodeID string) (store.NodeOperatio
 	if e != nil {
 		return store.NodeOperation{}, e
 	}
+	accounting, _, e := a.Store.NodeUsageStatus(ctx, nodeID)
+	if e != nil {
+		return store.NodeOperation{}, e
+	}
+	if accounting {
+		payload, e = xray.WithNodeStatistics(payload, users)
+		if e != nil {
+			return store.NodeOperation{}, e
+		}
+		return a.Store.QueueNodeUsageCredentials(ctx, nodeID, payload, generation, r.Address, r.Port)
+	}
 	if managed {
 		return a.Store.QueueNodeCredentials(ctx, nodeID, payload, generation, r.Address, r.Port)
 	}

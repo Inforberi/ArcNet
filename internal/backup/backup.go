@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 11
+	Version         = 12
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -201,6 +201,13 @@ func (s Snapshot) Validate() error {
 		}
 	}
 	if s.Usage != nil {
+		if s.Version < 12 {
+			for _, c := range s.Usage.Checkpoints {
+				if c.Source != "" {
+					return ErrInvalid
+				}
+			}
+		}
 		if s.Version < 9 {
 			for _, c := range s.Usage.Checkpoints {
 				if c.Stream == "wireguard" {

@@ -1,3 +1,7 @@
+## 2026-11-06: remote TCP accounting / backup v12
+
+`internal/usage/node.go`, Counter.Source/StorageStream — report/roster/source keys; `internal/xray/node_statistics.go` — fixed StatsService config; `internal/noderuntime/statistics.go` — narrow validator/query; `internal/nodeagent/usage.go` — collector; `internal/store/node_usage.go` и `internal/app/node_usage.go` — transactional ledger + mutation ownership; `internal/httpapi/node_usage.go` — scoped API. Backup v12, tests рядом. [ADR-019](../adr/019-direct-node-traffic-accounting.md), [доказательства/следующий шаг](../testing/local-results/stage5-2026-11-06-remote-usage.md).
+
 ## 2026-11-06: VPS preview A3
 
 `deploy/bootstrap-install.sh` — A3 и новый закреплённый signer; `scripts/build-installer-docker.sh`, `deploy/release.Dockerfile` — A3 по умолчанию; `scripts/testing/bootstrap-fixture.py` — версия A3. [Установка](../ops/vps-preview-acceptance.md), [build/signature evidence](../testing/local-results/stage5-2026-11-06-installer-bundle.md). Browser acceptance UI каскада390/1280 завершена на синтетических ACK, VPN не принят.

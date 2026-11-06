@@ -31,7 +31,7 @@ func (s State) Validate(identities map[int64]string) error {
 	}
 	keys := map[string]bool{}
 	for _, c := range s.Checkpoints {
-		k := strconv.FormatInt(c.UserID, 10) + "/" + c.Stream
+		k := strconv.FormatInt(c.UserID, 10) + "/" + c.StorageStream()
 		if c.Validate() != nil || c.ObservedAt > time.Now().Unix()+300 || identities[c.UserID] != c.Identity || keys[k] {
 			return ErrInvalid
 		}

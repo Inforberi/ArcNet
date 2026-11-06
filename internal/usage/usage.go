@@ -4,14 +4,17 @@ package usage
 import (
 	"errors"
 	"fmt"
+	"regexp"
 )
 
 const MaxBytes int64 = 9_000_000_000_000_000 // Exact in SQLite and JavaScript.
 const FreshFor = 20
 
 var ErrInvalid = errors.New("invalid traffic observation")
+var nodeSource = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 type Counter struct {
+	Source     string `json:"source,omitempty"`
 	UserID     int64  `json:"user_id"`
 	Identity   string `json:"identity"`
 	Stream     string `json:"stream"`
@@ -23,10 +26,22 @@ type Counter struct {
 }
 
 func (c Counter) Validate() error {
+	if c.Source != "" && (!nodeSource.MatchString(c.Source) || c.Stream != "vless-reality") {
+		return ErrInvalid
+	}
 	if c.UserID < 1 || len(c.Identity) != 36 || (c.Stream != "vless-reality" && c.Stream != "vless-xhttp" && c.Stream != "hysteria2" && c.Stream != "wireguard") || len(c.Epoch) < 1 || len(c.Epoch) > 128 || c.StartedAt < 1 || c.ObservedAt < 1 || c.Upload < 0 || c.Download < 0 || c.Upload > MaxBytes || c.Download > MaxBytes-c.Upload {
 		return ErrInvalid
 	}
 	return nil
+}
+
+// StorageStream keeps node and local checkpoints independent without changing
+// the existing composite SQLite key or dropping portable high-water marks.
+func (c Counter) StorageStream() string {
+	if c.Source != "" {
+		return "node/" + c.Source + "/" + c.Stream
+	}
+	return c.Stream
 }
 
 // Delta never resets an upstream counter. A new, later process epoch starts at
@@ -38,7 +53,7 @@ func Delta(previous *Counter, current Counter) (int64, int64, error) {
 	if previous == nil {
 		return current.Upload, current.Download, nil
 	}
-	if current.UserID != previous.UserID || current.Stream != previous.Stream {
+	if current.UserID != previous.UserID || current.Stream != previous.Stream || current.Source != previous.Source {
 		return 0, 0, ErrInvalid
 	}
 	if current.Identity != previous.Identity {

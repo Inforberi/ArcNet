@@ -71,7 +71,7 @@ func (s *Store) RestoreDeletedUser(ctx context.Context, u User, credentials []Pr
 		for _, c := range accounting.Checkpoints {
 			if c.UserID == u.ID {
 				body, _ := json.Marshal(c)
-				if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?)", strconv.FormatInt(c.UserID, 10), c.Stream, string(body)); err != nil {
+				if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?)", strconv.FormatInt(c.UserID, 10), c.StorageStream(), string(body)); err != nil {
 					return err
 				}
 			}
@@ -177,7 +177,7 @@ func replaceUsageState(tx *db.Tx, incoming *usage.State, before usage.State, old
 			}
 		}
 	}
-	key := func(c usage.Counter) string { return strconv.FormatInt(c.UserID, 10) + "/" + c.Stream }
+	key := func(c usage.Counter) string { return strconv.FormatInt(c.UserID, 10) + "/" + c.StorageStream() }
 	counters := map[string]usage.Counter{}
 	for _, c := range state.Checkpoints {
 		counters[key(c)] = c
@@ -193,7 +193,7 @@ func replaceUsageState(tx *db.Tx, incoming *usage.State, before usage.State, old
 	}
 	for _, c := range counters {
 		body, _ := json.Marshal(c)
-		if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?)", strconv.FormatInt(c.UserID, 10), c.Stream, string(body)); err != nil {
+		if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?)", strconv.FormatInt(c.UserID, 10), c.StorageStream(), string(body)); err != nil {
 			return err
 		}
 	}

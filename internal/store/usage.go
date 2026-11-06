@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/db"
@@ -23,7 +24,9 @@ const accountingLastSQL = `SELECT min(last) FROM (
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='hysteria_accounting_last_success'),'0') AS INTEGER)
  WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1)
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='wireguard_accounting_last_success'),'0') AS INTEGER)
- WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='wireguard' AND enabled=1))`
+ WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='wireguard' AND enabled=1)
+ UNION ALL SELECT COALESCE((SELECT observed_at FROM node_usage_state WHERE node_id=n.id),0)
+ FROM managed_nodes n)`
 
 func readPackages(tx *db.Tx) (map[int64]usage.Package, error) {
 	rows, err := tx.Query("SELECT id,created_at,body FROM users LEFT JOIN user_packages ON users.id=user_packages.user_id ORDER BY id")
@@ -137,6 +140,9 @@ func (s *Store) RecordEngineUsage(ctx context.Context, source string, counters [
 		return usage.ErrInvalid
 	}
 	for _, c := range counters {
+		if c.Source != "" {
+			return usage.ErrInvalid
+		}
 		if (c.Stream == "hysteria2") != (source == "hysteria") || (c.Stream == "wireguard") != (source == "wireguard") {
 			return usage.ErrInvalid
 		}
@@ -145,93 +151,103 @@ func (s *Store) RecordEngineUsage(ctx context.Context, source string, counters [
 		return usage.ErrInvalid
 	}
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		packages, err := readPackages(tx)
-		if err != nil {
-			return err
-		}
-		users, err := tx.Query("SELECT id,uuid FROM users")
-		if err != nil {
-			return err
-		}
-		identities := map[int64]string{}
-		for _, u := range users {
-			id, _ := strconv.ParseInt(u["id"], 10, 64)
-			identities[id] = u["uuid"]
-		}
-		rows, err := tx.Query("SELECT user_id,stream,body FROM traffic_checkpoints")
-		if err != nil {
-			return err
-		}
-		previous := map[string]usage.Counter{}
-		key := func(id int64, stream string) string { return strconv.FormatInt(id, 10) + "/" + stream }
-		for _, row := range rows {
-			var c usage.Counter
-			if json.Unmarshal([]byte(row["body"]), &c) != nil || c.Validate() != nil {
-				return usage.ErrInvalid
-			}
-			previous[key(c.UserID, c.Stream)] = c
-		}
-		seen := map[string]bool{}
-		for _, c := range counters {
-			k := key(c.UserID, c.Stream)
-			if seen[k] || c.Validate() != nil || c.ObservedAt != observedAt || identities[c.UserID] != c.Identity {
-				return usage.ErrInvalid
-			}
-			seen[k] = true
-			var prev *usage.Counter
-			if value, ok := previous[k]; ok {
-				prev = &value
-			}
-			up, down, err := usage.Delta(prev, c)
-			if err != nil {
-				return err
-			}
-			if prev != nil && (c.ObservedAt < prev.ObservedAt || (c.ObservedAt == prev.ObservedAt && c.Epoch == prev.Epoch)) {
-				continue
-			}
-			// A successful batch refreshes source liveness below. Idle users do
-			// not need identical JSON/checkpoint writes every five seconds.
-			if prev != nil && prev.Epoch == c.Epoch && up == 0 && down == 0 && c.ObservedAt-prev.ObservedAt < 60 {
-				continue
-			}
-			p, ok := packages[c.UserID]
-			if !ok {
-				return ErrNotFound
-			}
-			if up > usage.MaxBytes-p.Upload-p.Download || down > usage.MaxBytes-p.Upload-p.Download-up {
-				return usage.ErrInvalid
-			}
-			p.Upload += up
-			p.Download += down
-			if prev != nil && prev.Epoch != c.Epoch {
-				p.Incomplete = true
-				if previousEpoch == "" || prev.Epoch != previousEpoch {
-					p.NeedsReview = true
-				}
-			}
-			p.ObservedAt = observedAt
-			packages[c.UserID] = p
-			if err := savePackage(tx, p); err != nil {
-				return err
-			}
-			body, _ := json.Marshal(c)
-			if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?) ON CONFLICT(user_id,stream) DO UPDATE SET body=excluded.body", strconv.FormatInt(c.UserID, 10), c.Stream, string(body)); err != nil {
-				return err
-			}
-			if up+down > 0 {
-				if err := tx.Exec("INSERT INTO traffic_debits(user_id,period,bucket,upload,download) VALUES(?,?,?,?,?) ON CONFLICT(user_id,period,bucket) DO UPDATE SET upload=upload+excluded.upload,download=download+excluded.download", strconv.FormatInt(c.UserID, 10), strconv.FormatInt(p.Period, 10), strconv.FormatInt(observedAt/60, 10), strconv.FormatInt(up, 10), strconv.FormatInt(down, 10)); err != nil {
-					return err
-				}
-			}
-		}
-		if err := tx.Exec("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", source+"_accounting_last_success", strconv.FormatInt(observedAt, 10)); err != nil {
-			return err
-		}
-		if err := tx.Exec("DELETE FROM traffic_debits WHERE bucket<?", strconv.FormatInt(observedAt/60-90*1440, 10)); err != nil {
-			return err
-		}
-		return tx.Exec("DELETE FROM traffic_debits WHERE rowid IN(SELECT rowid FROM traffic_debits ORDER BY bucket DESC LIMIT -1 OFFSET 65536)")
+		return recordCounters(tx, source, counters, observedAt, previousEpoch)
 	})
+}
+
+func recordCounters(tx *db.Tx, source string, counters []usage.Counter, observedAt int64, previousEpoch string) error {
+	packages, err := readPackages(tx)
+	if err != nil {
+		return err
+	}
+	users, err := tx.Query("SELECT id,uuid FROM users")
+	if err != nil {
+		return err
+	}
+	identities := map[int64]string{}
+	for _, u := range users {
+		id, _ := strconv.ParseInt(u["id"], 10, 64)
+		identities[id] = u["uuid"]
+	}
+	query := "SELECT user_id,stream,body FROM traffic_checkpoints WHERE stream IN('vless-reality','vless-xhttp','hysteria2','wireguard')"
+	args := []string{}
+	if strings.HasPrefix(source, "node_") {
+		query = "SELECT user_id,stream,body FROM traffic_checkpoints WHERE stream=?"
+		args = append(args, "node/"+strings.TrimPrefix(source, "node_")+"/vless-reality")
+	}
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return err
+	}
+	previous := map[string]usage.Counter{}
+	key := func(id int64, stream string) string { return strconv.FormatInt(id, 10) + "/" + stream }
+	for _, row := range rows {
+		var c usage.Counter
+		if json.Unmarshal([]byte(row["body"]), &c) != nil || c.Validate() != nil {
+			return usage.ErrInvalid
+		}
+		previous[key(c.UserID, c.StorageStream())] = c
+	}
+	seen := map[string]bool{}
+	for _, c := range counters {
+		k := key(c.UserID, c.StorageStream())
+		if seen[k] || c.Validate() != nil || c.ObservedAt != observedAt || identities[c.UserID] != c.Identity {
+			return usage.ErrInvalid
+		}
+		seen[k] = true
+		var prev *usage.Counter
+		if value, ok := previous[k]; ok {
+			prev = &value
+		}
+		up, down, err := usage.Delta(prev, c)
+		if err != nil {
+			return err
+		}
+		if prev != nil && (c.ObservedAt < prev.ObservedAt || (c.ObservedAt == prev.ObservedAt && c.Epoch == prev.Epoch)) {
+			continue
+		}
+		// A successful batch refreshes source liveness below. Idle users do
+		// not need identical JSON/checkpoint writes every five seconds.
+		if prev != nil && prev.Epoch == c.Epoch && up == 0 && down == 0 && c.ObservedAt-prev.ObservedAt < 60 {
+			continue
+		}
+		p, ok := packages[c.UserID]
+		if !ok {
+			return ErrNotFound
+		}
+		if up > usage.MaxBytes-p.Upload-p.Download || down > usage.MaxBytes-p.Upload-p.Download-up {
+			return usage.ErrInvalid
+		}
+		p.Upload += up
+		p.Download += down
+		if prev != nil && prev.Epoch != c.Epoch {
+			p.Incomplete = true
+			if previousEpoch == "" || prev.Epoch != previousEpoch {
+				p.NeedsReview = true
+			}
+		}
+		p.ObservedAt = observedAt
+		packages[c.UserID] = p
+		if err := savePackage(tx, p); err != nil {
+			return err
+		}
+		body, _ := json.Marshal(c)
+		if err := tx.Exec("INSERT INTO traffic_checkpoints(user_id,stream,body) VALUES(?,?,?) ON CONFLICT(user_id,stream) DO UPDATE SET body=excluded.body", strconv.FormatInt(c.UserID, 10), c.StorageStream(), string(body)); err != nil {
+			return err
+		}
+		if up+down > 0 {
+			if err := tx.Exec("INSERT INTO traffic_debits(user_id,period,bucket,upload,download) VALUES(?,?,?,?,?) ON CONFLICT(user_id,period,bucket) DO UPDATE SET upload=upload+excluded.upload,download=download+excluded.download", strconv.FormatInt(c.UserID, 10), strconv.FormatInt(p.Period, 10), strconv.FormatInt(observedAt/60, 10), strconv.FormatInt(up, 10), strconv.FormatInt(down, 10)); err != nil {
+				return err
+			}
+		}
+	}
+	if err := tx.Exec("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", source+"_accounting_last_success", strconv.FormatInt(observedAt, 10)); err != nil {
+		return err
+	}
+	if err := tx.Exec("DELETE FROM traffic_debits WHERE bucket<?", strconv.FormatInt(observedAt/60-90*1440, 10)); err != nil {
+		return err
+	}
+	return tx.Exec("DELETE FROM traffic_debits WHERE rowid IN(SELECT rowid FROM traffic_debits ORDER BY bucket DESC LIMIT -1 OFFSET 65536)")
 }
 func (s *Store) SavePackage(ctx context.Context, id, quota, expires, version int64, reset bool) error {
 	if quota < 0 || quota > usage.MaxBytes || expires < 0 || expires > 253402300799 || version < 0 || version >= usage.MaxBytes {

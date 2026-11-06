@@ -148,7 +148,39 @@ func (f *cascadeUIFixture) request(method, path string, body any, authenticated,
 	return w
 }
 func TestCascadeUIAuthenticatedPreviewApplyRollback(t *testing.T) {
+	runCascadeUIAuthenticatedPreviewApplyRollback(t, newCascadeUIFixture(t))
+}
+
+func TestCascadeUIWithUsageNodesPreservesPollAndRollback(t *testing.T) {
 	f := newCascadeUIFixture(t)
+	ctx := context.Background()
+	for i, n := range f.Nodes {
+		if e := f.app.Store.Heartbeat(ctx, n.Secret, store.NodeHeartbeat{ProtocolVersion: 1, DeviceProtocol: 1, UsageProtocol: 1, CascadeProtocol: 1, XrayState: "active"}); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := f.app.DeployNode(ctx, n.ID); e != nil {
+			t.Fatal(e)
+		}
+		cmd, e := f.app.Store.PendingNodeCommand(ctx, n.ID, n.Secret)
+		if e != nil || cmd == nil || cmd.Kind != "apply_xray_usage_v1" {
+			t.Fatal("usage preparation", e)
+		}
+		if e = f.app.Store.AcknowledgeNodeOperation(ctx, n.ID, n.Secret, cmd.OperationID, cmd.Revision, cmd.SHA256, "applied"); e != nil {
+			t.Fatal(e)
+		}
+		f.Nodes[i].Baseline = cmd.Config
+	}
+	runCascadeUIAuthenticatedPreviewApplyRollback(t, f)
+	for _, n := range f.Nodes {
+		capable, configured, e := f.app.Store.NodeUsageStatus(ctx, n.ID)
+		if e != nil || !capable || !configured {
+			t.Fatal("accounting was not restored", e)
+		}
+	}
+}
+
+func runCascadeUIAuthenticatedPreviewApplyRollback(t *testing.T, f *cascadeUIFixture) {
+	t.Helper()
 	ctx := context.Background()
 	path := "/api/routes/" + f.Route.ID
 	for _, target := range []struct{ method, path string }{{"GET", "/api/cascade-deployments"}, {"POST", path + "/deployment-preview"}, {"POST", path + "/deployments"}, {"POST", "/api/cascade-deployments/unknown/start"}, {"POST", "/api/cascade-deployments/unknown/rollback"}, {"DELETE", "/api/cascade-deployments/unknown"}} {
@@ -191,6 +223,9 @@ func TestCascadeUIAuthenticatedPreviewApplyRollback(t *testing.T) {
 	_ = json.Unmarshal(response.Body.Bytes(), &deployment)
 	for _, index := range []int{1, 0} {
 		node := f.Nodes[index]
+		if e := f.app.ReconcileNodeCredentials(ctx, node.ID); e != nil {
+			t.Fatal("collector interfered with cascade", e)
+		}
 		command, e := f.app.Store.PendingNodeCommand(ctx, node.ID, node.Secret)
 		if e != nil || command == nil {
 			t.Fatal("staged command absent", e)

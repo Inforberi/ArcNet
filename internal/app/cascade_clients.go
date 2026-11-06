@@ -14,7 +14,7 @@ func preserveCascadeClients(left, right, baseA, baseB []byte) ([]byte, []byte, e
 	configs := [][]byte{left, right}
 	baselines := [][]byte{baseA, baseB}
 	for i := range configs {
-		if e := noderuntime.ValidateConfig(baselines[i]); e != nil {
+		if noderuntime.ValidateConfig(baselines[i]) != nil && noderuntime.ValidateStatisticsConfig(baselines[i]) != nil {
 			return nil, nil, store.ErrCascadeNotReady
 		}
 		var next, previous map[string]any

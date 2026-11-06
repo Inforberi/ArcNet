@@ -55,6 +55,14 @@ func (s *Store) CredentialGeneration(ctx context.Context) (int64, error) {
 	return out, e
 }
 func (s *Store) QueueNodeCredentials(ctx context.Context, node string, config []byte, generation int64, address string, port int) (NodeOperation, error) {
+	return s.queueNodeCredentials(ctx, node, config, generation, address, port, "apply_xray_devices_v1")
+}
+
+func (s *Store) QueueNodeUsageCredentials(ctx context.Context, node string, config []byte, generation int64, address string, port int) (NodeOperation, error) {
+	return s.queueNodeCredentials(ctx, node, config, generation, address, port, "apply_xray_usage_v1")
+}
+
+func (s *Store) queueNodeCredentials(ctx context.Context, node string, config []byte, generation int64, address string, port int, kind string) (NodeOperation, error) {
 	var out NodeOperation
 	e := s.DB.WithTx(ctx, func(tx *db.Tx) error {
 		if e := requireNodeWithoutCascade(tx, node); e != nil {
@@ -77,6 +85,11 @@ func (s *Store) QueueNodeCredentials(ctx context.Context, node string, config []
 		if e := requireDeviceNode(tx, node); e != nil {
 			return e
 		}
+		if kind == "apply_xray_usage_v1" {
+			if e := requireNodeUsage(tx, node); e != nil {
+				return e
+			}
+		}
 		var compact bytes.Buffer
 		if e := json.Compact(&compact, config); e != nil {
 			return e
@@ -98,7 +111,7 @@ func (s *Store) QueueNodeCredentials(ctx context.Context, node string, config []
 				return nil
 			}
 		}
-		op, e := s.queueNodeDeployment(tx, node, config, "apply_xray_devices_v1")
+		op, e := s.queueNodeDeployment(tx, node, config, kind)
 		if e != nil {
 			return e
 		}

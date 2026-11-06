@@ -1,3 +1,5 @@
+> 2026-11-06, исходники после A3: typed direct TCP statistics/collector/report/ledger и отдельная usage capability; новые units дают приватный RuntimeDirectory Xray. Требуются согласованные новые core/agent/helper/units; старый A3 installer не объявляется обновлённым. [Контракт](../adr/019-direct-node-traffic-accounting.md).
+
 # Feature: серверы, предварительные проверки и SSH-установка из UI
 
 **Статус 2026-11-04:** SSH bootstrap, Go agent/revision/rollback, UI, локальный CLI install, SSH uninstall, signed upgrade и node rebind реализованы на уровне исходников 0.6.1, но **этап 4 частично завершён** (нет полноценного preflight network/diff, real VPN probe, React typecheck/E2E и внешних VPS проверок). См. [реальный code handoff](../release-0.6.1-stage4-continuation.md) и [операционные ограничения](../ops/stage4-nodes.md). Историческое первоначальное требование: нужно полное управление нодами, а не telemetry-only. См. [аудит](../audits/2026-11-04-pre-stage4.md) и [чеклист](../planning/stage4-checklist.md). **Целевой сценарий:** администратор вводит доступ к VPS, система безопасно устанавливает агент/Xray, проверяет VPN и показывает ноду в общей схеме/таблице.

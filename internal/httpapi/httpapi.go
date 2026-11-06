@@ -167,6 +167,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/logout", s.mustAuth(s.logout, true))
 	mux.HandleFunc("GET /api/servers/{id}/telemetry", s.mustAuth(s.serverTelemetry, false))
 	mux.HandleFunc("POST /api/nodes/telemetry", s.nodeTelemetry)
+	mux.HandleFunc("POST /api/nodes/usage", s.nodeUsage)
 	mux.HandleFunc("GET /api/monitoring/events", s.mustAuth(s.monitoringStream, false))
 	mux.HandleFunc("GET /api/settings/monitoring", s.mustAuth(s.monitoringSettings, false))
 	mux.HandleFunc("PUT /api/settings/monitoring", s.mustAuth(s.monitoringSave, true))
@@ -347,6 +348,9 @@ func respond(w http.ResponseWriter, status int, v any) {
 func fail(w http.ResponseWriter, status int, msg string) { respond(w, status, failure{msg}) }
 func decode(w http.ResponseWriter, r *http.Request, out any) bool {
 	limit := int64(16 * 1024)
+	if r.URL.Path == "/api/nodes/usage" {
+		limit = 128 * 1024
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/nodes/ssh/") {
 		limit = 64 * 1024
 	}

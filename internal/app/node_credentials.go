@@ -14,8 +14,15 @@ func (a *App) ReconcileNodeCredentials(ctx context.Context, node string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	managed, e := a.Store.HasManagedDevices(ctx)
-	if e != nil || !managed {
+	if e != nil {
 		return e
+	}
+	accounting, configured, e := a.Store.NodeUsageStatus(ctx, node)
+	if e != nil {
+		return e
+	}
+	if !managed && !accounting {
+		return nil
 	}
 	state, e := a.Store.NodeControl(ctx, node)
 	if e != nil {
@@ -32,7 +39,7 @@ func (a *App) ReconcileNodeCredentials(ctx context.Context, node string) error {
 	if e != nil {
 		return e
 	}
-	if applied == generation && operation == state.DeploymentID && state.DeploymentStatus == "applied" {
+	if applied == generation && operation == state.DeploymentID && state.DeploymentStatus == "applied" && (!accounting || configured) {
 		return nil
 	}
 	if queued == generation && state.DeploymentStatus == "failed" {
@@ -63,6 +70,14 @@ func (a *App) ReconcileNodeCredentials(ctx context.Context, node string) error {
 	}
 	payload, e := xray.Generate(profile, users)
 	if e != nil {
+		return e
+	}
+	if accounting {
+		payload, e = xray.WithNodeStatistics(payload, users)
+		if e != nil {
+			return e
+		}
+		_, e = a.Store.QueueNodeUsageCredentials(ctx, node, payload, generation, profile.Address, profile.Port)
 		return e
 	}
 	_, e = a.Store.QueueNodeCredentials(ctx, node, payload, generation, profile.Address, profile.Port)

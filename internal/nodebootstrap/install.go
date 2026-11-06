@@ -174,6 +174,8 @@ ConditionPathExists=/etc/arcvpn-node/xray.json
 Type=simple
 User=arcvpn-xray
 Group=arcvpn-xray
+RuntimeDirectory=arcvpn-node-xray
+RuntimeDirectoryMode=0700
 ExecStart=/opt/arcvpn-node/bin/xray run -config /etc/arcvpn-node/xray.json
 # Xray runs unprivileged, but must be allowed to listen on TCP 443.
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE

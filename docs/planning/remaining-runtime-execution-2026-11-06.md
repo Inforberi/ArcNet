@@ -17,3 +17,5 @@
 
 
 Выполненные source-блоки: cascade proof/publication — ADR-017; стандартная отдельная ссылка/QR пользователя и устройства; direct remote TCP device credentials/ACK + backup v11 — ADR-018. Остаток2: distributed counters/budget enforcement, cascade-owned credentials, remote UDP profiles; пункты3–6 не объявлены реализованными. Внешняя приёмка не заменяется fixtures.
+
+Продолжение: ADR-019 добавляет прямой remote TCP report/ledger/backup v12, не автономные budgets. Finite guards остаются. Пользователь предоставил VPS для испытаний и требует сохранить существующие 3x-ui/Xray, тестировать рядом. Последующий блок — реальные source/installer проверки на этом стенде и автономное исполнение quota; затем остальной активный список. Только Happ/Streisand, без новых клиентов.

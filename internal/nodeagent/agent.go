@@ -203,7 +203,7 @@ func heartbeat(ctx context.Context, client *http.Client, c Configuration) error 
 	capsCtx, capsCancel := context.WithTimeout(ctx, 2*time.Second)
 	caps, _ := noderuntime.CallHelper(capsCtx, "", noderuntime.ApplyRequest{ProtocolVersion: 1, Kind: "capabilities_v1"})
 	capsCancel()
-	b, err := json.Marshal(store.NodeHeartbeat{CascadeProtocol: caps.CascadeProtocol, DeviceProtocol: caps.DeviceProtocol, Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
+	b, err := json.Marshal(store.NodeHeartbeat{UsageProtocol: caps.UsageProtocol, CascadeProtocol: caps.CascadeProtocol, DeviceProtocol: caps.DeviceProtocol, Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
 	if err != nil {
 		return err
 	}
@@ -447,6 +447,9 @@ func Run(ctx context.Context, c Configuration, configPath string, report func(er
 	telemetryCtx, stopTelemetry := context.WithCancel(ctx)
 	telemetryDone := make(chan struct{})
 	go func() { defer close(telemetryDone); runTelemetry(telemetryCtx, client, configPath, report) }()
+	usageDone := make(chan struct{})
+	go func() { defer close(usageDone); runNodeUsage(telemetryCtx, client, configPath, report) }()
+	defer func() { stopTelemetry(); <-usageDone }()
 	defer func() { stopTelemetry(); <-telemetryDone }()
 	rotateAfter := time.Now().Add(24 * time.Hour)
 	if c.RotatedAt > 0 {

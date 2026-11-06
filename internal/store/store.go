@@ -89,6 +89,9 @@ func (s *Store) Migrate(ctx context.Context) error {
 		if err := migrateNodeCredentials(tx); err != nil {
 			return err
 		}
+		if err := migrateNodeUsage(tx); err != nil {
+			return err
+		}
 		if err := migrateNodeControlDrain(tx); err != nil {
 			return err
 		}
