@@ -156,6 +156,21 @@ func TestOnlineUpdateAuthStagingAndFailure(t *testing.T) {
 	if w := request("POST", "/api/system/update/download", `{"version":"0.7.0-stage5-a8"}`, true, false); w.Code != 403 {
 		t.Fatal("CSRF bypass", w.Code)
 	}
+	if w := request("POST", "/api/system/update/apply", `{"confirm":"WRONG"}`, true, true); w.Code != 400 {
+		t.Fatal("unconfirmed update accepted with trusted helper", w.Code)
+	}
+	unsigned := httptest.NewRequest("POST", "https://example.test/api/system/update/upload", strings.NewReader("unsigned archive"))
+	unsigned.AddCookie(cookie)
+	unsigned.Header.Set("X-CSRF-Token", "fixture-csrf")
+	unsigned.Header.Set("Content-Type", "application/octet-stream")
+	rejected := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rejected, unsigned)
+	if rejected.Code != 422 {
+		t.Fatal("unsigned archive accepted with trusted helper", rejected.Code)
+	}
+	if _, err := os.Stat(s.updates.stagePath); !os.IsNotExist(err) {
+		t.Fatal("unsigned archive left staged", err)
+	}
 	s.updates.catalogSlots <- struct{}{}
 	s.updates.catalogSlots <- struct{}{}
 	if w := request("GET", "/api/system/update/releases", "", true, false); w.Code != 429 {

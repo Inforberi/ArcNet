@@ -75,13 +75,13 @@ func TestStage3AuthenticatedOperationsFailClosed(t *testing.T) {
 	if got := request("GET", "/api/settings/firewall", nil, "", "", true); got.Code != 200 || !bytes.Contains(got.Body.Bytes(), []byte(`"available":false`)) {
 		t.Fatal("invalid local firewall status", got.Code, got.Body.String())
 	}
-	if got := request("POST", "/api/system/update/upload", []byte("unsigned archive"), "application/octet-stream", csrf, true); got.Code != 422 {
-		t.Fatal("unsigned release accepted", got.Code, got.Body.String())
+	if got := request("POST", "/api/system/update/upload", []byte("unsigned archive"), "application/octet-stream", csrf, true); got.Code != 409 {
+		t.Fatal("upload accepted without trusted helper", got.Code, got.Body.String())
 	}
 	if _, e = os.Stat(updateStagePath()); !os.IsNotExist(e) {
 		t.Fatal("unverified archive left staged", e)
 	}
-	if got := request("POST", "/api/system/update/apply", map[string]string{"confirm": "WRONG"}, "application/json", csrf, true); got.Code != 400 {
-		t.Fatal("unconfirmed update accepted", got.Code)
+	if got := request("POST", "/api/system/update/apply", map[string]string{"confirm": "WRONG"}, "application/json", csrf, true); got.Code != 409 {
+		t.Fatal("apply accepted without trusted helper", got.Code)
 	}
 }
