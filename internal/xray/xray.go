@@ -54,7 +54,7 @@ func GenerateKeys(ctx context.Context, binary string) (private, public, shortID 
 	defer cancel()
 	out, e := exec.CommandContext(c, binary, "x25519").CombinedOutput()
 	if e != nil {
-		return "", "", "", fmt.Errorf("xray x25519 failed: %w", e)
+		return "", "", "", &OperationError{Stage: "keys", Err: fmt.Errorf("xray x25519 failed: %w", e)}
 	}
 	for _, line := range strings.Split(string(out), "\n") {
 		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
@@ -66,12 +66,12 @@ func GenerateKeys(ctx context.Context, binary string) (private, public, shortID 
 		switch name {
 		case "privatekey", "private key":
 			private = v
-		case "password", "publickey", "public key":
+		case "password", "password (publickey)", "publickey", "public key":
 			public = v
 		}
 	}
 	if !keyPattern.MatchString(private) || !keyPattern.MatchString(public) {
-		return "", "", "", errors.New("unexpected output from xray x25519")
+		return "", "", "", &OperationError{Stage: "keys", Err: errors.New("unexpected output from xray x25519")}
 	}
 	random := make([]byte, 8)
 	if _, err = rand.Read(random); err != nil {
@@ -258,7 +258,7 @@ func (c Controller) apply(ctx context.Context, data []byte) error {
 	_, e := cmd.CombinedOutput()
 	if e != nil {
 		// Xray errors may include the offending JSON value or private keys.
-		return fmt.Errorf("Xray config validation failed: %w", e)
+		return &OperationError{Stage: "validation", Err: fmt.Errorf("Xray config validation failed: %w", e)}
 	}
 	previous, readErr := os.ReadFile(c.Path)
 	if readErr != nil && !os.IsNotExist(readErr) {
@@ -295,7 +295,7 @@ func (c Controller) apply(ctx context.Context, data []byte) error {
 		}
 	}
 	if fileErr != nil {
-		return fmt.Errorf("Xray restart failed (%v) and previous config could not be restored: %w", err, fileErr)
+		return &OperationError{Stage: "rollback", Err: fmt.Errorf("Xray restart failed (%v) and previous config could not be restored: %w", err, fileErr)}
 	}
 	fallbackCtx, fallbackCancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer fallbackCancel()
@@ -307,9 +307,9 @@ func (c Controller) apply(ctx context.Context, data []byte) error {
 		recovery, recErr = c.control(fallbackCtx, "stop")
 	}
 	if recErr != nil {
-		return fmt.Errorf("Xray restart failed (%v); rollback service operation also failed (%s): %w", err, sanitize(recovery), recErr)
+		return &OperationError{Stage: "rollback", Err: fmt.Errorf("Xray restart failed (%v); rollback service operation also failed (%s): %w", err, sanitize(recovery), recErr)}
 	}
-	return fmt.Errorf("Xray restart failed; previous state restored: %s: %w", sanitize(res), err)
+	return &OperationError{Stage: "restart", Err: fmt.Errorf("Xray restart failed; previous state restored: %s: %w", sanitize(res), err)}
 }
 
 // writeAtomicConfig replaces a secret-bearing configuration with mode 0600.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -26,6 +27,35 @@ type testConnector struct{ address string }
 
 func (d testConnector) DialContext(c context.Context, n, a string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(c, n, d.address)
+}
+
+type dualStackResolver struct{}
+
+func (dualStackResolver) LookupNetIP(context.Context, string, string) ([]netip.Addr, error) {
+	return []netip.Addr{netip.MustParseAddr("2606:4700:4700::1111"), netip.MustParseAddr("1.1.1.1")}, nil
+}
+
+type ipv4Connector struct{ address string }
+
+func (d ipv4Connector) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, _, _ := net.SplitHostPort(address)
+	if ip, e := netip.ParseAddr(host); e != nil || !ip.Is4() {
+		return nil, errors.New("IPv6 route unavailable")
+	}
+	return (&net.Dialer{}).DialContext(ctx, network, d.address)
+}
+func TestCheckerUsesWorkingFamilyWithoutWeakeningTLS(t *testing.T) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	defer server.Close()
+	roots := x509.NewCertPool()
+	roots.AddCert(server.Certificate())
+	checker := Checker{Guard: publicnet.Guard{Resolver: dualStackResolver{}, Dialer: ipv4Connector{server.Listener.Addr().String()}}, roots: roots}
+	report, err := checker.Check(context.Background(), []Candidate{{Host: "target.example.com", SNI: server.Certificate().DNSNames[0]}}, "local")
+	if err != nil || report.Recommended == nil || report.Results[0].Successes != Samples || !report.Results[0].HTTPVerified {
+		t.Fatal("working IPv4 path rejected", err, report)
+	}
 }
 
 func TestCheckerTLSAndHTTPCompatibilityGates(t *testing.T) {

@@ -29,7 +29,7 @@ func TestManagementWrapperDispatchesOnlyAllowlistedCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	record := filepath.Join(temp, "calls")
-	stub := "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" >> \"$ARCVPN_WRAPPER_TEST_LOG\"\ncase \"$0\" in *systemctl) printf '0\\n';; *arcvpn-core) if [ \"$1\" = help ]; then printf 'local management protocol: lifecycle-v1\\n'; fi;; esac\n"
+	stub := "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" >> \"$ARCVPN_WRAPPER_TEST_LOG\"\ncase \"$0\" in *systemctl) printf '0\\n';; *arcvpn-core) if [ \"$1\" = help ]; then printf 'admin-setup; local management protocol: lifecycle-v1\\n'; fi;; esac\n"
 	for _, name := range []string{"runuser", "systemctl", "journalctl", "arcvpn-core"} {
 		if err := os.WriteFile(filepath.Join(temp, name), []byte(stub), 0755); err != nil {
 			t.Fatal(err)
@@ -44,6 +44,7 @@ func TestManagementWrapperDispatchesOnlyAllowlistedCommands(t *testing.T) {
 		{args: []string{"password", "reset", "--password-stdin"}, want: "admin-reset\n--password-stdin", valid: true},
 		{args: []string{"password", "reset", "--reset-2fa"}, want: "admin-reset\n--reset-2fa", valid: true},
 		{args: []string{"sessions", "revoke"}, want: "admin-revoke-sessions", valid: true},
+		{args: []string{"setup"}, want: "admin-setup", valid: true},
 		{args: []string{"logs", "panel"}, want: "lifecycle\nlogs\npanel", valid: true},
 		{args: []string{"restart", "xray"}, want: "lifecycle\nrestart\nxray", valid: true},
 		{args: []string{"start"}, want: "lifecycle\nstart", valid: true},
@@ -55,7 +56,7 @@ func TestManagementWrapperDispatchesOnlyAllowlistedCommands(t *testing.T) {
 		{args: []string{"status", "--root=/tmp"}, valid: false},
 		{args: []string{"restart", "sshd"}, valid: false},
 		{args: []string{"sessions", "unknown"}, valid: false},
-		{args: []string{}, input: "7\nyes\n0\n", want: "admin-reset", valid: true},
+		{args: []string{}, input: "2\n3\nyes\n0\n0\n", want: "admin-reset", valid: true},
 	}
 	for _, tc := range cases {
 		_ = os.Remove(record)

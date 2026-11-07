@@ -3,6 +3,12 @@ set -Eeuo pipefail
 if [[ $EUID -ne 0 ]];then exec sudo -- "$0" "$@";fi
 
 run_core(){ runuser -u arcvpn -- env ARCVPN_DATA_DIR=/var/lib/arcvpn /opt/arcvpn/bin/arcvpn-core "$@"; }
+run_setup(){
+ local capabilities
+ capabilities="$(/opt/arcvpn/bin/arcvpn-core help)" || return 1
+ [[ "$capabilities" == *'admin-setup'* ]] || { printf 'Нужен согласованный пакет новой панели и меню.\n' >&2;return 1; }
+ run_core admin-setup
+}
 run_lifecycle(){
  local capabilities
  # help is handled before opening SQLite, including by previous cores. Never
@@ -24,6 +30,7 @@ show_settings(){
 management_help(){
  printf '%s\n' 'arcvpn — локальное управление' \
  '  arcvpn                         интерактивное меню' \
+ '  arcvpn setup                    одноразовый код создания администратора' \
  '  arcvpn start|stop|restart       вся локальная установка' \
  '  arcvpn status [--json]         desired/actual каждого компонента' \
  '  arcvpn restart panel|xray|hysteria|wireguard' \
@@ -42,6 +49,7 @@ case "${1:-menu}" in
  start|stop) [[ $# -eq 1 ]] || { management_help;exit 2; };run_lifecycle "$@";exit $?;;
  status) [[ $# -eq 1 || ( $# -eq 2 && "$2" == --json ) ]] || { management_help;exit 2; };run_lifecycle "$@";exit $?;;
  settings) shift;show_settings "$@";exit $?;;
+ setup) [[ $# -eq 1 ]] || { management_help;exit 2; };run_setup;exit $?;;
  password) shift;[[ "${1:-}" == reset ]] || { management_help;exit 2; };shift;run_core admin-reset "$@";exit $?;;
  admin-reset) shift;run_core admin-reset "$@";exit $?;;
  sessions) [[ $# -eq 2 && "$2" == revoke ]] || { management_help;exit 2; };run_core admin-revoke-sessions;exit $?;;
@@ -54,9 +62,43 @@ case "${1:-menu}" in
  *) management_help;exit 2;;
 esac
 
+menu_page=main
+arc_blue='' arc_green='' arc_red='' arc_clear=''
+if [[ -t 1 && ${TERM:-dumb} != dumb && -z ${NO_COLOR:-} ]];then
+ arc_blue=$'\033[1;34m' arc_green=$'\033[32m' arc_red=$'\033[31m' arc_clear=$'\033[0m'
+fi
 while true;do
- printf '\nArcVPN — управление\n1. Статус всех компонентов\n2. Перезапустить панель\n3. Перезапустить Xray\n4. Журнал панели\n5. Диагностика\n6. Зашифрованная резервная копия VPN\n7. Сбросить пароль администратора (сохранить 2FA)\n8. Настроить ежедневные зашифрованные копии\n9. Посмотреть настройки\n10. Завершить административные сессии\n11. Сбросить пароль и утраченную 2FA\n12. Запустить локальную установку\n13. Остановить локальную установку (данные сохраняются)\n14. Перезапустить локальную установку\n0. Выход\n> '
+ if [[ "$menu_page" == main ]];then
+  panel_state="$(systemctl is-active arcvpn-panel.service 2>/dev/null || true)"
+  panel_color="$arc_red"; [[ "$panel_state" != active ]] || panel_color="$arc_green"
+  printf '\n%sArcVPN%s\nПанель: %s%s%s\n' "$arc_blue" "$arc_clear" "$panel_color" "${panel_state:-неизвестно}" "$arc_clear"
+  printf '1. Службы\n2. Доступ и безопасность\n3. Резервные копии\n4. Диагностика и журналы\n5. Настройки панели\n0. Выход\n> '
+ else
+  case "$menu_page" in
+   services) printf '\n%sСлужбы%s\n1. Статус\n2. Запустить VPN\n3. Остановить VPN (данные сохраняются)\n4. Перезапустить VPN\n5. Перезапустить панель\n6. Перезапустить Xray\n' "$arc_blue" "$arc_clear";;
+   access) printf '\n%sДоступ и безопасность%s\n1. Адрес и настройки панели\n2. Код первого запуска\n3. Новый пароль (сохранить 2FA)\n4. Завершить сессии\n5. Восстановить доступ при утрате 2FA\n' "$arc_blue" "$arc_clear";;
+   backup) printf '\n%sРезервные копии%s\n1. Создать зашифрованную копию\n2. Настроить ежедневные копии\n' "$arc_blue" "$arc_clear";;
+   diagnostics) printf '\n%sДиагностика%s\n1. Проверить установку\n2. Последние записи панели\n3. Статус всех служб\n' "$arc_blue" "$arc_clear";;
+  esac
+  printf '0. Назад\n> '
+ fi
  read -r choice || exit 0
+ if [[ "$menu_page" == main ]];then
+  case "$choice" in
+   1) menu_page=services;continue;; 2) menu_page=access;continue;;
+   3) menu_page=backup;continue;; 4) menu_page=diagnostics;continue;;
+   5) choice=9;; 0) exit 0;; *) printf 'Выберите пункт из меню.\n';continue;;
+  esac
+ else
+  if [[ "$choice" == 0 ]];then menu_page=main;continue;fi
+  case "$menu_page:$choice" in
+   services:1|diagnostics:3) choice=1;; services:2) choice=12;; services:3) choice=13;;
+   services:4) choice=14;; services:5) choice=2;; services:6) choice=3;;
+   access:1) choice=9;; access:2) choice=15;; access:3) choice=7;; access:4) choice=10;; access:5) choice=11;;
+   backup:1) choice=6;; backup:2) choice=8;; diagnostics:1) choice=5;; diagnostics:2) choice=4;;
+   *) printf 'Выберите пункт из меню.\n';continue;;
+  esac
+ fi
  case "$choice" in
  1) run_lifecycle status || true;;
  2) run_lifecycle restart panel || true;;
@@ -98,6 +140,7 @@ while true;do
  12) run_lifecycle start || true;;
  13) run_lifecycle stop || true;;
  14) run_lifecycle restart || true;;
+ 15) run_setup || printf "Код доступен только до создания администратора. Для смены пароля используйте раздел доступа.\n";;
  0) exit 0;;
  *) printf 'Неизвестная команда\n';;
  esac

@@ -1,3 +1,7 @@
+## 2026-11-07 — простой первый вход и подключения
+
+Owner setup с выбранными credentials, отдельный MFA-шаг, компактная таблица/диалог, subscription-first выдача, группы CLI; исправлен новый формат Xray keygen, SNI job reuse/address fallback. Без новых зависимостей, без изменения VPS. [Контракт и границы](../features/first-connection.md), [доказательства](../testing/local-results/stage5-2026-11-07-first-connection.md).
+
 ## 2026-11-07 — A4 VPS install recovery
 
 Получен IP TLS-сертификат через process-only IPv4; исправлены права родительского OPT и подавление errexit в recovery. В исходном installer добавлен scoped IPv4 Certbot wrapper для issuance/renewal. Панель на VPS active/running, внешний HTTPS HTTP 200 с TLS verify 0; 3x-ui сохранена active. Offline guard/permissions/fail-fast/wrapper fixture PASS. Реальные renewal/VPN и весь runtime backlog открыты; A4 archive неизменён, опубликован отдельный recovery v3.

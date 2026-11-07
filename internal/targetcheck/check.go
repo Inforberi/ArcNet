@@ -125,7 +125,7 @@ func medianFor(results []Result, c Candidate) float64 {
 func (checker Checker) checkOne(ctx context.Context, c Candidate) Result {
 	result := Result{Candidate: c, Samples: []Measurement{}, CheckedAt: time.Now().Unix()}
 	resolveCtx, stop := context.WithTimeout(ctx, 3*time.Second)
-	addresses, err := checker.Guard.Resolve(resolveCtx, c.Host)
+	_, err := checker.Guard.Resolve(resolveCtx, c.Host)
 	stop()
 	if err != nil {
 		result.Error = err.Error()
@@ -134,7 +134,7 @@ func (checker Checker) checkOne(ctx context.Context, c Candidate) Result {
 	for i := 0; i < Samples; i++ {
 		sampleCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		start := time.Now()
-		connection, err := checker.Guard.Dialer.DialContext(sampleCtx, "tcp", net.JoinHostPort(addresses[i%len(addresses)].String(), "443"))
+		connection, err := checker.Guard.DialContext(sampleCtx, "tcp", net.JoinHostPort(c.Host, "443"))
 		if err != nil {
 			cancel()
 			result.Error = "TCP-соединение не установлено"

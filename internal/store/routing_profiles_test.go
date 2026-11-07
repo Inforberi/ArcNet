@@ -126,8 +126,11 @@ func TestTargetJobsCapabilityBindingLeaseAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.QueueTargetCheck(ctx, node, candidates); !errors.Is(err, ErrNodeBusy) {
-		t.Fatal("overlapping job allowed")
+	if reused, e := s.QueueTargetCheck(ctx, node, candidates); e != nil || !reused.Reused || reused.ID != job.ID {
+		t.Fatal("identical check was not reused", e)
+	}
+	if _, err = s.QueueTargetCheck(ctx, node, []targetcheck.Candidate{{Host: "other.example.com", SNI: "other.example.com"}}); !errors.Is(err, ErrNodeBusy) {
+		t.Fatal("different overlapping job allowed")
 	}
 	if _, err = s.PollTargetCheck(ctx, node, "foreign-secret"); !errors.Is(err, ErrNodeUnauthorized) {
 		t.Fatal("foreign agent polled job")

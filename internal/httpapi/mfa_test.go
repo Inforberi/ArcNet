@@ -99,8 +99,8 @@ func TestHTTPMFASetupLoginAndRecovery(t *testing.T) {
 		t.Fatalf("existing session not revoked: %d", r.Code)
 	}
 	noCode := request("/api/login", map[string]string{"username": "admin", "password": password}, "", nil)
-	if noCode.Code != 401 {
-		t.Fatal("2FA bypassed")
+	if noCode.Code != 200 || !strings.Contains(noCode.Body.String(), `"mfa_required":true`) || len(noCode.Result().Cookies()) != 0 {
+		t.Fatal("second factor must be requested without issuing a session")
 	}
 	replay := request("/api/login", map[string]string{"username": "admin", "password": password, "code": code}, "", nil)
 	if replay.Code != 401 {

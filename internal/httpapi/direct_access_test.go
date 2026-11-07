@@ -53,6 +53,13 @@ func TestDeviceDirectQRRequiresSessionAndStopsAfterRevocation(t *testing.T) {
 	}
 	path := "https://panel.example/api/users/1/devices/" + device.ID + "/qr?selection=" + auth.HashToken(links[0])
 	handler := s.Routes()
+	subscriptionQR := httptest.NewRequest("GET", "https://panel.example/api/users/1/devices/"+device.ID+"/qr?format=subscription", nil)
+	subscriptionQR.AddCookie(cookie)
+	subscriptionReply := httptest.NewRecorder()
+	handler.ServeHTTP(subscriptionReply, subscriptionQR)
+	if subscriptionReply.Code != 200 || subscriptionReply.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("device subscription QR", subscriptionReply.Code)
+	}
 	r := httptest.NewRequest("GET", path, nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, r)

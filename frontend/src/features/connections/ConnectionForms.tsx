@@ -9,7 +9,6 @@ export const protocolCatalog: {kind: ProtocolKind; name: string; description: st
  {kind: 'vless-xhttp', name: 'VLESS + XHTTP + Reality', description: 'Транспорт Xray через TCP', port: 2087},
  {kind: 'hysteria2', name: 'Hysteria2', description: 'QUIC / UDP с сертификатом сервера', port: 8444},
  {kind: 'wireguard', name: 'WireGuard', description: 'Туннель UDP, отдельные ключи подключения', port: 51820},
- {kind: 'amneziawg', name: 'AmneziaWG 3.1', description: 'Туннель UDP с защитой заголовков', port: 51821},
 ];
 type Defaults = {address: string; address_source: string; ports: Record<string, number>};
 export type RealityInput = {address: string; target: string; port: number};
@@ -28,7 +27,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
  const chosenTarget = target ?? recommended;
  const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({address, port, target: chosenTarget});};
  return <form className="panel-body" onSubmit={submit}>
-  <p>Подберём SNI по проверке с этого сервера. Ключи будут созданы при применении.</p>
+  <p className="muted">Адрес и порт уже предложены. Проверяем SNI, ключи создадим автоматически.</p>
   {defaults.isError && <Notice>Не удалось получить параметры сервера: {defaults.error.message}. Их можно указать вручную.</Notice>}
   {!defaults.data?.address && <Field label="Публичный IP VPS" required value={address} onChange={event => setAddress(event.target.value)}/>}
   <div className="kv"><span>Подключение</span><span>{address || 'Нужен публичный IP'}:{port} · TCP</span></div>
@@ -41,8 +40,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
    <Button type="button" onClick={() => {setAddress(undefined); setPort(undefined); setTarget(undefined);}}>Вернуть автоматические параметры</Button>
   </Advanced>
   {!chosenTarget && <p className="muted">Если подбор не найдёт подходящий SNI, откройте расширенные настройки для повторной проверки или ручного ввода.</p>}
-  <p className="muted">Порт предложен по конфигурации панели; окончательная проверка выполняется при применении. Проверка SNI не подтверждает VPN-подключение.</p>
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || !chosenTarget}>Создать и активировать</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || !chosenTarget}>{busy?'Применяем…':'Создать подключение'}</Button></div>
  </form>;
 }
 
@@ -62,12 +60,11 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
  const update = (values: Draft) => setDrafts(all => ({...all, [kind]: {...all[kind], ...values}}));
  const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({kind, address, port, target, sni});};
  return <form className="panel-body" onSubmit={submit}>
-  <label className="field"><span>Тип подключения</span><select aria-label="Тип подключения" value={kind} onChange={event => setSelection(event.target.value as ProtocolKind)}>{protocolCatalog.filter(item => available.includes(item.kind)).map(item => <option value={item.kind} key={item.kind}>{item.name}</option>)}</select></label>
+  {available.length>1&&<label className="field"><span>Тип подключения</span><select aria-label="Тип подключения" value={kind} onChange={event => setSelection(event.target.value as ProtocolKind)}>{protocolCatalog.filter(item => available.includes(item.kind)).map(item => <option value={item.kind} key={item.kind}>{item.name}</option>)}</select></label>}
   <p className="muted">{chosen.description}</p>
   {!vpn.address && !defaults.data?.address && <Field label="Публичный IP" required value={address} onChange={event => setAddress(event.target.value)}/>}
   <div className="kv"><span>Сервер и порт</span><span>{address || 'Укажите публичный IP'}:{port} · {kind === 'vless-xhttp' ? 'TCP' : 'UDP'}</span></div>
   {sni && <div className="kv"><span>TLS / SNI</span><span>{sni}</span></div>}
-  {kind === 'hysteria2' && <Notice>Сертификат должен покрывать IP {address}. Посторонний SNI не подставляется.</Notice>}
   <Advanced>
    {!!(vpn.address || defaults.data?.address) && <Field label="Публичный IP" required value={address} readOnly={!!vpn.address} onChange={event => setAddress(event.target.value)}/>}
    <Field label={kind === 'vless-xhttp' ? 'TCP-порт' : 'UDP-порт'} type="number" required min={1} max={65535} value={port} onChange={event => update({port: Number(event.target.value)})}/>
@@ -78,7 +75,6 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
    </>}
    <Button type="button" onClick={() => {setAddress(undefined); setDrafts(all => ({...all, [kind]: {}}));}}>Вернуть автоматические параметры</Button>
   </Advanced>
-  <p className="muted">Ключи и служебные параметры создаются автоматически. Доступность порта и движка проверяется при применении.</p>
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>Создать и применить</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>{busy?'Применяем…':'Создать подключение'}</Button></div>
  </form>;
 }

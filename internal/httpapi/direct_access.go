@@ -27,18 +27,22 @@ func writeSelectedAccessQR(w http.ResponseWriter, r *http.Request, links []strin
 		if auth.HashToken(link) != selection {
 			continue
 		}
-		image, e := qrcode.SVG(link)
-		if e != nil {
-			fail(w, 422, "Для этой ссылки используйте копирование")
-			return
-		}
-		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
-		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'none'")
-		w.Header().Set("Cache-Control", "no-store")
-		_, _ = w.Write(image)
+		writeAccessQR(w, link)
 		return
 	}
 	fail(w, 409, "Подключение изменилось или отозвано. Обновите список.")
+}
+
+func writeAccessQR(w http.ResponseWriter, link string) {
+	image, e := qrcode.SVG(link)
+	if e != nil {
+		fail(w, 422, "Для этой ссылки используйте копирование")
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'none'")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(image)
 }
 func (s *Server) userDeviceQRCode(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -48,6 +52,21 @@ func (s *Server) userDeviceQRCode(w http.ResponseWriter, r *http.Request) {
 	links, e := s.App.DeviceLinks(r.Context(), id, r.PathValue("device"))
 	if e != nil {
 		handleErr(w, e)
+		return
+	}
+	if r.URL.Query().Get("format") == "subscription" {
+		record, err := s.App.Store.UserDevices(r.Context(), id)
+		if err != nil {
+			handleErr(w, err)
+			return
+		}
+		for _, device := range record.Devices {
+			if device.ID == r.PathValue("device") && device.RevokedAt == 0 && len(links) > 0 {
+				writeAccessQR(w, s.origin(r)+"/device/"+device.Token)
+				return
+			}
+		}
+		http.NotFound(w, r)
 		return
 	}
 	writeSelectedAccessQR(w, r, links)

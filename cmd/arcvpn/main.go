@@ -169,6 +169,11 @@ func run() error {
 	if dataDir == "" {
 		dataDir = "/var/lib/arcvpn"
 	}
+	if os.Args[1] == "admin-setup" {
+		if err := checkRecoveryPermissions(dataDir); err != nil {
+			return err
+		}
+	}
 	if os.Args[1] == "admin-reset" || os.Args[1] == "settings" || os.Args[1] == "admin-revoke-sessions" || strings.HasPrefix(os.Args[1], "runtime-") {
 		if err := checkRecoveryPermissions(dataDir); err != nil {
 			return err
@@ -268,6 +273,19 @@ func run() error {
 		return nil
 	case "settings":
 		return showLocalSettings(ctx, st, os.Args[2:], os.Stdout)
+	case "admin-setup":
+		if len(os.Args) != 2 {
+			return errors.New("admin-setup does not accept arguments")
+		}
+		code, err := auth.Secret(24)
+		if err != nil {
+			return err
+		}
+		if err = st.BeginAdminSetup(ctx, auth.HashToken(code), time.Now().Add(15*time.Minute)); err != nil {
+			return err
+		}
+		fmt.Printf("Откройте панель и создайте свой логин и пароль.\nОдноразовый код (15 минут): %s\nНе публикуйте этот код. Повторно получить: sudo arcvpn setup\n", code)
+		return nil
 	case "admin-init":
 		flagset := flag.NewFlagSet("admin-init", flag.ContinueOnError)
 		username := flagset.String("username", "admin", "administrator login")
@@ -323,7 +341,13 @@ func run() error {
 			return err
 		}
 		if !hasAdmin {
-			return errors.New("administrator is missing; run admin-init")
+			available, setupErr := st.AdminSetupAvailable(ctx)
+			if setupErr != nil {
+				return setupErr
+			}
+			if !available {
+				return errors.New("administrator is missing; run admin-setup")
+			}
 		}
 		_, listenerPortRaw, splitErr := net.SplitHostPort(*addr)
 		if splitErr != nil {
@@ -436,7 +460,7 @@ func run() error {
 func splitHostPort(s string) (string, string, error) { return net.SplitHostPort(s) }
 func help() {
 	fmt.Println("local management protocol: lifecycle-v1")
-	fmt.Println("arcvpn: serve | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | cascade-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
+	fmt.Println("arcvpn: serve | admin-setup | admin-init | admin-reset [--password-stdin] [--reset-2fa] | admin-revoke-sessions | settings [--json] [--panel-pid PID] | node-register | node-agent | node-install | node-remove | node-rebind | node-probe | cascade-probe | frontend-check | backup-create | update-keygen | update-sign | doctor | version | help")
 }
 
 // runHelper is intended ONLY for the root-owned systemd socket-activated unit.

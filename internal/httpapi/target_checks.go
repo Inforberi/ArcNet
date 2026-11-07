@@ -120,25 +120,32 @@ func (s *Server) targetCheckStart(w http.ResponseWriter, r *http.Request) {
 	case s.targetSlots <- struct{}{}:
 		defer func() { <-s.targetSlots }()
 	default:
-		fail(w, 429, "Другие сетевые проверки уже выполняются")
+		w.Header().Set("Retry-After", "5")
+		fail(w, 429, "Сетевые проверки заняты. Повторите через несколько секунд.")
 		return
 	}
 	job, err := s.App.Store.QueueTargetCheck(r.Context(), req.NodeID, candidates)
 	if err != nil {
 		if errors.Is(err, store.ErrIncompatibleNodeProtocol) {
 			fail(w, 409, "На ноде нет доступного агента с поддержкой проверки SNI")
+		} else if errors.Is(err, store.ErrTargetQueueFull) {
+			fail(w, 429, "Достигнут лимит сохранённых проверок. Повторите позже или укажите SNI вручную.")
 		} else {
-			fail(w, 409, "Проверка уже выполняется или превышен лимит запросов")
+			w.Header().Set("Retry-After", "5")
+			fail(w, 409, "На этом сервере ещё выполняется проверка другого набора. Дождитесь её завершения.")
 		}
 		return
 	}
-	if req.NodeID != "local" {
+	if job.Reused || req.NodeID != "local" {
 		respond(w, 202, job)
 		return
 	}
 	report, err := s.targetChecker.Check(r.Context(), job.Candidates, "local")
 	if err != nil {
-		fail(w, 400, "Не удалось выполнить проверку")
+		cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = s.App.Store.FailLocalTargetCheck(cleanup, job)
+		fail(w, 400, "Проверка прервана. Можно повторить её или указать SNI вручную.")
 		return
 	}
 	persist, cancel := context.WithTimeout(context.Background(), 3*time.Second)

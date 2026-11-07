@@ -1,3 +1,7 @@
+## 2026-11-07: первый вход и подключение
+
+`internal/store/admin_setup.go`, `internal/httpapi/admin_setup.go`, `cmd/arcvpn/main.go` — одноразовый owner setup/credentials; `frontend/src/app/Auth.tsx` — регистрация/двухэтапный вход; `features/users/AccountSettings.tsx`, `features/connections/ConnectionTable.tsx`, `pages/VPN.tsx` — композиция UI. `internal/xray/operation_error.go`/`internal/httpapi/activation_error.go` — безопасные стадии ошибок; `key_format_test.go`/`reality_integration_test.go` — парсер и opt-in настоящий Xray. SNI/job код остаётся в targetcheck/store/targets, меню — `deploy/arcvpn-menu.sh`. [Контракт](../features/first-connection.md), [проверки](../testing/local-results/stage5-2026-11-07-first-connection.md).
+
 ## 2026-11-07: A4 recovery после ACME
 
 `deploy/recover-a4-certificate.sh` — ограниченное продолжение pinned A4 до создания данных/units, scoped IPv4 renew; `scripts/testing/recover-a4-fixture.sh` — disposable offline guard fixture. [Результаты и ограничения](../testing/local-results/stage5-2026-11-07-a4-recovery.md). Это не общий resume/updater.

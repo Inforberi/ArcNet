@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"math"
 	"sort"
 	"strconv"
@@ -18,6 +19,8 @@ import (
 const targetChecksSchema = `CREATE TABLE IF NOT EXISTS target_checks (id TEXT PRIMARY KEY,node_id TEXT NOT NULL,candidates TEXT NOT NULL,digest TEXT NOT NULL,state TEXT NOT NULL,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,lease_until INTEGER NOT NULL DEFAULT 0,attempts INTEGER NOT NULL DEFAULT 0,result TEXT NOT NULL DEFAULT '')`
 const targetCapabilitySchema = `CREATE TABLE IF NOT EXISTS target_capabilities (node_id TEXT PRIMARY KEY REFERENCES managed_nodes(id) ON DELETE CASCADE,last_seen INTEGER NOT NULL)`
 
+var ErrTargetQueueFull = errors.New("target check retention limit reached")
+
 type TargetJob struct {
 	Version    int                     `json:"version"`
 	ID         string                  `json:"id"`
@@ -28,6 +31,7 @@ type TargetJob struct {
 	CreatedAt  int64                   `json:"created_at"`
 	ExpiresAt  int64                   `json:"expires_at"`
 	Report     *targetcheck.Report     `json:"report,omitempty"`
+	Reused     bool                    `json:"-"`
 }
 type TargetNode struct {
 	ID        string `json:"id"`
@@ -113,11 +117,16 @@ func (s *Store) QueueTargetCheck(ctx context.Context, nodeID string, candidates 
 		if e := tx.Exec("DELETE FROM target_checks WHERE created_at<?", strconv.FormatInt(now-86400, 10)); e != nil {
 			return e
 		}
-		rows, e := tx.Query("SELECT id FROM target_checks WHERE node_id=? AND state IN ('queued','running') AND expires_at>=?", nodeID, strconv.FormatInt(now, 10))
+		rows, e := tx.Query("SELECT * FROM target_checks WHERE node_id=? AND state IN ('queued','running') AND expires_at>=?", nodeID, strconv.FormatInt(now, 10))
 		if e != nil {
 			return e
 		}
 		if len(rows) > 0 {
+			if rows[0]["digest"] == job.Digest {
+				job, e = targetJob(rows[0])
+				job.Reused = true
+				return e
+			}
 			return ErrNodeBusy
 		}
 		count, e := tx.Query("SELECT COUNT(*) AS count FROM target_checks")
@@ -126,11 +135,17 @@ func (s *Store) QueueTargetCheck(ctx context.Context, nodeID string, candidates 
 		}
 		n, _ := strconv.Atoi(count[0]["count"])
 		if n >= 512 {
-			return ErrNodeBusy
+			return ErrTargetQueueFull
 		}
 		return tx.Exec("INSERT INTO target_checks(id,node_id,candidates,digest,state,created_at,expires_at) VALUES(?,?,?,?,'queued',?,?)", job.ID, nodeID, string(body), job.Digest, strconv.FormatInt(now, 10), strconv.FormatInt(job.ExpiresAt, 10))
 	})
 	return job, err
+}
+
+func (s *Store) FailLocalTargetCheck(ctx context.Context, job TargetJob) error {
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		return tx.Exec("UPDATE target_checks SET state='failed' WHERE id=? AND node_id='local' AND digest=? AND state IN ('queued','running')", job.ID, job.Digest)
+	})
 }
 func (s *Store) TargetCheck(ctx context.Context, id string) (TargetJob, error) {
 	var job TargetJob

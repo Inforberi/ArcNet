@@ -159,6 +159,9 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("POST /api/login", s.login)
+	mux.HandleFunc("GET /api/setup", s.setupStatus)
+	mux.HandleFunc("POST /api/setup", s.setupAdmin)
+	mux.HandleFunc("PUT /api/security/account", s.mustAuth(s.changeCredentials, true))
 	mux.HandleFunc("GET /api/session", s.mustAuth(s.session, false))
 	mux.HandleFunc("GET /api/security/mfa", s.mustAuth(s.mfaStatus, false))
 	mux.HandleFunc("POST /api/security/mfa/setup", s.mustAuth(s.mfaSetup, true))
@@ -465,6 +468,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if enabled {
+		if input.Code == "" {
+			respond(w, 200, map[string]bool{"ok": false, "mfa_required": true})
+			return
+		}
 		accepted, checkErr := s.App.Store.CheckLoginMFA(r.Context(), input.Code, time.Now())
 		if checkErr != nil {
 			fail(w, 500, "Internal error")
@@ -701,7 +708,7 @@ func (s *Server) vpnCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.App.Setup(r.Context(), in.Address, in.Target, in.Port); err != nil {
 		// Raw Xray diagnostics may contain credentials; never forward them to a browser.
-		fail(w, 400, "Не удалось настроить VPN. Проверь IP, SNI, порт и журнал панели")
+		activationFailure(w, err)
 		return
 	}
 	respond(w, 201, map[string]bool{"ok": true})

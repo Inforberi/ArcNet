@@ -4,6 +4,7 @@ import { api, type VPNUser, type Subscription, type ConnectionProfile } from '..
 import PackageDialog, {UsageSummary} from '../features/users/PackageDialog';
 import DevicesDialog from '../features/users/DevicesDialog';
 import DirectAccess from '../features/users/DirectAccess';
+import Dialog from '../shared/Dialog';
 import {blockLabel, type UsageReply} from '../features/users/usage';
 import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
 
@@ -127,12 +128,12 @@ export default function Users() {
       )}
 
       {usage.isError && <Notice>{usage.error.message}</Notice>}
-      {usage.data && !usage.data.source_fresh && <p className="muted">Нет свежего источника учёта трафика. Известный расход сохранён; новые байты не подставляются нулями.</p>}
-      {usage.data && ['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state) && <Notice>Исполнение ограничений: {usage.data.runtime_state === 'apply_failed' ? 'изменение доступа ожидает повторного применения' : usage.data.runtime_state === 'source_unavailable' ? 'источник учёта недоступен' : 'работа VPN-службы не подтверждена'}.</Notice>}
+      {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&!usage.data.source_fresh&&<p className="muted">Учёт пакетов временно недоступен. Сохранённый расход показан в таблице.</p>}
+      {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state)&&<Notice>Изменение ограничений ещё не подтверждено VPN-службой. Проверьте состояние сервера.</Notice>}
       {users.isPending ? <Loading /> : users.isError ? <Notice>{explain(users.error)}</Notice> : (
         <Panel title={`Пользователи · ${users.data.items.length}`}>
           <div className="table-scroll">
-            {users.data.items.length === 0 ? <Empty>Сначала создай VPN-подключение, затем добавь пользователя.</Empty> : (
+            {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
                 <thead><tr><th scope="col">Клиент</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
@@ -164,15 +165,12 @@ export default function Users() {
       {deviceUser && <DevicesDialog id={deviceUser.id} name={deviceUser.name} onClose={()=>setDeviceUser(null)}/>}
 
       {subscription && subscriptionUser && (
-        <Panel title={`Подключение · ${subscriptionUser.name}`}>
+        <Dialog title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>
           <div className="panel-body">
-            <p className="muted">Ссылки содержат секретные данные. Не пересылай их посторонним.</p>
-            <DirectAccess links={subscription.links} ids={subscription.link_ids} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
-            <details className="profile-advanced"><summary>Подписка и дополнительные форматы</summary>
+            <DirectAccess links={subscription.links} ids={subscription.link_ids} subscription={{url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
+            <details className="profile-advanced"><summary>Дополнительные форматы</summary>
               <div className="profile-settings">
-                <div className="field"><label>HTTPS-ссылка подписки</label><pre className="code">{subscription.url}</pre></div>
-                <div className="flex wrap"><Button onClick={() => void copy(subscription.url)}>Копировать подписку</Button><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a></div>
-                <img className="qr-image" src={`/api/users/${subscriptionUser.id}/qr?format=subscription`} alt="QR-код подписки"/>
+                <div className="flex wrap"><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a></div>
               </div>
             </details>
             <div className="protocol-grid" aria-label="Отдельные VPN-подключения">
@@ -205,7 +203,7 @@ export default function Users() {
               <Button onClick={() => { setSubscription(null); setSubscriptionUser(null); setConnections([]); setSelectedQR(null); }}>Закрыть</Button>
             </div>
           </div>
-        </Panel>
+        </Dialog>
       )}
     </>
   );

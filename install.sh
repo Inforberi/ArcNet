@@ -452,8 +452,8 @@ WantedBy=timers.target
 UNIT
 install -m 0755 "$ROOT/deploy/arcvpn-menu.sh" /usr/local/bin/arcvpn
 systemctl daemon-reload
-info "Initializing administrator (password will be printed once)"
-runuser -u arcvpn -- env ARCVPN_DATA_DIR="$RUN_DIR" "$OPT/bin/arcvpn-core" admin-init
+info "Preparing one-time owner registration (choose your login and password in the panel)"
+runuser -u arcvpn -- env ARCVPN_DATA_DIR="$RUN_DIR" "$OPT/bin/arcvpn-core" admin-setup
 info "Configuring firewall rules without changing SSH policy"
 # When UFW is already active, apply only additive rules.
 # When UFW is disabled, DO NOT enable it automatically and risk SSH lockout.

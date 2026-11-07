@@ -49,8 +49,8 @@ func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 			fail(w, 400, "Некорректные настройки протокола")
 			return
 		}
-		s.log.Warn("protocol activation failed", "kind", input.Kind, "error", err)
-		fail(w, 422, "Не удалось активировать протокол. Проверь наличие движка, сертификат, свободный порт и журнал")
+		s.log.Warn("protocol activation failed", "kind", input.Kind)
+		activationFailure(w, err)
 		return
 	}
 	respond(w, 201, created)

@@ -29,7 +29,12 @@ type SignedCatalog struct {
 func DefaultCatalog() Catalog {
 	// Candidates, not certified recommendations. No node inherits them as an
 	// active setting. Each actual target must pass this node's bounded checks.
-	return Catalog{Version: 1, Source: "bundled-candidates", Candidates: []Candidate{{Host: "dl.google.com", SNI: "dl.google.com"}, {Host: "www.microsoft.com", SNI: "www.microsoft.com"}, {Host: "www.apple.com", SNI: "www.apple.com"}}}
+	hosts := []string{"www.microsoft.com", "www.apple.com", "www.cloudflare.com", "www.google.com", "www.bing.com", "www.mozilla.org", "www.wikipedia.org", "github.com", "www.amazon.com", "www.kernel.org", "www.python.org", "www.debian.org"}
+	candidates := make([]Candidate, 0, len(hosts))
+	for _, host := range hosts {
+		candidates = append(candidates, Candidate{Host: host, SNI: host})
+	}
+	return Catalog{Version: 1, Source: "bundled-candidates", Candidates: candidates}
 }
 func ValidateCatalog(c Catalog) (Catalog, error) {
 	if c.Version < 1 || c.FeedVersion < 0 || c.ExpiresAt < 0 || len(c.Candidates) < 1 || len(c.Candidates) > MaxCatalogCandidates {

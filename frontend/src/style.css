@@ -265,3 +265,20 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 .metrics .metric{min-width:0}.metric .value,.metric .description{overflow-wrap:anywhere}
 .cascade-steps{margin:0;padding-left:22px;display:grid;gap:6px;overflow-wrap:anywhere}
 .direct-access{display:grid;gap:12px;min-width:0}.direct-access .code{max-width:100%;overflow-wrap:anywhere;white-space:pre-wrap}.direct-access .qr-image{display:block;max-width:min(100%,280px);height:auto}
+
+/* Compact connection management shares the existing table and dialog tokens. */
+.connection-meta{display:block;color:var(--muted);font-size:12px;margin-top:4px;overflow-wrap:anywhere}
+.connection-details{font-size:12px;color:var(--muted)}
+.connection-details summary{cursor:pointer;padding:6px}
+.connection-details p{max-width:320px;white-space:normal}
+.connection-success{color:var(--green);padding:8px 0}
+.direct-access{display:grid;gap:16px}
+.direct-access>.button{justify-self:start}
+.auth-card h1{margin:8px 0 20px}
+@media(max-width:680px){
+ .connections-table table,.connections-table tbody{display:block;width:100%}
+ .connections-table thead{display:none}
+ .connections-table tr{display:block;padding:12px;border-bottom:1px solid var(--stroke)}
+ .connections-table td{display:block;border:0;padding:8px 0;white-space:normal}
+ .connections-table td::before{content:attr(data-label);display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+}

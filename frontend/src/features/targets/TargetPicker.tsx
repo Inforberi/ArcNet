@@ -23,23 +23,25 @@ export default function TargetPicker({nodeID = 'local', sameName = false, automa
   const recommendation = useRef(onRecommend); recommendation.current = onRecommend;
   const statusCallback = useRef(onStatus); statusCallback.current = onStatus;
   const candidates = catalog.data?.catalog.candidates ?? [];
+  const automaticCandidates=candidates.filter(candidate=>!sameName||candidate.host===candidate.sni).slice(0,4);
   const keys = selected ?? candidates.slice(0, 4).map(candidateKey);
   const node = nodes.data?.items.find(item => item.id === nodeID);
   const running = !!job && ['queued', 'running'].includes(job.state) && job.expires_at > now;
   const pending = useQuery({queryKey: ['target-job', job?.id], queryFn: () => api<TargetJob>(`/api/targets/checks/${encodeURIComponent(job!.id)}`), enabled: running, refetchInterval: running ? 2000 : false});
   useEffect(() => {setJob(undefined); setError('');}, [nodeID]);
   const auto = useQuery({
-    queryKey: ['target-auto-check', nodeID, catalog.data?.catalog.version, sameName],
-    queryFn: () => api<TargetJob>('/api/targets/check', 'POST', {node_id: nodeID, candidates: candidates.filter(candidate => !sameName || candidate.host === candidate.sni).slice(0, 4)}),
+    queryKey: ['target-auto-check', nodeID, catalog.data?.catalog.version, automaticCandidates.map(candidateKey)],
+    queryFn: () => api<TargetJob>('/api/targets/check', 'POST', {node_id: nodeID, candidates: automaticCandidates}),
     enabled: automatic && !!catalog.data && candidates.some(candidate => !sameName || candidate.host === candidate.sni) && !!node?.online && !!node.supported,
     staleTime: 600000, gcTime: 600000, retry: false, refetchOnWindowFocus: false,
   });
   const report = job ?? auto.data;
   const best = report?.report?.recommended;
   const state: RecommendationState = catalog.isPending || nodes.isPending || auto.isFetching || running ? 'checking'
-    : catalog.isError || nodes.isError || auto.isError ? 'failed'
+    : best && usableResult(report, nodeID, best) && (!sameName || best.host === best.sni) ? 'ready'
+    : catalog.isError || nodes.isError || (!job && auto.isError) ? 'failed'
     : !node?.online || !node.supported ? 'unavailable'
-    : best && usableResult(report, nodeID, best) && (!sameName || best.host === best.sni) ? 'ready' : 'failed';
+    : 'failed';
   useEffect(() => {if (automatic) statusCallback.current?.(state);}, [automatic, state]);
   useEffect(() => {
     if (!automatic || !auto.data || auto.data.node_id !== nodeID) return;
@@ -79,11 +81,11 @@ export default function TargetPicker({nodeID = 'local', sameName = false, automa
   }
   return <div className="target-picker">
     <div className="flex wrap"><strong>Подбор Reality SNI</strong><Badge>{node?.name ?? nodeID}</Badge></div>
-    <p className="muted">Выберите до четырёх кандидатов. Проверим сертификат, TLS 1.3, HTTP/2 и три замера TCP+TLS с выбранного сервера.</p>
+    <p className="muted">Выберите до четырёх доменов для проверки с этого сервера. Каталог содержит {candidates.length} кандидатов; можно добавить свой список.</p>
     {catalog.isPending ? <Loading/> : catalog.isError ? <p role="alert" className="error">{message(catalog.error)}</p> : <>
       <div className="target-candidates">{candidates.map(candidate => <label key={candidateKey(candidate)}><input type="checkbox" checked={keys.includes(candidateKey(candidate))} disabled={busy || running || (!keys.includes(candidateKey(candidate)) && keys.length >= 4)} onChange={event => setSelected(event.target.checked ? [...keys, candidateKey(candidate)] : keys.filter(key => key !== candidateKey(candidate)))}/><span>{candidate.host}{candidate.sni !== candidate.host && <small>SNI: {candidate.sni}</small>}</span></label>)}</div>
       <Button type="button" disabled={busy || running || auto.isFetching || !keys.length || !node?.online || !node.supported} onClick={() => void check()}>{busy || running || auto.isFetching ? 'Проверяем…' : 'Проверить и подобрать'}</Button>
-      {auto.isError && <p className="error" role="alert">Автоподбор не завершён: {message(auto.error)}. Можно повторить проверку или указать SNI вручную.</p>}
+      {!job&&!busy&&!error&&auto.isError && <p className="error" role="alert">{message(auto.error)} Можно указать SNI вручную.</p>}
       {node && (!node.online || !node.supported) && <p className="muted">Нужен доступный агент с поддержкой SNI-проверок.</p>}
       {nodes.isError && <p className="error" role="alert">{message(nodes.error)}</p>}
       {job && <div aria-live="polite">

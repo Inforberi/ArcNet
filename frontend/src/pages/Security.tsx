@@ -1,6 +1,7 @@
 import {useState, type FormEvent} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {api,uploadSignedUpdate} from '../shared/api';
+import AccountSettings from '../features/users/AccountSettings';
 import {Button,Field,Loading,Notice,PageHeading,Panel} from '../shared/ui';
 
 type LogSettings={budget_mb:number;used_bytes:number;scope:string;xray_journal_managed:boolean};
@@ -37,6 +38,7 @@ export default function Security(){
  async function disableMFA(e:FormEvent){e.preventDefault();if(!window.confirm('Отключить второй фактор и завершить все административные сессии?'))return;setAuthBusy(true);setError('');try{await api('/api/security/mfa/disable','POST',{password,code});setPassword('');setCode('');await queryClient.invalidateQueries({queryKey:['session']})}catch(err){setError(err instanceof Error?err.message:'Не удалось отключить 2FA')}finally{setAuthBusy(false)}}
  return <>
   <PageHeading title="Безопасность" description="Авторизация администратора, HTTPS и журналы панели"/>
+  <AccountSettings/>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
   <Panel title="Состояние панели"><div className="panel-body">
