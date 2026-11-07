@@ -2,7 +2,7 @@
 # Pinned preview installer. Authenticate this script by its published SHA256 first.
 set -Eeuo pipefail
 umask 077
-RELEASE_VERSION=0.7.0-stage5-a3
+RELEASE_VERSION=0.7.0-stage5-a6
 FILE="arcvpn-$RELEASE_VERSION-linux-amd64.tar.gz"
 BASE="https://github.com/Inforberi/ArcNet/releases/download/v$RELEASE_VERSION"
 VERIFY=0

@@ -1,13 +1,13 @@
 # Короткая приёмка ArcVPN на тестовом VPS
 
-Тестовый [prerelease 0.7.0-stage5-a5](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a5). Debian12+/Ubuntu22.04+, x86_64, systemd, публичный IPv4; TCP/80 для ACME и TCP/8443 для панели доступны снаружи. До запуска сохраните snapshot и доступ к консоли. Проверку проводит владелец сервера; успешная локальная сборка не подтверждает VPS/VPN.
+Тестовый [prerelease 0.7.0-stage5-a6](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a6). Debian12+/Ubuntu22.04+, x86_64, systemd, публичный IPv4; TCP/80 для ACME и TCP/8443 для панели доступны снаружи. До запуска сохраните snapshot и доступ к консоли. Проверку проводит владелец сервера; успешная локальная сборка не подтверждает VPS/VPN.
 
 ## Установка одной командой
 
 Выполните **от root** (при необходимости сначала `sudo -i`):
 
 ```bash
-bash -c 'set -euo pipefail; [ "$(id -u)" = 0 ] || { echo "Run as root" >&2; exit 1; }; umask 077; d=$(mktemp -d /var/tmp/arcvpn-launch.XXXXXXXX); trap '"'"'rm -rf -- "$d"'"'"' EXIT; command -v curl >/dev/null || { apt-get update -qq; apt-get install -y --no-install-recommends curl ca-certificates; }; curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL --connect-timeout 15 --max-time 60 --max-filesize 131072 https://github.com/Inforberi/ArcNet/releases/download/v0.7.0-stage5-a5/bootstrap-install.sh | head -c 131073 > "$d/install.sh"; printf "%s  %s\n" 692c06aa6ad6240076fce681e194c253939c828750b7ca717ef657d53434351f "$d/install.sh" | sha256sum -c -; bash "$d/install.sh"'
+bash -c 'set -euo pipefail; [ "$(id -u)" = 0 ] || { echo "Run as root" >&2; exit 1; }; umask 077; d=$(mktemp -d /var/tmp/arcvpn-launch.XXXXXXXX); trap '"'"'rm -rf -- "$d"'"'"' EXIT; command -v curl >/dev/null || { apt-get update -qq; apt-get install -y --no-install-recommends curl ca-certificates; }; curl --proto "=https" --proto-redir "=https" --tlsv1.2 -fsSL --connect-timeout 15 --max-time 60 --max-filesize 131072 https://github.com/Inforberi/ArcNet/releases/download/v0.7.0-stage5-a6/bootstrap-install.sh | head -c 131073 > "$d/install.sh"; printf "%s  %s\n" 5ef7cc28256681f1ba55a16f8869f986678ebc5cbb1ad94ce61deb4bbf146800 "$d/install.sh" | sha256sum -c -; bash "$d/install.sh"'
 ```
 
 Команда закрепляет SHA256 bootstrap; bootstrap содержит доверенный Ed25519 public key, скачивает конкретную версию, проверяет подпись manifest/размер/SHA256, безопасно извлекает строго известные файлы и запускает install.sh. Не заменяйте hash значением из непроверенного скачанного файла. Go/Node/Docker на VPS не нужны. При отсутствии curl он устанавливается из репозитория ОС. Другие зависимости ставит установщик; Xray/Hysteria загружаются отдельно, это не offline bundle.
@@ -42,7 +42,7 @@ sudo arcvpn logs panel
 
 ## Происхождение пакета
 
-A3 пересобирает core и встроенный UI из исходников после добавления прямых remote TCP-устройств и каскадного apply/probe/publish. BUILDINFO содержит исходный commit `1ab39bbf5c9be968305129892318ab587faf7e45`, `source_dirty:true` и hash точного source manifest; исходники сборки приложены отдельным `arcvpn-0.7.0-stage5-a5-source.tar.gz`. Последующий tag/коммит документации не следует отождествлять с исходным snapshot бинарника.
+A3 пересобирает core и встроенный UI из исходников после добавления прямых remote TCP-устройств и каскадного apply/probe/publish. BUILDINFO содержит исходный commit `1ab39bbf5c9be968305129892318ab587faf7e45`, `source_dirty:true` и hash точного source manifest; исходники сборки приложены отдельным `arcvpn-0.7.0-stage5-a6-source.tar.gz`. Последующий tag/коммит документации не следует отождествлять с исходным snapshot бинарника.
 
 Для A3 используется **новый отдельный installer signer**, поскольку прежнего приватного ключа A2 на этой машине нет. Его fingerprint (SHA256 raw Ed25519 public key): `5f80f78a69441940b93bece69ce027f4ffe4f26452f5bed96da8bb520b4cd69a`. Новый ключ закреплён в A3 bootstrap, SHA256 bootstrap закреплён в команде выше. Это отдельное доверие при чистой установке, не автоматическая ротация существующих установок A2. Старые assets A2 не заменяются. Ключ updater этим не устанавливается.
 

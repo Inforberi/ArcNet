@@ -15,3 +15,9 @@
 ## Границы
 
 Тесты используют fake engine validation/restart, не настоящий systemd, kernel WireGuard или внешний VPN-клиент. Новое редактирование/rollback на отдельной VM/VPS ещё не принято. На сервере пользователя Hysteria2 работает по его сообщению; этот исходный блок туда ещё не применён. Причина VLESS в Happ через мобильную сеть не установлена и диагностика отложена. Каскады, выбор протоколов конкретной подписки, график, полный updater и автоматические UFW-разрешения этим блоком не реализованы.
+
+## Выпуск A6
+
+Опубликован `v0.7.0-stage5-a6`, final core/UI source `7d7c9b3d6d80d9a7e0cc43c6174889090893429c`, source manifest SHA256 `5454ebc11a01564b41b35005d8ae6587384f73b8efdddf1a78a2697a97de16d7`. Предыдущий кандидат 7cfba38 не публиковался. Полный Linux/amd64 release pipeline PASS: pinned npm ci/TS/Vite, Go tests/vet, embedded frontend/version/lifecycle, packaging. Подпись installer проверена штатным offline verifier; update signature и точная версия/size/hash core независимо проверены Node crypto. SHA256 update-a6.zip: `753032258d156d14eb27e8630649e37e0fc576039159ebb5dc9b6619f5dfc937`. BUILDINFO dirty=true отражает исключённый untracked .serena; точный source snapshot приложен к релизу. Установка/rollback этого пакета на VPS ещё NOT RUN.
+
+Публично скачанный update-a6.zip совпал с закреплённым SHA256. После bump pin выполнен offline `bash deploy/bootstrap-install.sh --verify-only --from-dir dist/installer-0.7.0-stage5-a6`: signature/pinned version/archive/payload/safe extraction PASS, install/runtime не запускались.

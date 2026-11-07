@@ -2,7 +2,7 @@
 """One offline integration fixture: trusted payload and signed hostile archives."""
 import base64, hashlib, io, json, pathlib, subprocess, sys, tarfile, tempfile
 repo = pathlib.Path(__file__).resolve().parents[2]
-version = '0.7.0-stage5-a3'
+version = '0.7.0-stage5-a6'
 filename = f'arcvpn-{version}-linux-amd64.tar.gz'
 real = repo / 'dist' / f'installer-{version}'
 def run(args, **kw): return subprocess.run(args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw)

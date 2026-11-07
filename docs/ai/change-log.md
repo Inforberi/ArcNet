@@ -1,3 +1,7 @@
+## 2026-11-07 — опубликован A6 для UI update
+
+Подписанный core/UI пакет из 7d7c9b3, полный release pipeline и offline signature/contents PASS. Инструкция загрузки через существующую админку добавлена в install-and-update; A6 bootstrap/build defaults закреплены для новых установок. Изменений серверных данных/units/SSH/UFW не выполнялось. VPS upgrade/rollback ещё требует проверки.
+
 ## 2026-11-07 — drawer, группы настроек и название подписки
 
 Уточнения текущего блока: native burger drawer, аккаунт/сервер/обновления с запросами по выбранной группе, поддерживаемый protocol/transport choice и явный SNI-picker; subscription Profile-Title и preview из имени пользователя по официальному Happ contract. Отдельное имя подписки и визуальная переработка обзора/серверов записаны в следующий блок. Нового типа протокола/DB migration нет; A6-кандидат перепаковывается перед публикацией.
