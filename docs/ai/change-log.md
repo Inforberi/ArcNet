@@ -1,3 +1,7 @@
+## 2026-11-07 — A5 release/update
+
+Подписанный A5 из c320b03 собран с release gates и опубликован; подготовлена [узкая инструкция A4 → A5](../ops/update-a4-to-a5.md) без reinstall/замены данных. Это не полный updater и не VPS PASS.
+
 ## 2026-11-07 — простой первый вход и подключения
 
 Owner setup с выбранными credentials, отдельный MFA-шаг, компактная таблица/диалог, subscription-first выдача, группы CLI; исправлен новый формат Xray keygen, SNI job reuse/address fallback. Без новых зависимостей, без изменения VPS. [Контракт и границы](../features/first-connection.md), [доказательства](../testing/local-results/stage5-2026-11-07-first-connection.md).
