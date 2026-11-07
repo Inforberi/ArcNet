@@ -5,37 +5,27 @@ import { applyTheme, readTheme } from '../shared/theme';
 import { api, setCSRF } from '../shared/api';
 import {MonitoringProvider} from '../features/dashboard/Monitoring';
 import { Button } from '../shared/ui';
+import {Icon,type IconName} from '../shared/Icon';
 
-type NavItem = { url: string; label: string; icon: string };
-
-const navigation: NavItem[] = [
-  { url: '/', label: 'Обзор', icon: '▦' },
-  { url: '/users', label: 'Пользователи', icon: '♙' },
-  { url: '/vpn', label: 'Подключения', icon: '⇄' },
-  { url: '/nodes', label: 'Серверы', icon: '▤' },
-  { url: '/routing', label: 'Маршруты', icon: '⌁' },
-  { url: '/security', label: 'Безопасность', icon: '⚙' },
-  { url: '/events', label: 'Журнал', icon: '≡' },
-  { url: '/backup', label: 'Резервные копии', icon: '⇩' },
+type NavItem = {url:string;label:string;icon:IconName};
+const workspace:NavItem[]=[
+ {url:'/',label:'Обзор',icon:'overview'},
+ {url:'/vpn',label:'Протоколы',icon:'protocols'},
+ {url:'/users',label:'Пользователи',icon:'users'},
+ {url:'/nodes',label:'Серверы',icon:'servers'},
+ {url:'/routing',label:'Маршруты',icon:'routes'},
 ];
-
-function MenuLinks({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <>
-      {navigation.map(({ url, label, icon }) => (
-        <NavLink
-          key={url}
-          to={url}
-          end={url === '/'}
-          onClick={onNavigate}
-          className={({ isActive }) => (isActive ? 'active' : '')}
-        >
-          <span className="symbol" aria-hidden="true">{icon}</span>
-          <span>{label}</span>
-        </NavLink>
-      ))}
-    </>
-  );
+const system:NavItem[]=[
+ {url:'/events',label:'Журнал',icon:'logs'},
+ {url:'/backup',label:'Резервные копии',icon:'backup'},
+ {url:'/security',label:'Настройки',icon:'settings'},
+];
+function Brand(){return <div className="brand"><span className="brand-mark">A</span><span>ArcNet</span></div>;}
+function MenuLinks({items,onNavigate}:{items:NavItem[];onNavigate?:()=>void}){
+ return <>{items.map(({url,label,icon})=><NavLink key={url} to={url} end={url==='/'} onClick={onNavigate} className={({isActive})=>isActive?'active':''}><Icon name={icon}/><span>{label}</span></NavLink>)}</>;
+}
+function SessionActions({theme,busy,onTheme,onLogout}:{theme:string;busy:boolean;onTheme:()=>void;onLogout:()=>void}){
+ return <div className="session-actions"><Button variant="ghost" onClick={onTheme}><Icon name={theme==='dark'?'sun':'moon'}/>{theme==='dark'?'Светлая тема':'Тёмная тема'}</Button><Button variant="ghost" onClick={onLogout} disabled={busy}><Icon name="logout"/>{busy?'Выходим…':'Выйти'}</Button></div>;
 }
 
 export default function Layout() {
@@ -59,7 +49,7 @@ export default function Layout() {
     return () => window.removeEventListener('arcvpn:unauthorized', onUnauthorized);
   }, [queryClient]);
 
-  const active = navigation.find(({ url }) => url === location.pathname)?.label ?? 'Страница';
+  const active = [...workspace,...system].find(({ url }) => url === location.pathname)?.label ?? 'Страница';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -92,38 +82,33 @@ export default function Layout() {
     <>
       <a href="#main-content" className="skip-link">Перейти к содержимому</a>
       <div className="mobile-header">
-        <div className="brand"><span className="brand-mark">A</span>ArcVPN</div>
+        <Brand/>
         <button
           type="button"
           className="button mobile-menu-toggle"
           aria-controls="mobile-navigation"
+          aria-label={menuOpen?'Закрыть меню':`Открыть меню · ${active}`}
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen(value => !value)}
         >
-          {menuOpen ? 'Закрыть' : `Меню · ${active}`}
+          <Icon name={menuOpen?'close':'menu'}/><span>{menuOpen?'Закрыть':active}</span>
         </button>
       </div>
       {menuOpen && (
         <nav id="mobile-navigation" className="mobile-links" aria-label="Мобильная навигация">
-          <MenuLinks onNavigate={() => setMenuOpen(false)} />
-          <button className="button" type="button" onClick={toggleTheme}>
-            {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-          </button>
-          <button className="button" type="button" onClick={() => void logout()} disabled={signingOut}>
-            Выйти
-          </button>
+          <div className="nav mobile-workspace"><MenuLinks items={workspace} onNavigate={()=>setMenuOpen(false)}/></div>
+          <div className="nav mobile-system"><MenuLinks items={system} onNavigate={()=>setMenuOpen(false)}/></div>
+          <SessionActions theme={theme} busy={signingOut} onTheme={toggleTheme} onLogout={()=>void logout()}/>
         </nav>
       )}
       <div className="layout">
         <aside className="sidebar">
-          <div className="brand"><span className="brand-mark">A</span>ArcVPN</div>
-          <div className="section-label">УПРАВЛЕНИЕ</div>
-          <nav className="nav" aria-label="Основная навигация"><MenuLinks /></nav>
-          <div className="side-bottom">Go · SQLite · Xray</div>
-          <button className="button ghost" type="button" onClick={toggleTheme}>
-            {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-          </button>
-          <Button variant="ghost" onClick={() => void logout()} disabled={signingOut}>Выйти</Button>
+          <Brand/>
+          <nav className="nav" aria-label="Основная навигация"><MenuLinks items={workspace}/></nav>
+          <div className="sidebar-footer">
+            <nav className="nav" aria-label="Система"><MenuLinks items={system}/></nav>
+            <SessionActions theme={theme} busy={signingOut} onTheme={toggleTheme} onLogout={()=>void logout()}/>
+          </div>
         </aside>
         <main className="main" id="main-content" tabIndex={-1}>
           {logoutError && <p className="error" role="alert">{logoutError}</p>}

@@ -6,6 +6,8 @@ export interface Session {
 
 export interface VPNConfig {
   configured: boolean;
+  enabled?: boolean;
+  revision?: string;
   address?: string;
   port?: number;
   target?: string;
@@ -17,6 +19,7 @@ export interface VPNConfig {
 export type ProtocolKind = 'vless-xhttp' | 'hysteria2' | 'wireguard' | 'amneziawg';
 
 export interface ProtocolProfile {
+  revision?: string;
   kind: ProtocolKind;
   address: string;
   port: number;

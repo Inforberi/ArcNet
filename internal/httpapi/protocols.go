@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/arcvpn/arcvpn/internal/app"
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/qrcode"
 	"github.com/arcvpn/arcvpn/internal/store"
@@ -13,12 +14,17 @@ import (
 )
 
 func (s *Server) protocolList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	profiles, err := s.App.ListProtocolProfiles(r.Context())
 	if err != nil {
 		handleErr(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"items": profiles, "available_kinds": protocols.Kinds()})
+	views := make([]protocolView, 0, len(profiles))
+	for _, p := range profiles {
+		views = append(views, protocolView{Protocol: p, Revision: app.ConnectionRevision(p)})
+	}
+	respond(w, 200, map[string]any{"items": views, "available_kinds": protocols.Kinds()})
 }
 func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 	var input struct {

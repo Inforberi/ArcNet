@@ -14,7 +14,7 @@ export class PageErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // Do not send secrets, user content or stack traces to external services.
-    console.error('ArcVPN page render failed', error.name, info.componentStack);
+    console.error('ArcNet page render failed', error.name, info.componentStack);
   }
 
   render(): ReactNode {

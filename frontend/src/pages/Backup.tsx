@@ -36,7 +36,7 @@ export default function Backup(){
   catch(e){setError(e instanceof Error?e.message:'Ошибка восстановления')}finally{setImportBusy(false)}
  }
  return <>
-  <PageHeading title="Импорт и экспорт" description="Перенос пользователей и настроек между экземплярами ArcVPN"/>
+  <PageHeading title="Импорт и экспорт" description="Перенос пользователей и настроек между экземплярами ArcNet"/>
   <Notice>Архив содержит приватные ключи VPN, токены подписок и хеши ключей нод. Храни его отдельно от VPS. При переносе на другой IP нужно обновить адрес подписки у клиентов: старая IP-ссылка не переносится автоматически. Агентам нод при смене адреса контроллера потребуется обновить endpoint.</Notice>
   {error&&<p className="error" role="alert">{error}</p>}{message&&<div className="notice" role="status">{message}</div>}
   <Panel title="Экспорт настроек и пользователей"><form className="panel-body" onSubmit={exportState}>
@@ -47,7 +47,7 @@ export default function Backup(){
   </form></Panel>
   <Panel title="Импорт и восстановление"><div className="panel-body">
    <p className="muted">Восстановление заменит текущую VPN-конфигурацию и пользователей. Перед применением нужно проверить архив; резервная копия текущего состояния обязательна.</p>
-   <label className="field"><span>JSON-архив ArcVPN</span><input type="file" accept="application/json,.json" onChange={e=>void readFile(e)}/></label>
+   <label className="field"><span>JSON-архив ArcNet</span><input type="file" accept="application/json,.json" onChange={e=>void readFile(e)}/></label>
    <Field label="Публичный IPv4 нового VPS (необязательно)" placeholder="Если IP изменился" value={newAddress} onChange={e=>{setNewAddress(e.target.value);setPreview(null)}}/>
    <Field label="Пароль архива" type="password" autoComplete="off" maxLength={1024} value={importPassword} onChange={e=>{setImportPassword(e.target.value);setPreview(null)}}/>
    <div className="flex wrap"><Button onClick={()=>void previewImport()} disabled={importBusy||!archive||!importPassword}>Проверить архив</Button>

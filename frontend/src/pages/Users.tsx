@@ -135,7 +135,7 @@ export default function Users() {
           <div className="table-scroll">
             {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
-                <thead><tr><th scope="col">Клиент</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
+                <thead><tr><th scope="col">Пользователь</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
                   {users.data.items.map(u => (
                     <tr key={u.id}>

@@ -274,6 +274,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/vpn/defaults", s.mustAuth(s.connectionDefaults, false))
 	mux.HandleFunc("GET /api/vpn", s.mustAuth(s.vpn, false))
 	mux.HandleFunc("POST /api/vpn", s.mustAuth(s.vpnCreate, true))
+	mux.HandleFunc("PUT /api/connections/{kind}", s.mustAuth(s.connectionEdit, true))
+	mux.HandleFunc("DELETE /api/connections/{kind}", s.mustAuth(s.connectionDelete, true))
 	mux.HandleFunc("GET /api/events", s.mustAuth(s.events, false))
 	mux.HandleFunc("GET /api/system/update", s.mustAuth(s.updateStatus, false))
 	mux.HandleFunc("POST /api/system/update/upload", s.mustAuth(s.updateUpload, true))
@@ -679,6 +681,7 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
 }
 func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	cfg, err := s.App.Store.ReadReality(r.Context())
 	if errors.Is(err, store.ErrNotFound) {
 		address := ""
@@ -695,7 +698,7 @@ func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"configured": true, "address": cfg.Address, "port": cfg.Port, "target": cfg.Target, "sni": cfg.SNI, "public_key": cfg.Public, "short_id": cfg.ShortID})
+	respond(w, 200, map[string]any{"configured": true, "address": cfg.Address, "port": cfg.Port, "target": cfg.Target, "sni": cfg.SNI, "public_key": cfg.Public, "short_id": cfg.ShortID, "enabled": cfg.Enabled, "revision": app.ConnectionRevision(app.RealityProfile(cfg))})
 }
 func (s *Server) vpnCreate(w http.ResponseWriter, r *http.Request) {
 	var in struct {

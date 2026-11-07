@@ -98,7 +98,7 @@ export default function RoutingProfiles() {
         <Button onClick={() => edit(profile)}>Настроить</Button>
         <details className="profile-actions"><summary>Другие действия</summary><div className="flex wrap">
           <Button onClick={() => edit({...withoutMetadata(profile), name: `${profile.name.slice(0, 65)} — копия`})}>Создать копию</Button>
-          <Button onClick={async () => {try {download(await api(`/api/routing-profiles/${encodeURIComponent(profile.id)}/export`));} catch (error) {setError(explainError(error));}}}>Скачать профиль ArcVPN</Button>
+          <Button onClick={async () => {try {download(await api(`/api/routing-profiles/${encodeURIComponent(profile.id)}/export`));} catch (error) {setError(explainError(error));}}}>Скачать профиль ArcNet</Button>
           <Button variant="danger" disabled={remove.isPending} onClick={() => {if (window.confirm(`Удалить профиль «${profile.name}» из панели?`)) remove.mutate(profile);}}>Удалить</Button>
         </div></details>
       </article>)}</div>}

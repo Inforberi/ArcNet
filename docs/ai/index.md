@@ -1,3 +1,7 @@
+## 2026-11-07: управление протоколами и ArcNet navigation
+
+`internal/app/connection_edit.go` — revision/редактирование/валидация/compensation; `internal/httpapi/connection_edit.go` — typed authenticated PUT/DELETE; `internal/store/local_server.go` — disabled REALITY delete/local identity guard. Tests рядом. `frontend/src/features/connections/ConnectionEditor.tsx` + `ConnectionTable.tsx` + `pages/VPN.tsx` — диалоги/таблица; `shared/Icon.tsx`, `app/Layout.tsx`, `shared/Dialog.tsx` — общая навигация/центрирование. [Контракт](../features/first-connection.md#продолжение-управление-протоколами-arcnet), [проверки](../testing/local-results/stage5-2026-11-07-connection-management.md).
+
 ## 2026-11-07: первый вход и подключение
 
 `internal/store/admin_setup.go`, `internal/httpapi/admin_setup.go`, `cmd/arcvpn/main.go` — одноразовый owner setup/credentials; `frontend/src/app/Auth.tsx` — регистрация/двухэтапный вход; `features/users/AccountSettings.tsx`, `features/connections/ConnectionTable.tsx`, `pages/VPN.tsx` — композиция UI. `internal/xray/operation_error.go`/`internal/httpapi/activation_error.go` — безопасные стадии ошибок; `key_format_test.go`/`reality_integration_test.go` — парсер и opt-in настоящий Xray. SNI/job код остаётся в targetcheck/store/targets, меню — `deploy/arcvpn-menu.sh`. [Контракт](../features/first-connection.md), [проверки](../testing/local-results/stage5-2026-11-07-first-connection.md).

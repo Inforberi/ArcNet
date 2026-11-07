@@ -1,27 +1,26 @@
-import {Link} from 'react-router';
 import {type ProtocolHealth, type ProtocolProfile, type VPNConfig} from '../../shared/api';
 import {Badge, Button, Empty} from '../../shared/ui';
 import {protocolCatalog} from './ConnectionForms';
 
-export function ConnectionTable({vpn,profiles,health,busy,onToggle,onRemove}:{vpn:VPNConfig;profiles:ProtocolProfile[];health:ProtocolHealth[];busy:boolean;onToggle:(profile:ProtocolProfile)=>void;onRemove:(profile:ProtocolProfile)=>void}) {
-  const items=[...(vpn.configured?[{kind:'vless-reality',address:vpn.address,port:vpn.port,sni:vpn.sni,enabled:true,profile:null}]:[]),...profiles.map(profile=>({...profile,profile}))];
-  if(!items.length)return <Empty><h2>Добавьте первое подключение</h2><p>Выберите протокол. Адрес, порт и ключи подготовим автоматически.</p></Empty>;
-  return <div className="table-wrap connections-table"><table><thead><tr><th>Подключение</th><th>Адрес</th><th>Состояние службы</th><th>Действия</th></tr></thead><tbody>
-    {items.map(item=>{
-      const state=health.find(h=>h.kind===item.kind)?.state;
-      const active=state==='active';
-      const label=item.kind==='vless-reality'?'VLESS + Reality TCP':protocolCatalog.find(p=>p.kind===item.kind)?.name??item.kind;
-      return <tr key={item.kind}>
-        <td data-label="Подключение"><strong>{label}</strong>{item.sni&&<small className="connection-meta">SNI: {item.sni}</small>}</td>
-        <td data-label="Адрес"><code>{item.address}:{item.port}</code><small className="connection-meta">{item.kind.startsWith('vless')?'TCP':'UDP'}</small></td>
-        <td data-label="Состояние службы"><Badge variant={!item.enabled?'blue':active?'green':state==='failed'?'red':'blue'}>{!item.enabled?'Отключено':active?'Запущена':state==='failed'?'Ошибка запуска':state==='activating'?'Запускается':state==='inactive'?'Не запущена':state==='unverified'?'Нет проверки':state==='unknown'?'Недоступно':'Проверяется'}</Badge></td>
-        <td data-label="Действия"><div className="flex wrap">
-          {item.enabled&&<Link className="button small" to="/users">Пользователи</Link>}
-          {item.profile&&<Button className="small" disabled={busy} onClick={()=>onToggle(item.profile!)}>{item.enabled?'Отключить':'Включить'}</Button>}
-          {item.profile&&!item.enabled&&<Button className="small" variant="danger" disabled={busy} onClick={()=>onRemove(item.profile!)}>Удалить</Button>}
-          <details className="connection-details"><summary>Подробнее</summary><p>Состояние службы не подтверждает соединение с устройства. QR и подписка доступны в разделе «Пользователи» → «Подключить».</p></details>
-        </div></td>
-      </tr>;
-    })}
-  </tbody></table></div>;
+export type ConnectionItem = {kind:string;address:string;port:number;sni:string;target:string;enabled:boolean;revision:string};
+export const connectionLabel=(kind:string)=>kind==='vless-reality'?'VLESS + Reality TCP':protocolCatalog.find(p=>p.kind===kind)?.name??kind;
+export function connectionItems(vpn:VPNConfig,profiles:ProtocolProfile[]):ConnectionItem[]{
+ return [...(vpn.configured?[{kind:'vless-reality',address:vpn.address!,port:vpn.port!,sni:vpn.sni??'',target:vpn.target??'',enabled:vpn.enabled??true,revision:vpn.revision??''}]:[]),...profiles.map(p=>({...p,sni:p.sni??'',target:p.target??'',revision:p.revision??''}))];
+}
+export function ConnectionTable({items,health,busy,onEdit,onToggle,onRemove}:{items:ConnectionItem[];health:ProtocolHealth[];busy:boolean;onEdit:(item:ConnectionItem)=>void;onToggle:(item:ConnectionItem)=>void;onRemove:(item:ConnectionItem)=>void}) {
+ if(!items.length)return <Empty><h2>Добавьте первый протокол</h2><p>Выберите нужный протокол. Адрес, порт и ключи подготовим автоматически.</p></Empty>;
+ return <div className="table-wrap connections-table"><table><thead><tr><th>Протокол</th><th>Адрес</th><th>Состояние службы</th><th>Управление</th></tr></thead><tbody>
+  {items.map(item=>{
+   const state=health.find(h=>h.kind===item.kind)?.state;
+   const active=state==='active',managed=item.kind!=='amneziawg';
+   return <tr key={item.kind}>
+    <td data-label="Протокол"><strong>{connectionLabel(item.kind)}</strong>{item.sni&&<small className="connection-meta">SNI: {item.sni}</small>}</td>
+    <td data-label="Адрес"><code>{item.address.includes(':')?`[${item.address}]:${item.port}`:`${item.address}:${item.port}`}</code><small className="connection-meta">{item.kind.startsWith('vless')?'TCP':'UDP'}</small></td>
+    <td data-label="Состояние службы"><Badge variant={!item.enabled?'blue':active?'green':state==='failed'?'red':'blue'}>{!item.enabled?'Отключён':active?'Запущен':state==='failed'?'Ошибка запуска':state==='activating'?'Запускается':state==='inactive'?'Не запущен':state==='unverified'?'Нет проверки':state==='unknown'?'Недоступно':'Проверяется'}</Badge></td>
+    <td data-label="Управление"><div className="flex flex-wrap items-center gap-2">
+     {managed?<><Button className="small" disabled={busy} onClick={()=>onEdit(item)}>Изменить</Button><Button className="small" disabled={busy} onClick={()=>onToggle(item)}>{item.enabled?'Отключить':'Включить'}</Button>{!item.enabled&&<Button className="small" variant="danger" disabled={busy} onClick={()=>onRemove(item)}>Удалить</Button>}</>:<span className="muted">Сохранённый протокол</span>}
+    </div></td>
+   </tr>;
+  })}
+ </tbody></table></div>;
 }

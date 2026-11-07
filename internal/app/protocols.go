@@ -308,11 +308,22 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 }
 
 func (a *App) DeleteProtocol(ctx context.Context, kind string) error {
+	return a.deleteProtocol(ctx, kind, "")
+}
+
+func (a *App) DeleteProtocolRevision(ctx context.Context, kind, revision string) error {
+	return a.deleteProtocol(ctx, kind, revision)
+}
+
+func (a *App) deleteProtocol(ctx context.Context, kind, revision string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	p, err := a.Store.GetProtocol(ctx, kind)
 	if err != nil {
 		return err
+	}
+	if revision != "" && revision != ConnectionRevision(p) {
+		return ErrConnectionChanged
 	}
 	if p.Enabled {
 		return errors.New("disable protocol before deletion")

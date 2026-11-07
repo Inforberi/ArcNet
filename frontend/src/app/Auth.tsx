@@ -14,7 +14,7 @@ export function AuthGate() {
   return <Outlet/>;
 }
 function AuthFrame({title,children}:{title:string;children:ReactNode}) {
-  return <main className="auth-container"><section className="auth-card"><span className="brand-mark">A</span><p className="muted">ArcVPN · управление VPN</p><h1>{title}</h1>{children}</section></main>;
+  return <main className="auth-container"><section className="auth-card"><span className="brand-mark">A</span><p className="muted">ArcNet · управление VPN</p><h1>{title}</h1>{children}</section></main>;
 }
 function FirstAccess() {
   const setup=useQuery({queryKey:['admin-setup'],queryFn:()=>api<{required:boolean;available:boolean}>('/api/setup'),retry:false});

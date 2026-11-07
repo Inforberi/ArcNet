@@ -8,7 +8,6 @@ export const directAccessLabel=(link:string,index:number)=>{
 export default function DirectAccess({links,ids,qrURL,onCopy,onError,subscription}:{links:string[];ids:string[];qrURL:(id:string)=>string;onCopy:(link:string)=>void|Promise<void>;onError:()=>void;subscription?:{url:string;qrURL:string}}){
   const [selection,setSelection]=useState(ids[0]??'');
   const [method,setMethod]=useState<'subscription'|'direct'>(subscription?'subscription':'direct');
-  const [app,setApp]=useState('Happ');
   useEffect(()=>{if(!ids.includes(selection))setSelection(ids[0]??'');},[ids,selection]);
   const index=ids.indexOf(selection),link=index>=0?links[index]:'';
   if(!links.length)return null;
@@ -17,7 +16,7 @@ export default function DirectAccess({links,ids,qrURL,onCopy,onError,subscriptio
   const selectedQR=subscribing?subscription.qrURL:qrURL(selection);
   return <div className="direct-access">
     {subscription&&<div className="flex wrap" role="group" aria-label="Способ подключения"><Button aria-pressed={method==='subscription'} variant={method==='subscription'?'primary':'default'} onClick={()=>setMethod('subscription')}>Подписка</Button><Button aria-pressed={method==='direct'} variant={method==='direct'?'primary':'default'} onClick={()=>setMethod('direct')}>Одно подключение</Button></div>}
-    {subscribing?<><label className="field"><span>Приложение</span><select value={app} onChange={e=>setApp(e.target.value)}><option>Happ</option><option>Streisand</option></select></label><p className="muted">Скопируйте ссылку и импортируйте подписку в {app}. Либо отсканируйте QR в приложении.</p></>:<label className="field"><span>Подключение</span><select aria-label="Прямое подключение" value={selection} onChange={e=>setSelection(e.target.value)}>{links.map((value,index)=><option key={ids[index]} value={ids[index]}>{directAccessLabel(value,index)}</option>)}</select></label>}
+    {subscribing?<p className="muted">Скопируйте ссылку и добавьте подписку в VPN-приложение. Или отсканируйте QR.</p>:<label className="field"><span>Подключение</span><select aria-label="Прямое подключение" value={selection} onChange={e=>setSelection(e.target.value)}>{links.map((value,index)=><option key={ids[index]} value={ids[index]}>{directAccessLabel(value,index)}</option>)}</select></label>}
     {selectedLink&&<><Button variant="primary" onClick={()=>void onCopy(selectedLink)}>{subscribing?'Копировать подписку':'Копировать ссылку'}</Button><img className="qr-image" key={selectedQR} src={selectedQR} alt={subscribing?'QR подписки':'QR прямого подключения'} onError={onError}/><details className="profile-advanced"><summary>Показать ссылку</summary><pre className="code">{selectedLink}</pre></details></>}
     <small className="muted">Ссылка и QR предоставляют доступ к вашему VPN.</small>
   </div>;

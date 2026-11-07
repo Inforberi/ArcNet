@@ -134,6 +134,15 @@ func TestOnboardingBrowserFixture(t *testing.T) {
 	if err := s.App.Store.BeginAdminSetup(ctx, auth.HashToken("disposable-browser-setup-code-12345"), time.Now().Add(15*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.App.Setup(ctx, "198.51.100.25", "www.example.com", 443); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.App.AddProtocol(ctx, "hysteria2", "198.51.100.25", 8444, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.App.AddUser(ctx, "Browser user"); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.WithWebRoot("../../frontend/dist"); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +165,7 @@ func TestOnboardingBrowserFixture(t *testing.T) {
 	case <-done:
 	case err := <-result:
 		t.Fatal(err)
-	case <-time.After(3 * time.Minute):
+	case <-time.After(5 * time.Minute):
 		t.Fatal("browser fixture timed out")
 	}
 }

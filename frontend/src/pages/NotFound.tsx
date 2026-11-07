@@ -4,7 +4,7 @@ import { PageHeading, Panel } from '../shared/ui';
 export default function NotFound() {
   return (
     <>
-      <PageHeading title="Страница не найдена" description="Такого раздела в ArcVPN нет." />
+      <PageHeading title="Страница не найдена" description="Такого раздела в ArcNet нет." />
       <Panel title="Ошибка 404">
         <div className="panel-body">
           <p className="muted">Проверь адрес или вернись на главную страницу.</p>

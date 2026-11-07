@@ -47,3 +47,38 @@ func (s *Store) OptionalReality(ctx context.Context) (Reality, error) {
 	}
 	return r, err
 }
+
+// DeleteReality removes only a disabled listener and preserves the local host identity needed by users.
+func (s *Store) DeleteReality(ctx context.Context) error {
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		rows, err := tx.Query("SELECT enabled FROM config WHERE id=1")
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return ErrNotFound
+		}
+		if rows[0]["enabled"] == "1" {
+			return ErrConflict
+		}
+		legacy, err := tx.Query("SELECT kind FROM protocols WHERE kind='amneziawg'")
+		if err != nil {
+			return err
+		}
+		if len(legacy) > 0 {
+			return ErrConflict
+		}
+		remaining, err := tx.Query("SELECT COUNT(*) AS count FROM protocols")
+		if err != nil {
+			return err
+		}
+		users, err := tx.Query("SELECT id FROM users LIMIT 1")
+		if err != nil {
+			return err
+		}
+		if remaining[0]["count"] == "0" && len(users) > 0 {
+			return ErrLocalServerInUse
+		}
+		return tx.Exec("DELETE FROM config WHERE id=1")
+	})
+}

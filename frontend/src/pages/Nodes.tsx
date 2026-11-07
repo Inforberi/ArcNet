@@ -218,7 +218,7 @@ export default function Nodes(){
       {nodes.isPending?<Loading/>:nodes.isError?<Notice>Не удалось получить состояние нод.</Notice>:nodes.data?.items.length===0?<div className="empty">Ноды ещё не зарегистрированы.</div>:filteredNodes.length===0?<div className="empty">По заданным фильтрам ноды не найдены.</div>:view==='table'?<div className="table-scroll"><table><thead><tr><th>Нода</th><th>Управление</th><th>Ревизия</th><th>Проверка VPN</th><th>Последний сигнал</th><th>Действия</th></tr></thead><tbody>
         {filteredNodes.map(node=><tr key={node.id}><td><strong>{node.name}</strong><small className="muted node-secondary">{node.control.address||'Адрес не назначен'} · {node.version||'Версия неизвестна'} · протокол {node.agent_protocol===1?'v1':'неизвестен'}</small></td><td><Badge variant={node.online?'green':'red'}>{node.online?'Агент на связи':'Нет связи'}</Badge><small className="node-secondary">Xray: {node.online?node.xray_state:'неизвестно'}</small></td><td>{revState(node)}{node.control.draining&&<small className="node-secondary">Drain: новые ссылки скрыты</small>}{node.control.last_error&&<small className="error node-secondary">{node.control.last_error}</small>}</td><td>{probeLabel(node)}</td><td>{readableTime(node.last_seen)}</td><td>{actionButtons(node)}</td></tr>)}
       </tbody></table></div>:<div className="node-diagram" aria-label="Схема управления удалёнными серверами">
-        <div className="node-controller"><strong>Контроллер ArcVPN</strong><small>{nodes.data?.controller||'HTTPS URL не задан'}</small></div>
+        <div className="node-controller"><strong>Контроллер ArcNet</strong><small>{nodes.data?.controller||'HTTPS URL не задан'}</small></div>
         <div className="node-diagram-grid">{filteredNodes.map(node=><article className="node-diagram-card" key={node.id}><h3>{node.name}</h3>{summary(node)}<small className="muted">{node.control.address}:{node.control.port}</small>{actionButtons(node)}</article>)}</div>
       </div>}
     </Panel>
@@ -231,7 +231,7 @@ export default function Nodes(){
         (directLinks.data?.links??[]).map(item=><div className="node-link-item" key={item.user_id}><strong>{item.name}</strong><textarea readOnly rows={3} aria-label={`VLESS ссылка пользователя ${item.name}`} value={item.link}/><Button onClick={()=>{void navigator.clipboard.writeText(item.link).catch(()=>setError('Не удалось скопировать ссылку'));}}>Скопировать</Button></div>)}
       <div className="node-preflight">
         <h3>Независимая проверка VPN</h3>
-        <Notice>Проверка запускается на отдельной машине или в другой сети, не на контроллере и не на VPN-ноде. Требуются проверенный Xray и CLI ArcVPN той же версии. Только успешный HTTPS-запрос через VLESS/REALITY считается PASS. Запрос на один конкретный адрес не подтверждает доступность всех сайтов или сетей.</Notice>
+        <Notice>Проверка запускается на отдельной машине или в другой сети, не на контроллере и не на VPN-ноде. Требуются проверенный Xray и CLI ArcNet той же версии. Только успешный HTTPS-запрос через VLESS/REALITY считается PASS. Запрос на один конкретный адрес не подтверждает доступность всех сайтов или сетей.</Notice>
         <p>Текущее состояние: <strong>{nodes.data?.items.find(node=>node.id===linkNode)?probeLabel(nodes.data.items.find(node=>node.id===linkNode)!):'Нет данных'}</strong></p>
         <Button disabled={requestProbe.isPending||directLinks.isError||directLinks.isPending||(directLinks.data?.links.length??0)===0} onClick={()=>requestProbe.mutate()}>Создать одноразовый допуск (5 минут)</Button>
         {probeGrant&&<>
@@ -248,7 +248,7 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
     {selectedUpgradeNode&&<NodeUpgradeWizard key={selectedUpgradeNode.id} node={selectedUpgradeNode} onClose={()=>setUpgradeNode('')}/>}
     {selectedRemovalNode&&<Panel title={`Удаление управляемой ноды: ${selectedRemovalNode.name}`}><div className="panel-body node-wizard">
       <Notice>Действие необратимо. При полном удалении Xray остановится, действующие VPN-подключения будут разорваны. При отключении управления Xray продолжит работу, но панель больше не сможет применять конфигурации. Чужие службы, SSH и firewall не меняются.</Notice>
-      <p className="muted">Цель: {selectedRemovalNode.control.address}:{selectedRemovalNode.control.port}. Разрешено удаление только ресурсов исходной установки ArcVPN с подтверждённым маркером. Для нод, установленных вручную, используйте локальную команду из инструкции.</p>
+      <p className="muted">Цель: {selectedRemovalNode.control.address}:{selectedRemovalNode.control.port}. Разрешено удаление только ресурсов исходной установки ArcNet с подтверждённым маркером. Для нод, установленных вручную, используйте локальную команду из инструкции.</p>
       <label className="field"><span>Режим</span><select value={removalMode} onChange={event=>{setRemovalMode(event.target.value as 'purge'|'detach');setRemovalPlan(null);}}><option value="purge">Полностью удалить управляемые компоненты и остановить Xray</option><option value="detach">Отключить управление, оставить Xray запущенным</option></select></label>
       <div className="node-form-grid">
         <Field label="SSH-порт" type="number" min={1} max={65535} value={removalSSHPort} onChange={event=>{setRemovalSSHPort(event.target.value);resetRemoval();}} />
@@ -293,7 +293,7 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
       </tbody></table>{operations.data?.items.length===0&&<div className="empty">Операций пока нет.</div>}</div>}
     </div></Panel>
     <Panel title="Ручная регистрация подготовленного агента"><div className="panel-body">
-      <p className="muted">Для чистого VPS можно выполнить проверенную локальную установку одной командой после независимого получения подписанного ZIP, публичного ключа и доверенного бинарника ArcVPN. Токен вводится через stdin, а не в аргументы или историю команд. Для уже установленного агента используйте ручную регистрацию.</p>
+      <p className="muted">Для чистого VPS можно выполнить проверенную локальную установку одной командой после независимого получения подписанного ZIP, публичного ключа и доверенного бинарника ArcNet. Токен вводится через stdin, а не в аргументы или историю команд. Для уже установленного агента используйте ручную регистрацию.</p>
       <Button onClick={()=>{setManual(value=>!value);setEnrollment(null);}}>{manual?'Скрыть ручную регистрацию':'Показать ручную регистрацию'}</Button>
       {manual&&<><Button disabled={enroll.isPending||!name.trim()||!host||!vpnPort} onClick={()=>enroll.mutate()}>Выдать одноразовый токен (10 минут)</Button>
         {enrollment&&<><p>Контроллер: <code>{enrollment.controller}</code></p><label className="field"><span>Токен регистрации (никому не передавать)</span><textarea readOnly rows={3} value={enrollment.token}/></label>

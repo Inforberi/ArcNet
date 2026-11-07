@@ -37,7 +37,7 @@ export default function Security(){
  async function finishMFA(e:FormEvent){e.preventDefault();setAuthBusy(true);setError('');try{await api('/api/security/mfa/confirm','POST',{password,code});setMessage('2FA включена. Сессии завершены. Для нового входа дождись следующего 30-секундного кода.');setPassword('');setCode('');setSetup(null);await queryClient.invalidateQueries({queryKey:['session']});await queryClient.invalidateQueries({queryKey:['mfa-status']})}catch(err){setError(err instanceof Error?err.message:'Неверный код 2FA')}finally{setAuthBusy(false)}}
  async function disableMFA(e:FormEvent){e.preventDefault();if(!window.confirm('Отключить второй фактор и завершить все административные сессии?'))return;setAuthBusy(true);setError('');try{await api('/api/security/mfa/disable','POST',{password,code});setPassword('');setCode('');await queryClient.invalidateQueries({queryKey:['session']})}catch(err){setError(err instanceof Error?err.message:'Не удалось отключить 2FA')}finally{setAuthBusy(false)}}
  return <>
-  <PageHeading title="Безопасность" description="Авторизация администратора, HTTPS и журналы панели"/>
+  <PageHeading title="Настройки" description="Авторизация администратора, HTTPS и журналы панели"/>
   <AccountSettings/>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
@@ -55,7 +55,7 @@ export default function Security(){
      <Button type="submit" variant="primary" disabled={authBusy}>Начать настройку 2FA</Button>
     </form>}
     {!mfa.data.enabled&&setup&&<form onSubmit={finishMFA}>
-     <p className="muted">Добавь ArcVPN в приложение-аутентификатор. Секрет показан только при настройке, действителен 10 минут. Не передавай QR третьим лицам.</p>
+     <p className="muted">Добавь ArcNet в приложение-аутентификатор. Секрет показан только при настройке, действителен 10 минут. Не передавай QR третьим лицам.</p>
      <img width={200} height={200} alt="QR-код для подключения приложения-аутентификатора" src={`data:image/svg+xml;base64,${setup.qr_svg_base64}`}/>
      <p className="muted">Секрет для ручного ввода:</p><code className="break-all">{setup.secret}</code>
      <Field label="Шестизначный код" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value)} required/>
@@ -81,8 +81,8 @@ export default function Security(){
    </>}
    {tail!==null&&<pre className="log-view">{tail}</pre>}
   </div></Panel>
-  <Panel title="Лимит изолированного systemd-журнала ArcVPN"><div className="panel-body">
-    <p className="muted">Отдельное пространство systemd-journald для сервисов ArcVPN. Журнал ОС и SSH не затрагивается. По умолчанию 200 МБ. Системные изменения доступны только после установки на VPS.</p>
+  <Panel title="Лимит изолированного systemd-журнала ArcNet"><div className="panel-body">
+    <p className="muted">Отдельное пространство systemd-journald для сервисов ArcNet. Журнал ОС и SSH не затрагивается. По умолчанию 200 МБ. Системные изменения доступны только после установки на VPS.</p>
     {journal.isPending?<Loading/>:journal.isError?<Notice>Управление журналом недоступно в локальном режиме без root-обработчика.</Notice>:<>
      <label className="field"><span>Общий лимит журнала служб</span><select value={journalLimit??journal.data.budget_mb} onChange={e=>setJournalLimit(Number(e.target.value))}>
      {[50,100,200,300,500,1024].map(n=><option key={n} value={n}>{n} МБ</option>)}
@@ -90,8 +90,8 @@ export default function Security(){
      <Button type="button" variant="primary" disabled={updateJournal.isPending} onClick={async()=>{setError('');try{await updateJournal.mutateAsync(journalLimit??journal.data.budget_mb)}catch(e){setError(e instanceof Error?e.message:'Ошибка настройки журнала')}}}>Применить лимит журнала служб</Button>
     </>}
    </div></Panel>
-  <Panel title="Журналы служб ArcVPN"><div className="panel-body">
-    <p className="muted">Показываем последние записи только выбранной службы ArcVPN через ограниченный системный обработчик. Это просмотр, а не управление размером journald.</p>
+  <Panel title="Журналы служб ArcNet"><div className="panel-body">
+    <p className="muted">Показываем последние записи только выбранной службы ArcNet через ограниченный системный обработчик. Это просмотр, а не управление размером journald.</p>
     <label className="field"><span>Служба</span><select value={service} onChange={e=>{setService(e.target.value);setServiceTail(null)}}>
      {['panel','xray','hysteria','wireguard','amneziawg'].map(s=><option key={s} value={s}>{s}</option>)}
     </select></label>
@@ -99,7 +99,7 @@ export default function Security(){
     {serviceTail!==null&&<pre className="log-view">{serviceTail}</pre>}
    </div></Panel>
   <Panel title="Firewall: порты VPN"><div className="panel-body">
-   <p className="muted">Управляются только правила UFW, созданные ArcVPN. Панель не включает UFW и не меняет SSH или сторонние правила. Если UFW выключен, включение выполняется отдельно после проверки доступа по SSH.</p>
+   <p className="muted">Управляются только правила UFW, созданные ArcNet. Панель не включает UFW и не меняет SSH или сторонние правила. Если UFW выключен, включение выполняется отдельно после проверки доступа по SSH.</p>
    {firewall.isPending?<Loading/>:firewall.isError?<Notice>{firewall.error.message}</Notice>:<>
     <div className="kv"><span>Состояние UFW</span><span>{!firewall.data.available?'Системный обработчик недоступен':firewall.data.active?'Активен':'Выключен'}</span></div>
     <p className="muted">{firewall.data.message}</p>
@@ -118,7 +118,7 @@ export default function Security(){
     })}
    </>}
   </div></Panel>
-  <Panel title="Обновление ArcVPN"><div className="panel-body">
+  <Panel title="Обновление ArcNet"><div className="panel-body">
    <p className="muted">Устанавливаются только архивы с проверенной подписью Ed25519. Один архив может содержать панель и совместимые VPN-движки. В случае ошибки перезапуска предыдущие бинарники восстанавливаются; реальная проверка восстановления служб требуется на VPS.</p>
    {updateState.isPending?<Loading/>:updateState.isError?<Notice>{updateState.error.message}</Notice>:<>
     <div className="kv"><span>Системная служба</span><span>{updateState.data.available?'Доступна':'Недоступна локально'}</span></div>
@@ -133,7 +133,7 @@ export default function Security(){
        finally{setUploading(false)}
      }}>Проверить и загрузить</Button>
      <Button disabled={!updateState.data.available||!updateState.data.staged||!updateState.data.version||applying} onClick={async()=>{
-       if(!window.confirm('Обновить ArcVPN и кратковременно перезапустить панель? При ошибке запуска предыдущая версия будет восстановлена.'))return;
+       if(!window.confirm('Обновить ArcNet и кратковременно перезапустить панель? При ошибке запуска предыдущая версия будет восстановлена.'))return;
        setApplying(true);setError('');
        try{await api('/api/system/update/apply','POST',{confirm:'INSTALL_SIGNED_UPDATE'});setMessage('Запущено обновление. Страница может временно стать недоступной.');}
        catch(e){setError(e instanceof Error?e.message:'Обновление не запущено')}
