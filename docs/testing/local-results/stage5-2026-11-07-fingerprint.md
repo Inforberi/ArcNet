@@ -14,3 +14,7 @@ Real React/HTTP/SQLite opt-in fixture with synthetic credentials: login → exis
 ## Limits
 
 Real Happ/Streisand import/handshake and XHTTP path apply/rollback on a VM NOT RUN. VPS VLESS timeout remains unaccepted; changing fingerprint is not claimed as its fix. No SSH/UFW/units/cascade/engine changes. No DDL; existing settings keys used. New backup13 requires the new reader, old1–12 supported. All other advanced fields/per-user assignments/bulk/node work remain tracked in the main plan.
+
+## Выпуск A8
+
+Source snapshot `06a14427989f6161e69421677ca6f3ef012339b2`. Linux/amd64 Go1.26.6/Node22.21.1: npm ci, TS/Vite, go test ./..., go vet ./..., embedded/version/lifecycle/package PASS. ZIP и signed catalog независимо проверены Node crypto. Update-only asset `update-a8.zip`: SHA256 `340634f3df0bf8bc6bcab288b115b3f7e987b9dd7e6535ad9f1c3ca04fc383cb`, 4557919 bytes; min A7, core-ui scope, no components. Source archive/manifest/BUILDINFO приложены. Dirty=true означает исключённую local .serena/, точные bytes заданы manifest. Fresh installer A8 не публиковался; core extracted из проверенного build artifact. Реальный A7→A8 systemd apply/rollback NOT RUN.

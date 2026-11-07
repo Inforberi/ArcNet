@@ -12,7 +12,7 @@
 
 В [A6 preview](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a6) интерфейс называется ArcNet: «Протоколы» — серверные настройки, «Пользователи» — доступ. Добавлены редактирование порта/SNI/target без смены ключей, управление REALITY и компактное меню с настройками внизу; [контракт и ограничения](docs/features/first-connection.md#продолжение-управление-протоколами-arcnet). Онлайн-обновления с выбором версии добавлены в A7: [переход и ограничения](docs/ops/install-and-update.md#онлайн-обновление-a7-и-новее); системные имена `arcvpn` сохранены для совместимости.
 
-В новых исходниках добавлены [TLS fingerprint и путь XHTTP](docs/features/first-connection.md#tls-fingerprint-и-расширенные-настройки-vless), доработаны [карточка и поиск пользователей](docs/features/users-and-devices.md#ui-блок-2026-11-07), общие окна/раскрытия и график; firewall пока доступен только для чтения. [Проверки и незавершённые части](docs/testing/local-results/stage5-2026-11-07-base-ui.md). Эти изменения ещё не выпущены отдельным пакетом.
+В [A8 preview](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a8) добавлены [TLS fingerprint и путь XHTTP](docs/features/first-connection.md#tls-fingerprint-и-расширенные-настройки-vless), доработаны [карточка и поиск пользователей](docs/features/users-and-devices.md#ui-блок-2026-11-07), общие окна/раскрытия и график; firewall пока доступен только для чтения. [Проверки и незавершённые части](docs/testing/local-results/stage5-2026-11-07-base-ui.md). Обновление установленной A7: «Настройки → Обновления → Проверить обновления → A8». Backup13 требует нового reader; до обновления сохраните текущую копию.
 
 ## Возможности
 

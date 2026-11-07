@@ -2,6 +2,16 @@
   "format": "arcnet-update-catalog-v1",
   "releases": [
     {
+      "version": "0.7.0-stage5-a8",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a7",
+      "scope": "core-ui",
+      "file": "update-a8.zip",
+      "size": 4557919,
+      "sha256": "340634f3df0bf8bc6bcab288b115b3f7e987b9dd7e6535ad9f1c3ca04fc383cb",
+      "notes": "Карточка и поиск пользователей, UI/график/SNI, TLS fingerprint (Firefox и др.) и путь XHTTP. Backup v13: старые сборки его не читают; сохраните текущую копию до обновления. Firewall — только просмотр; VLESS handshake ещё не подтверждён."
+    },
+    {
       "version": "0.7.0-stage5-a7",
       "platform": "linux/amd64",
       "minimum_version": "0.7.0-stage5-a5",
