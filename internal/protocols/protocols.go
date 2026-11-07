@@ -70,6 +70,9 @@ func validateHostname(host string) bool {
 	return len(host) <= 253 && len(host) >= 3 && hostnameRE.MatchString(host) && !strings.Contains(host, "..") && strings.Contains(host, ".")
 }
 func Validate(p store.Protocol) error {
+	if !xray.ValidFingerprint(p.Fingerprint) || (p.Kind != XHTTP && p.Fingerprint != "") {
+		return fmt.Errorf("%w: client TLS fingerprint", ErrInvalid)
+	}
 	if !IsSupported(p.Kind) || p.Port < 1 || p.Port > 65535 {
 		return fmt.Errorf("%w: kind or port", ErrInvalid)
 	}
@@ -265,7 +268,7 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 		}
 		switch p.Kind {
 		case XHTTP:
-			q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {p.SNI}, "fp": {"chrome"}, "pbk": {p.PublicKey}, "sid": {p.ShortID}, "type": {"xhttp"}, "path": {p.Path}, "mode": {"auto"}}
+			q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {p.SNI}, "fp": {xray.ClientFingerprint(p.Fingerprint)}, "pbk": {p.PublicKey}, "sid": {p.ShortID}, "type": {"xhttp"}, "path": {p.Path}, "mode": {"auto"}}
 			link := fmt.Sprintf("vless://%s@%s?%s#%s", url.PathEscape(c.Secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(user.Name+" XHTTP"))
 			out = append(out, Connection{Kind: p.Kind, Label: "VLESS + XHTTP + Reality", Format: "uri", Link: link})
 		case Hysteria2:

@@ -2,10 +2,10 @@ import {type ProtocolHealth, type ProtocolProfile, type VPNConfig} from '../../s
 import {Badge, Button, Empty} from '../../shared/ui';
 import {protocolCatalog} from './ConnectionForms';
 
-export type ConnectionItem = {kind:string;address:string;port:number;sni:string;target:string;enabled:boolean;revision:string};
+export type ConnectionItem = {fingerprint?:string;public_key?:string;short_id?:string;path?:string;kind:string;address:string;port:number;sni:string;target:string;enabled:boolean;revision:string};
 export const connectionLabel=(kind:string)=>kind==='vless-reality'?'VLESS + Reality TCP':protocolCatalog.find(p=>p.kind===kind)?.name??kind;
 export function connectionItems(vpn:VPNConfig,profiles:ProtocolProfile[]):ConnectionItem[]{
- return [...(vpn.configured?[{kind:'vless-reality',address:vpn.address!,port:vpn.port!,sni:vpn.sni??'',target:vpn.target??'',enabled:vpn.enabled??true,revision:vpn.revision??''}]:[]),...profiles.map(p=>({...p,sni:p.sni??'',target:p.target??'',revision:p.revision??''}))];
+ return [...(vpn.configured?[{kind:'vless-reality',fingerprint:vpn.fingerprint,public_key:vpn.public_key,short_id:vpn.short_id,address:vpn.address!,port:vpn.port!,sni:vpn.sni??'',target:vpn.target??'',enabled:vpn.enabled??true,revision:vpn.revision??''}]:[]),...profiles.map(p=>({...p,sni:p.sni??'',target:p.target??'',revision:p.revision??''}))];
 }
 export function ConnectionTable({items,health,busy,onEdit,onToggle,onRemove}:{items:ConnectionItem[];health:ProtocolHealth[];busy:boolean;onEdit:(item:ConnectionItem)=>void;onToggle:(item:ConnectionItem)=>void;onRemove:(item:ConnectionItem)=>void}) {
  if(!items.length)return <Empty><h2>Добавьте первый протокол</h2><p>Выберите нужный протокол. Адрес, порт и ключи подготовим автоматически.</p></Empty>;

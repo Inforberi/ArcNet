@@ -79,6 +79,9 @@ func (s *Store) DeleteReality(ctx context.Context) error {
 		if remaining[0]["count"] == "0" && len(users) > 0 {
 			return ErrLocalServerInUse
 		}
+		if err := saveFingerprint(tx, "vless-reality", ""); err != nil {
+			return err
+		}
 		return tx.Exec("DELETE FROM config WHERE id=1")
 	})
 }

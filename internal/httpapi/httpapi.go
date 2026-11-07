@@ -28,6 +28,7 @@ import (
 	"github.com/arcvpn/arcvpn/internal/publicnet"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/targetcheck"
+	"github.com/arcvpn/arcvpn/internal/xray"
 	"github.com/arcvpn/arcvpn/web"
 )
 
@@ -702,18 +703,23 @@ func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 		handleErr(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"configured": true, "address": cfg.Address, "port": cfg.Port, "target": cfg.Target, "sni": cfg.SNI, "public_key": cfg.Public, "short_id": cfg.ShortID, "enabled": cfg.Enabled, "revision": app.ConnectionRevision(app.RealityProfile(cfg))})
+	respond(w, 200, map[string]any{"configured": true, "address": cfg.Address, "port": cfg.Port, "target": cfg.Target, "sni": cfg.SNI, "fingerprint": xray.ClientFingerprint(cfg.Fingerprint), "public_key": cfg.Public, "short_id": cfg.ShortID, "enabled": cfg.Enabled, "revision": app.ConnectionRevision(app.RealityProfile(cfg))})
 }
 func (s *Server) vpnCreate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Address string `json:"address"`
-		Target  string `json:"target"`
-		Port    int    `json:"port"`
+		Fingerprint string `json:"fingerprint,omitempty"`
+		Address     string `json:"address"`
+		Target      string `json:"target"`
+		Port        int    `json:"port"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if err := s.App.Setup(r.Context(), in.Address, in.Target, in.Port); err != nil {
+	if !xray.ValidFingerprint(in.Fingerprint) {
+		fail(w, 422, "Выберите поддерживаемый TLS fingerprint клиента")
+		return
+	}
+	if err := s.App.SetupWithFingerprint(r.Context(), in.Address, in.Target, in.Port, in.Fingerprint); err != nil {
 		// Raw Xray diagnostics may contain credentials; never forward them to a browser.
 		activationFailure(w, err)
 		return

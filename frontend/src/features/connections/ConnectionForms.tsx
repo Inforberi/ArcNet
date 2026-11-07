@@ -3,6 +3,7 @@ import {useQuery} from '@tanstack/react-query';
 import {api, type ProtocolKind, type VPNConfig} from '../../shared/api';
 import {Advanced, Badge, Button, Field, Notice} from '../../shared/ui';
 import TargetPicker from '../targets/TargetPicker';
+import FingerprintField from './FingerprintField';
 import type {RecommendationState} from '../targets/model';
 
 export const protocolCatalog: {kind: ProtocolKind; name: string; description: string; port: number}[] = [
@@ -22,7 +23,7 @@ export function ProtocolChoice({kind,available,busy,onChange}:{kind:ConnectionKi
   {vless?<label className="field"><span>Транспорт</span><select aria-label="Транспорт" disabled={busy} value={kind} onChange={e=>onChange(e.target.value as ConnectionKind)}>{transports.map(value=><option key={value} value={value}>{value==='vless-reality'?'TCP':'XHTTP'}</option>)}</select><small>Передача данных · защита <Badge>REALITY</Badge></small></label>:<div className="grid content-center gap-1 text-sm"><strong>{kind==='hysteria2'?'QUIC / UDP · TLS':'UDP · ключи WireGuard'}</strong><span className="muted">Транспорт и защита определяются протоколом</span></div>}
  </div>;
 }
-export type RealityInput = {address: string; target: string; port: number};
+export type RealityInput = {fingerprint?:string;address: string; target: string; port: number};
 export type ProtocolInput = RealityInput & {kind: ProtocolKind; sni: string};
 const useDefaults = () => useQuery({queryKey: ['connection-defaults'], queryFn: () => api<Defaults>('/api/vpn/defaults'), staleTime: 0});
 
@@ -31,12 +32,13 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
  const [manualAddress, setAddress] = useState<string>();
  const [manualPort, setPort] = useState<number>();
  const [target, setTarget] = useState<string>();
+ const [fingerprint,setFingerprint]=useState('chrome');
  const [recommended, setRecommended] = useState('');
  const [recommendationState, setRecommendationState] = useState<RecommendationState>('checking');
  const address = manualAddress ?? defaults.data?.address ?? '';
  const port = manualPort ?? defaults.data?.ports['vless-reality'] ?? 443;
  const chosenTarget = target ?? recommended;
- const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({address, port, target: chosenTarget});};
+ const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({address, port, target: chosenTarget,fingerprint});};
  return <form className="panel-body" onSubmit={submit}>
   <p className="muted">Адрес и порт уже предложены. Проверяем SNI, ключи создадим автоматически.</p>
   {defaults.isError && <Notice>Не удалось получить параметры сервера: {defaults.error.message}. Их можно указать вручную.</Notice>}
@@ -44,6 +46,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
   <div className="kv"><span>Подключение</span><span>{address || 'Нужен публичный IP'}:{port} · TCP</span></div>
   <div className="kv"><span>Reality SNI</span><span>{chosenTarget || (recommendationState === 'checking' ? 'Подбираем по TCP/TLS-проверке…' : 'Автоподбор не нашёл подходящий SNI')}</span></div>
   <Advanced>
+   <FingerprintField value={fingerprint} disabled={busy} onChange={setFingerprint}/>
    {!!defaults.data?.address && <Field label="Публичный IP VPS" required value={address} onChange={event => setAddress(event.target.value)}/>}
    <Field label="TCP-порт" type="number" required min={1} max={65535} value={port} onChange={event => setPort(Number(event.target.value))}/>
    <TargetPicker automatic sameName onStatus={setRecommendationState} onSelect={candidate => setTarget(candidate.host)} onRecommend={candidate => setRecommended(candidate.host)}/>
@@ -55,7 +58,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
  </form>;
 }
 
-type Draft = {port?: number; target?: string; sni?: string; targetManual?: boolean};
+type Draft = {fingerprint?:string;port?: number; target?: string; sni?: string; targetManual?: boolean};
 export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig; available: ProtocolKind[]; busy: boolean; onSubmit: (input: ProtocolInput) => Promise<void>}) {
  const defaults = useDefaults();
  const [selection, setSelection] = useState<ProtocolKind>('vless-xhttp');
@@ -69,7 +72,7 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
  const target = kind === 'vless-xhttp' ? draft.target ?? vpn.target ?? '' : '';
  const sni = kind === 'vless-xhttp' ? draft.sni ?? vpn.sni ?? target : kind === 'hysteria2' ? address : '';
  const update = (values: Draft) => setDrafts(all => ({...all, [kind]: {...all[kind], ...values}}));
- const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({kind, address, port, target, sni});};
+ const submit = (event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void onSubmit({kind, address, port, target, sni,fingerprint:kind==='vless-xhttp'?(draft.fingerprint??'chrome'):''});};
  return <form className="panel-body" onSubmit={submit}>
   {available.length>1&&<label className="field"><span>Тип подключения</span><select aria-label="Тип подключения" value={kind} onChange={event => setSelection(event.target.value as ProtocolKind)}>{protocolCatalog.filter(item => available.includes(item.kind)).map(item => <option value={item.kind} key={item.kind}>{item.name}</option>)}</select></label>}
   <p className="muted">{chosen.description}</p>
@@ -80,6 +83,7 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
    {!!(vpn.address || defaults.data?.address) && <Field label="Публичный IP" required value={address} readOnly={!!vpn.address} onChange={event => setAddress(event.target.value)}/>}
    <Field label={kind === 'vless-xhttp' ? 'TCP-порт' : 'UDP-порт'} type="number" required min={1} max={65535} value={port} onChange={event => update({port: Number(event.target.value)})}/>
    {kind === 'vless-xhttp' && <>
+    <FingerprintField value={draft.fingerprint} disabled={busy} onChange={fingerprint=>update({fingerprint})}/>
     <TargetPicker automatic onSelect={candidate => update({target: candidate.host, sni: candidate.sni, targetManual: true})} onRecommend={candidate => setDrafts(all => all[kind]?.targetManual ? all : {...all, [kind]: {...all[kind], target: candidate.host, sni: candidate.sni}})}/>
     <Field label="Reality target" required value={target} onChange={event => update({target: event.target.value, targetManual: true})}/>
     <Field label="SNI" value={sni} onChange={event => update({sni: event.target.value, targetManual: true})}/>

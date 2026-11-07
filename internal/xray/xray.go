@@ -29,6 +29,9 @@ var hexID = regexp.MustCompile(`^[a-fA-F0-9]{16}$`)
 var keyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{32,64}$`)
 
 func Validate(r store.Reality) error {
+	if !ValidFingerprint(r.Fingerprint) {
+		return errors.New("invalid client TLS fingerprint")
+	}
 	if _, err := netip.ParseAddr(r.Address); err != nil {
 		return errors.New("public address must be a valid IP")
 	}
@@ -103,7 +106,7 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 	return json.MarshalIndent(root, "", "  ")
 }
 func Link(r store.Reality, u store.User) string {
-	q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {r.SNI}, "fp": {"chrome"}, "pbk": {r.Public}, "sid": {r.ShortID}, "type": {"tcp"}, "flow": {"xtls-rprx-vision"}}
+	q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {r.SNI}, "fp": {ClientFingerprint(r.Fingerprint)}, "pbk": {r.Public}, "sid": {r.ShortID}, "type": {"tcp"}, "flow": {"xtls-rprx-vision"}}
 	return fmt.Sprintf("vless://%s@%s?%s#%s", u.UUID, net.JoinHostPort(r.Address, strconv.Itoa(r.Port)), q.Encode(), url.QueryEscape(u.Name))
 }
 

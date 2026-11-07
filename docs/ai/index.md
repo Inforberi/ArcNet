@@ -1,3 +1,7 @@
+## 2026-11-07: TLS fingerprint
+
+`internal/xray/fingerprint.go` — enum/default; `internal/store/client_fingerprint.go` — existing-settings persistence; connection edit/create/API/backup13 — сохранение/экспорт. `features/connections/FingerprintField.tsx` — общий selector для форм; ConnectionEditor — путь XHTTP и публичные ключи. [Проверки](../testing/local-results/stage5-2026-11-07-fingerprint.md).
+
 ## 2026-11-07: базовое управление пользователем
 
 `features/users/UserDetails.tsx` компонует существующие PackageDialog/DevicesDialog; `pages/Users.tsx` — поиск/фильтр/карточка; `shared/Dialog.tsx` — фон и защита изменённых форм; `shared/ui.tsx`/`style.css` — раскрытия. `cmd/arcvpn/main.go` подключает только чтение UFW. [Доказательства](../testing/local-results/stage5-2026-11-07-base-ui.md).

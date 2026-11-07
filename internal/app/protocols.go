@@ -146,6 +146,13 @@ func (a *App) ListProtocolProfiles(ctx context.Context) ([]store.Protocol, error
 }
 
 func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, sni, target string) (store.Protocol, error) {
+	return a.AddProtocolWithFingerprint(ctx, kind, address, port, sni, target, "")
+}
+
+func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address string, port int, sni, target, fingerprint string) (store.Protocol, error) {
+	if !xray.ValidFingerprint(fingerprint) || (kind != protocols.XHTTP && fingerprint != "") {
+		return store.Protocol{}, protocols.ErrInvalid
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
@@ -234,6 +241,7 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 	if err != nil {
 		return store.Protocol{}, err
 	}
+	p.Fingerprint = fingerprint
 	users, err := a.Store.ListUsers(ctx)
 	if err != nil {
 		return store.Protocol{}, err

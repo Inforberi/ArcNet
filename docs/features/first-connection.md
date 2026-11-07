@@ -47,3 +47,15 @@
 ## Общие взаимодействия — 2026-11-07
 
 Общие disclosure используют chevron справа/focus/reduced motion. Диалоги закрываются по фону/Escape с проверкой busy/unsaved; редактор порта/SNI и пакет используют фактический diff. SNI-результаты без пригодного измерения не имеют кнопки выбора; ошибка не меняет действующий SNI. Адрес подключения подписан как адрес клиента, отличающийся от SNI. Реальные protocol settings этим UI-блоком не расширены.
+
+## TLS fingerprint и расширенные настройки VLESS
+
+В TCP/XHTTP создании и редакторе основной путь сохраняет автоматические параметры, advanced предлагает TLS fingerprint клиента: chrome(default), firefox, safari, ios, android, edge, 360, qq, random, randomized. Это профиль ClientHello для VPN-клиента, не смена браузера ОС и не гарантия обхода ограничений. Список опирается на [официальный TLS contract Xray](https://github.com/XTLS/Xray-docs-next/blob/main/docs/config/transports/tls.md) и [REALITY](https://github.com/XTLS/Xray-docs-next/blob/main/docs/config/transports/reality.md); unsafe и произвольные строки не разрешены. Поддержка конкретным Happ/Streisand требует проверки на устройстве.
+
+Создание принимает optional fingerprint; PUT connection edit — optional fingerprint/path. Отсутствующее поле сохраняет прежнее значение, пустой fingerprint возвращает default Chrome. Path меняется только в XHTTP и проходит прежний protocol validator. Revision включает preference. FP хранится транзакционно в существующей settings (ключ client_fingerprint:kind), без новых колонок/таблиц; delete/replace/restore очищают старую preference в той же транзакции. TCP и XHTTP могут иметь разные профили.
+
+Все прямые/подписные/device URI и QR, использующие прежние генераторы, получают fp. Client-only смена не вызывает apply/restart; пользователь обновляет подписку. Порт/SNI/target/path идут через прежний apply/compensation. Приватные ключи, UUID и tokens не меняются от выбора fingerprint. Публичный ключ/Short ID показаны read-only; новые ключи создаются прежним server-side генератором при создании протокола. Скрытой ротации и вывода private key в API нет.
+
+Backup13 переносит TCP/XHTTP preference и сохраняет при RemapAddress; reader принимает1–12 с default Chrome. Поле fingerprint запрещено под legacy version1–12. Старые сборки не читают backup13, перед обновлением сохранить старую резервную копию. Существующие keys/учёт/подписки не мигрируют.
+
+Доступные сейчас параметры: адрес(read-only общего сервера), порт, SNI/target, TLS fingerprint, XHTTP path, публичные параметры ключей. Параметры транспорта/flow/REALITY policy и остальные расширенные настройки добавляются только по типизированной матрице совместимости с пояснениями; raw JSON и неподдерживаемые сочетания не заменяют реализацию. Каскадный outbound fingerprint и удалённые ноды этим блоком не меняются.

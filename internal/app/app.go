@@ -25,6 +25,13 @@ type App struct {
 }
 
 func (a *App) Setup(ctx context.Context, address, target string, port int) error {
+	return a.SetupWithFingerprint(ctx, address, target, port, "")
+}
+
+func (a *App) SetupWithFingerprint(ctx context.Context, address, target string, port int, fingerprint string) error {
+	if !xray.ValidFingerprint(fingerprint) {
+		return errors.New("invalid client TLS fingerprint")
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	address = strings.TrimSpace(address)
@@ -33,7 +40,7 @@ func (a *App) Setup(ctx context.Context, address, target string, port int) error
 	if err != nil {
 		return err
 	}
-	candidate := store.Reality{Address: address, Port: port, Target: target, SNI: target, Private: priv, Public: pub, ShortID: sid, Enabled: true}
+	candidate := store.Reality{Fingerprint: fingerprint, Address: address, Port: port, Target: target, SNI: target, Private: priv, Public: pub, ShortID: sid, Enabled: true}
 	if err = xray.Validate(candidate); err != nil {
 		return err
 	}

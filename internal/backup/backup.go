@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 12
+	Version         = 13
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -43,14 +43,15 @@ var ErrInvalid = errors.New("invalid or incompatible ArcVPN backup")
 var ErrPassword = errors.New("backup password is incorrect or archive was modified")
 
 type VPN struct {
-	Address    string `json:"address"`
-	Port       int    `json:"port"`
-	Target     string `json:"target"`
-	SNI        string `json:"sni"`
-	PrivateKey string `json:"private_key"`
-	PublicKey  string `json:"public_key"`
-	ShortID    string `json:"short_id"`
-	Enabled    bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	Target      string `json:"target"`
+	SNI         string `json:"sni"`
+	PrivateKey  string `json:"private_key"`
+	PublicKey   string `json:"public_key"`
+	ShortID     string `json:"short_id"`
+	Enabled     bool   `json:"enabled"`
 }
 type User struct {
 	ID        int64  `json:"id"`
@@ -64,19 +65,20 @@ type User struct {
 // Protocol carries key material inside the authenticated encrypted payload.
 // It is not the public API representation of a store.Protocol.
 type Protocol struct {
-	Kind       string `json:"kind"`
-	Address    string `json:"address"`
-	Port       int    `json:"port"`
-	SNI        string `json:"sni"`
-	Target     string `json:"target"`
-	PrivateKey string `json:"private_key"`
-	PublicKey  string `json:"public_key"`
-	ShortID    string `json:"short_id"`
-	Path       string `json:"path"`
-	TLSCert    string `json:"tls_cert"`
-	TLSKey     string `json:"tls_key"`
-	ObfsKey    string `json:"obfs_key"`
-	Enabled    bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Kind        string `json:"kind"`
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	SNI         string `json:"sni"`
+	Target      string `json:"target"`
+	PrivateKey  string `json:"private_key"`
+	PublicKey   string `json:"public_key"`
+	ShortID     string `json:"short_id"`
+	Path        string `json:"path"`
+	TLSCert     string `json:"tls_cert"`
+	TLSKey      string `json:"tls_key"`
+	ObfsKey     string `json:"obfs_key"`
+	Enabled     bool   `json:"enabled"`
 }
 type Snapshot struct {
 	Devices         *devices.State             `json:"devices,omitempty"`
@@ -105,7 +107,7 @@ type Envelope struct {
 func FromStore(v *store.Reality, users []store.User) Snapshot {
 	result := Snapshot{Version: Version, CreatedAt: time.Now().Unix(), Users: make([]User, 0, len(users))}
 	if v != nil {
-		result.VPN = &VPN{Address: v.Address, Port: v.Port, Target: v.Target, SNI: v.SNI, PrivateKey: v.Private, PublicKey: v.Public, ShortID: v.ShortID, Enabled: v.Enabled}
+		result.VPN = &VPN{Fingerprint: v.Fingerprint, Address: v.Address, Port: v.Port, Target: v.Target, SNI: v.SNI, PrivateKey: v.Private, PublicKey: v.Public, ShortID: v.ShortID, Enabled: v.Enabled}
 	}
 	for _, u := range users {
 		result.Users = append(result.Users, User{ID: u.ID, Name: u.Name, UUID: u.UUID, Token: u.Subscription, Enabled: u.Enabled, CreatedAt: u.CreatedAt})
@@ -116,7 +118,7 @@ func (s Snapshot) ToStore() (*store.Reality, []store.User) {
 	var r *store.Reality
 	if s.VPN != nil {
 		v := s.VPN
-		r = &store.Reality{Address: v.Address, Port: v.Port, Target: v.Target, SNI: v.SNI, Private: v.PrivateKey, Public: v.PublicKey, ShortID: v.ShortID, Enabled: v.Enabled}
+		r = &store.Reality{Fingerprint: v.Fingerprint, Address: v.Address, Port: v.Port, Target: v.Target, SNI: v.SNI, Private: v.PrivateKey, Public: v.PublicKey, ShortID: v.ShortID, Enabled: v.Enabled}
 	}
 	users := make([]store.User, 0, len(s.Users))
 	for _, u := range s.Users {
@@ -127,7 +129,7 @@ func (s Snapshot) ToStore() (*store.Reality, []store.User) {
 func (s Snapshot) WithProtocols(profiles []store.Protocol, credentials []store.ProtocolCredential) Snapshot {
 	s.Protocols = make([]Protocol, 0, len(profiles))
 	for _, p := range profiles {
-		s.Protocols = append(s.Protocols, Protocol{Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
+		s.Protocols = append(s.Protocols, Protocol{Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
 	}
 	s.Credentials = append([]store.ProtocolCredential(nil), credentials...)
 	return s
@@ -140,7 +142,7 @@ func (s Snapshot) WithManagement(nodes []store.NodeIdentity, budget int) Snapsho
 func (s Snapshot) ToProtocols() ([]store.Protocol, []store.ProtocolCredential) {
 	profiles := make([]store.Protocol, 0, len(s.Protocols))
 	for _, p := range s.Protocols {
-		profiles = append(profiles, store.Protocol{Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
+		profiles = append(profiles, store.Protocol{Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
 	}
 	return profiles, append([]store.ProtocolCredential(nil), s.Credentials...)
 }
@@ -283,6 +285,9 @@ func (s Snapshot) Validate() error {
 	}
 	if s.VPN != nil {
 		r, _ := s.ToStore()
+		if s.Version < 13 && r.Fingerprint != "" {
+			return ErrInvalid
+		}
 		if err := xray.Validate(*r); err != nil {
 			return fmt.Errorf("%w: invalid VPN configuration: %v", ErrInvalid, err)
 		}
@@ -319,6 +324,9 @@ func (s Snapshot) Validate() error {
 		address = s.VPN.Address
 	}
 	for _, p := range profiles {
+		if s.Version < 13 && p.Fingerprint != "" {
+			return ErrInvalid
+		}
 		if s.VPN == nil && p.Kind == protocols.AmneziaWG {
 			return ErrInvalid
 		}
@@ -538,7 +546,7 @@ func (s Snapshot) RemapAddress(raw string) (Snapshot, error) {
 		return Snapshot{}, ErrInvalid
 	}
 	if s.VPN != nil {
-		s.VPN = &VPN{Address: raw, Port: s.VPN.Port, Target: s.VPN.Target, SNI: s.VPN.SNI, PrivateKey: s.VPN.PrivateKey, PublicKey: s.VPN.PublicKey, ShortID: s.VPN.ShortID, Enabled: s.VPN.Enabled}
+		s.VPN = &VPN{Fingerprint: s.VPN.Fingerprint, Address: raw, Port: s.VPN.Port, Target: s.VPN.Target, SNI: s.VPN.SNI, PrivateKey: s.VPN.PrivateKey, PublicKey: s.VPN.PublicKey, ShortID: s.VPN.ShortID, Enabled: s.VPN.Enabled}
 	}
 	s.Protocols = append([]Protocol(nil), s.Protocols...)
 	for i := range s.Protocols {

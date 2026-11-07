@@ -28,11 +28,12 @@ func (s *Server) protocolList(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Kind    string `json:"kind"`
-		Address string `json:"address"`
-		Port    int    `json:"port"`
-		SNI     string `json:"sni"`
-		Target  string `json:"target"`
+		Fingerprint string `json:"fingerprint,omitempty"`
+		Kind        string `json:"kind"`
+		Address     string `json:"address"`
+		Port        int    `json:"port"`
+		SNI         string `json:"sni"`
+		Target      string `json:"target"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -41,7 +42,7 @@ func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "Неподдерживаемый протокол")
 		return
 	}
-	created, err := s.App.AddProtocol(r.Context(), input.Kind, input.Address, input.Port, input.SNI, input.Target)
+	created, err := s.App.AddProtocolWithFingerprint(r.Context(), input.Kind, input.Address, input.Port, input.SNI, input.Target, input.Fingerprint)
 	if err != nil {
 		if errors.Is(err, store.ErrUsageUnsupported) {
 			handleErr(w, err)

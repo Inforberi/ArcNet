@@ -26,14 +26,16 @@ func ConnectionRevision(p store.Protocol) string {
 }
 
 func RealityProfile(r store.Reality) store.Protocol {
-	return store.Protocol{Kind: "vless-reality", Address: r.Address, Port: r.Port, Target: r.Target, SNI: r.SNI, PrivateKey: r.Private, PublicKey: r.Public, ShortID: r.ShortID, Enabled: r.Enabled}
+	return store.Protocol{Fingerprint: r.Fingerprint, Kind: "vless-reality", Address: r.Address, Port: r.Port, Target: r.Target, SNI: r.SNI, PrivateKey: r.Private, PublicKey: r.Public, ShortID: r.ShortID, Enabled: r.Enabled}
 }
 
 type ConnectionSettings struct {
-	Port    int    `json:"port"`
-	Target  string `json:"target"`
-	SNI     string `json:"sni"`
-	Enabled bool   `json:"enabled"`
+	Path        *string `json:"path,omitempty"`
+	Fingerprint *string `json:"fingerprint,omitempty"`
+	Port        int     `json:"port"`
+	Target      string  `json:"target"`
+	SNI         string  `json:"sni"`
+	Enabled     bool    `json:"enabled"`
 }
 
 // EditConnection preserves identity and credentials. Runtime and persistence recover together on failure.
@@ -63,6 +65,15 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 		return ErrConnectionChanged
 	}
 	next := old
+	if settings.Path != nil {
+		if kind != protocols.XHTTP && *settings.Path != "" {
+			return protocols.ErrInvalid
+		}
+		next.Path = *settings.Path
+	}
+	if settings.Fingerprint != nil {
+		next.Fingerprint = *settings.Fingerprint
+	}
 	next.Port = settings.Port
 	next.Target = strings.TrimSpace(settings.Target)
 	next.SNI = strings.TrimSpace(settings.SNI)
@@ -85,12 +96,14 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 	candidate := reality
 	save := func(ctx context.Context, p store.Protocol) error { return a.Store.UpsertProtocol(ctx, p) }
 	if kind == "vless-reality" {
+		candidate.Fingerprint = next.Fingerprint
 		candidate.Port = next.Port
 		candidate.Target = next.Target
 		candidate.SNI = next.SNI
 		candidate.Enabled = next.Enabled
 		save = func(ctx context.Context, p store.Protocol) error {
 			r := reality
+			r.Fingerprint = p.Fingerprint
 			r.Port = p.Port
 			r.Target = p.Target
 			r.SNI = p.SNI
@@ -100,6 +113,12 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 	}
 	if err = save(ctx, next); err != nil {
 		return err
+	}
+	runtimeFields := next
+	runtimeFields.Fingerprint = old.Fingerprint
+	if runtimeFields == old {
+		a.Store.Event(ctx, "connection.client_options.updated", kind)
+		return nil
 	}
 	if err = a.applyAll(ctx, candidate, users); err != nil {
 		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -118,6 +137,7 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 func (a *App) validateConnectionEdit(ctx context.Context, p store.Protocol, reality store.Reality) error {
 	if p.Kind == "vless-reality" {
 		r := reality
+		r.Fingerprint = p.Fingerprint
 		r.Port = p.Port
 		r.Target = p.Target
 		r.SNI = p.SNI

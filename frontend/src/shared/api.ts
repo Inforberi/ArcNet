@@ -5,6 +5,7 @@ export interface Session {
 }
 
 export interface VPNConfig {
+ fingerprint?: string;
   configured: boolean;
   enabled?: boolean;
   revision?: string;
@@ -19,6 +20,7 @@ export interface VPNConfig {
 export type ProtocolKind = 'vless-xhttp' | 'hysteria2' | 'wireguard' | 'amneziawg';
 
 export interface ProtocolProfile {
+ fingerprint?: string;
   revision?: string;
   kind: ProtocolKind;
   address: string;

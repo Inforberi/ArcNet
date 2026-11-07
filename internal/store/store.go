@@ -31,14 +31,15 @@ type User struct {
 	Subscription   string          `json:"-"`
 }
 type Reality struct {
-	Address string `json:"address"`
-	Port    int    `json:"port"`
-	Target  string `json:"target"`
-	SNI     string `json:"sni"`
-	Private string `json:"-"`
-	Public  string `json:"public_key"`
-	ShortID string `json:"short_id"`
-	Enabled bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	Target      string `json:"target"`
+	SNI         string `json:"sni"`
+	Private     string `json:"-"`
+	Public      string `json:"public_key"`
+	ShortID     string `json:"short_id"`
+	Enabled     bool   `json:"enabled"`
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
@@ -341,12 +342,16 @@ func (s *Store) ReadReality(ctx context.Context) (Reality, error) {
 		r.Public = row["pub"]
 		r.ShortID = row["short_id"]
 		r.Enabled = row["enabled"] == "1"
-		return nil
+		r.Fingerprint, err = readFingerprint(tx, "vless-reality")
+		return err
 	})
 	return r, err
 }
 func (s *Store) SaveReality(ctx context.Context, r Reality) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
+			return err
+		}
 		return tx.Exec("INSERT INTO config(id,address,port,target,sni,priv,pub,short_id,enabled) VALUES(1,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET address=excluded.address,port=excluded.port,target=excluded.target,sni=excluded.sni,priv=excluded.priv,pub=excluded.pub,short_id=excluded.short_id,enabled=excluded.enabled", r.Address, strconv.Itoa(r.Port), r.Target, r.SNI, r.Private, r.Public, r.ShortID, boolean(r.Enabled))
 	})
 }
@@ -400,8 +405,14 @@ func (s *Store) ReplaceState(ctx context.Context, reality *Reality, users []User
 		if err := tx.Exec("DELETE FROM config"); err != nil {
 			return err
 		}
+		if err := saveFingerprint(tx, "vless-reality", ""); err != nil {
+			return err
+		}
 		if reality != nil {
 			r := reality
+			if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
+				return err
+			}
 			if err := tx.Exec("INSERT INTO config(id,address,port,target,sni,priv,pub,short_id,enabled) VALUES(1,?,?,?,?,?,?,?,?)", r.Address, strconv.Itoa(r.Port), r.Target, r.SNI, r.Private, r.Public, r.ShortID, boolean(r.Enabled)); err != nil {
 				return err
 			}
@@ -487,8 +498,14 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 				return err
 			}
 		}
+		if err := saveFingerprint(tx, "vless-reality", ""); err != nil {
+			return err
+		}
 		if reality != nil {
 			r := reality
+			if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
+				return err
+			}
 			if err := tx.Exec("INSERT INTO config(id,address,port,target,sni,priv,pub,short_id,enabled) VALUES(1,?,?,?,?,?,?,?,?)", r.Address, strconv.Itoa(r.Port), r.Target, r.SNI, r.Private, r.Public, r.ShortID, boolean(r.Enabled)); err != nil {
 				return err
 			}
@@ -498,7 +515,13 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 				return err
 			}
 		}
+		if err := saveFingerprint(tx, "vless-xhttp", ""); err != nil {
+			return err
+		}
 		for _, p := range profiles {
+			if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
+				return err
+			}
 			if err := tx.Exec("INSERT INTO protocols(kind,address,port,sni,target,private_key,public_key,short_id,path,tls_cert,tls_key,obfs_key,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", p.Kind, p.Address, strconv.Itoa(p.Port), p.SNI, p.Target, p.PrivateKey, p.PublicKey, p.ShortID, p.Path, p.TLSCert, p.TLSKey, p.ObfsKey, boolean(p.Enabled)); err != nil {
 				return err
 			}

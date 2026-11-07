@@ -15,9 +15,11 @@ func TestBackupV12PreservesRemoteSourceAndRejectsLegacyShape(t *testing.T) {
 	node := "22222222-2222-4222-8222-222222222222"
 	state := usage.State{Checkpoints: []usage.Counter{{Source: node, UserID: u.ID, Identity: u.UUID, Stream: "vless-reality", Epoch: "process", StartedAt: 1, ObservedAt: now, Upload: 100}}}
 	s := FromStore(nil, []store.User{u}).WithManagement([]store.NodeIdentity{{ID: node, Name: "Node", TokenHash: strings.Repeat("a", 64), CreatedAt: now}}, 100).WithUsage(state)
-	if s.Version != 12 {
+	if s.Version != Version {
 		t.Fatal("format")
 	}
+	// Keep exercising the historical v12 reader after the current format advances.
+	s.Version = 12
 	if e := s.Validate(); e != nil {
 		t.Fatal(e)
 	}

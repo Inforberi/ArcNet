@@ -12,19 +12,20 @@ import (
 // Protocol is a logical, local listener. Secret fields are deliberately hidden from API serialization.
 // Each protocol has its own listener and cryptographic material.
 type Protocol struct {
-	Kind       string `json:"kind"`
-	Address    string `json:"address"`
-	Port       int    `json:"port"`
-	SNI        string `json:"sni,omitempty"`
-	Target     string `json:"target,omitempty"`
-	PrivateKey string `json:"-"`
-	PublicKey  string `json:"public_key,omitempty"`
-	ShortID    string `json:"short_id,omitempty"`
-	Path       string `json:"path,omitempty"`
-	TLSCert    string `json:"tls_cert,omitempty"`
-	TLSKey     string `json:"-"`
-	ObfsKey    string `json:"-"`
-	Enabled    bool   `json:"enabled"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Kind        string `json:"kind"`
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	SNI         string `json:"sni,omitempty"`
+	Target      string `json:"target,omitempty"`
+	PrivateKey  string `json:"-"`
+	PublicKey   string `json:"public_key,omitempty"`
+	ShortID     string `json:"short_id,omitempty"`
+	Path        string `json:"path,omitempty"`
+	TLSCert     string `json:"tls_cert,omitempty"`
+	TLSKey      string `json:"-"`
+	ObfsKey     string `json:"-"`
+	Enabled     bool   `json:"enabled"`
 }
 
 // ProtocolCredential is per-user access data; the backend never serializes it
@@ -77,7 +78,12 @@ func (s *Store) ListProtocols(ctx context.Context) ([]Protocol, error) {
 			return err
 		}
 		for _, r := range rows {
-			result = append(result, rowProtocol(r))
+			p := rowProtocol(r)
+			p.Fingerprint, err = readFingerprint(tx, p.Kind)
+			if err != nil {
+				return err
+			}
+			result = append(result, p)
 		}
 		return nil
 	})
@@ -94,12 +100,16 @@ func (s *Store) GetProtocol(ctx context.Context, kind string) (Protocol, error) 
 			return ErrNotFound
 		}
 		p = rowProtocol(rows[0])
-		return nil
+		p.Fingerprint, err = readFingerprint(tx, kind)
+		return err
 	})
 	return p, err
 }
 func (s *Store) UpsertProtocol(ctx context.Context, p Protocol) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
+			return err
+		}
 		return tx.Exec(`INSERT INTO protocols(kind,address,port,sni,target,private_key,public_key,short_id,path,tls_cert,tls_key,obfs_key,enabled)
          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(kind) DO UPDATE SET address=excluded.address,port=excluded.port,
          sni=excluded.sni,target=excluded.target,private_key=excluded.private_key,public_key=excluded.public_key,
@@ -108,7 +118,12 @@ func (s *Store) UpsertProtocol(ctx context.Context, p Protocol) error {
 	})
 }
 func (s *Store) DeleteProtocol(ctx context.Context, kind string) error {
-	return s.DB.WithTx(ctx, func(tx *db.Tx) error { return tx.Exec("DELETE FROM protocols WHERE kind=?", kind) })
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveFingerprint(tx, kind, ""); err != nil {
+			return err
+		}
+		return tx.Exec("DELETE FROM protocols WHERE kind=?", kind)
+	})
 }
 func rowCredential(row db.Row) ProtocolCredential {
 	id, _ := strconv.ParseInt(row["user_id"], 10, 64)
@@ -183,6 +198,9 @@ func (s *Store) SaveCredentials(ctx context.Context, items []ProtocolCredential)
 }
 func (s *Store) ReplaceProtocols(ctx context.Context, profiles []Protocol, creds []ProtocolCredential) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveFingerprint(tx, "vless-xhttp", ""); err != nil {
+			return err
+		}
 		if err := tx.Exec("DELETE FROM protocol_credentials"); err != nil {
 			return err
 		}
@@ -190,6 +208,9 @@ func (s *Store) ReplaceProtocols(ctx context.Context, profiles []Protocol, creds
 			return err
 		}
 		for _, p := range profiles {
+			if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
+				return err
+			}
 			if err := tx.Exec("INSERT INTO protocols(kind,address,port,sni,target,private_key,public_key,short_id,path,tls_cert,tls_key,obfs_key,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
 				p.Kind, p.Address, strconv.Itoa(p.Port), p.SNI, p.Target, p.PrivateKey, p.PublicKey, p.ShortID, p.Path, p.TLSCert, p.TLSKey, p.ObfsKey, boolean(p.Enabled)); err != nil {
 				return err
