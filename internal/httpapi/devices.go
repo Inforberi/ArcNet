@@ -93,6 +93,11 @@ func (s *Server) userDeviceLinks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	user, err := s.App.Store.ByID(r.Context(), id)
+	if err != nil {
+		handleErr(w, err)
+		return
+	}
 	links, err := s.App.DeviceLinks(r.Context(), id, r.PathValue("device"))
 	if err != nil {
 		handleErr(w, err)
@@ -114,7 +119,7 @@ func (s *Server) userDeviceLinks(w http.ResponseWriter, r *http.Request) {
 			if err == nil && profile.Enabled && d.WGPrivate != "" {
 				wgURL = s.origin(r) + "/device/" + d.Token + "/wireguard"
 			}
-			respond(w, 200, map[string]any{"url": s.origin(r) + "/device/" + d.Token, "links": links, "link_ids": directLinkIDs(links), "device_id": d.ID, "wireguard_url": wgURL})
+			respond(w, 200, map[string]any{"title": subscriptionTitle(user.Name), "url": s.origin(r) + "/device/" + d.Token, "links": links, "link_ids": directLinkIDs(links), "device_id": d.ID, "wireguard_url": wgURL})
 			return
 		}
 	}
@@ -161,6 +166,12 @@ func (s *Server) deviceSubscription(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	user, userErr := s.App.Store.ByID(r.Context(), id)
+	if userErr != nil {
+		http.NotFound(w, r)
+		return
+	}
+	setSubscriptionTitle(w, user.Name)
 	s.subscriptionUsage(w, r, id)
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }

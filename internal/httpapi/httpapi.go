@@ -678,7 +678,7 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 	if len(links) > 0 {
 		link = links[0]
 	}
-	respond(w, 200, map[string]any{"url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
+	respond(w, 200, map[string]any{"title": subscriptionTitle(user.Name), "url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
 }
 func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -743,6 +743,7 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	setSubscriptionTitle(w, user.Name)
 	s.subscriptionUsage(w, r, user.ID)
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }

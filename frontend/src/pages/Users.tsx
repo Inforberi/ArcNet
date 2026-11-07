@@ -167,7 +167,7 @@ export default function Users() {
       {subscription && subscriptionUser && (
         <Dialog title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>
           <div className="panel-body">
-            <DirectAccess links={subscription.links} ids={subscription.link_ids} subscription={{url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
+            <DirectAccess links={subscription.links} ids={subscription.link_ids} subscription={{title:subscription.title,url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
             <details className="profile-advanced"><summary>Дополнительные форматы</summary>
               <div className="profile-settings">
                 <div className="flex wrap"><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a></div>

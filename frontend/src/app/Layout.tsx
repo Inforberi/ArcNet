@@ -6,6 +6,7 @@ import { api, setCSRF } from '../shared/api';
 import {MonitoringProvider} from '../features/dashboard/Monitoring';
 import { Button } from '../shared/ui';
 import {Icon,type IconName} from '../shared/Icon';
+import Dialog from '../shared/Dialog';
 
 type NavItem = {url:string;label:string;icon:IconName};
 const workspace:NavItem[]=[
@@ -58,6 +59,13 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', onEscape);
   }, [menuOpen]);
 
+  useEffect(()=>{
+    const desktop=window.matchMedia('(min-width:681px)');
+    const closeOnDesktop=()=>{if(desktop.matches)setMenuOpen(false);};
+    desktop.addEventListener('change',closeOnDesktop);
+    return ()=>desktop.removeEventListener('change',closeOnDesktop);
+  },[]);
+
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
     applyTheme(next);
@@ -95,11 +103,13 @@ export default function Layout() {
         </button>
       </div>
       {menuOpen && (
-        <nav id="mobile-navigation" className="mobile-links" aria-label="Мобильная навигация">
-          <div className="nav mobile-workspace"><MenuLinks items={workspace} onNavigate={()=>setMenuOpen(false)}/></div>
-          <div className="nav mobile-system"><MenuLinks items={system} onNavigate={()=>setMenuOpen(false)}/></div>
+        <Dialog title="Меню" className="navigation-drawer" onClose={()=>setMenuOpen(false)}>
+        <nav id="mobile-navigation" className="drawer-navigation" aria-label="Мобильная навигация">
+          <div className="nav drawer-workspace"><MenuLinks items={workspace} onNavigate={()=>setMenuOpen(false)}/></div>
+          <div className="nav drawer-system"><MenuLinks items={system} onNavigate={()=>setMenuOpen(false)}/></div>
           <SessionActions theme={theme} busy={signingOut} onTheme={toggleTheme} onLogout={()=>void logout()}/>
         </nav>
+        </Dialog>
       )}
       <div className="layout">
         <aside className="sidebar">

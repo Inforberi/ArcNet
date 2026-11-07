@@ -7,7 +7,7 @@ import {Advanced,Button,Field,Loading,Notice} from '../../shared/ui';
 
 type Device={id:string;name:string;created_at:number;revoked_at:number;wireguard_address?:string};
 type Reply={items:Device[];managed:boolean;limit:number;version:number;active:number;supported:boolean;runtime_state:string;remote_pending:boolean};
-type Links={url:string;links:string[];link_ids:string[];device_id:string;wireguard_url?:string};
+type Links={title?:string;url:string;links:string[];link_ids:string[];device_id:string;wireguard_url?:string};
 
 export default function DevicesDialog({id,name,onClose}:{id:number;name:string;onClose:()=>void}) {
  const cache=useQueryClient();
@@ -55,7 +55,7 @@ export default function DevicesDialog({id,name,onClose}:{id:number;name:string;o
      {!device.revoked_at&&<div className="flex wrap"><Button disabled={busy} onClick={()=>void showLinks(device)}>Подключить</Button><Button variant="danger" disabled={busy} onClick={()=>{if(window.confirm(`Отозвать доступ «${device.name}»? Его подписка перестанет работать. Завершение VPN-соединений зависит от применения изменения службой.`))void change('DELETE',{},device.id)}}>Отозвать</Button></div>}
     </div>)}</div>
     {links&&<div>
-      <DirectAccess links={links.links} ids={links.link_ids} subscription={{url:links.url,qrURL:`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?format=subscription`}} qrURL={selection=>`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?selection=${encodeURIComponent(selection)}`} onCopy={async value=>{try{await navigator.clipboard.writeText(value);setMessage('Ссылка скопирована')}catch{setError('Скопируйте ссылку вручную')}}} onError={()=>setError('QR недоступен: обновите подключение или скопируйте ссылку.')}/>
+      <DirectAccess links={links.links} ids={links.link_ids} subscription={{title:links.title,url:links.url,qrURL:`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?format=subscription`}} qrURL={selection=>`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?selection=${encodeURIComponent(selection)}`} onCopy={async value=>{try{await navigator.clipboard.writeText(value);setMessage('Ссылка скопирована')}catch{setError('Скопируйте ссылку вручную')}}} onError={()=>setError('QR недоступен: обновите подключение или скопируйте ссылку.')}/>
       {links.wireguard_url&&<a className="button inline-action" href={links.wireguard_url} download>Скачать WireGuard .conf</a>}
     </div>}
     {data.managed&&<Advanced><form onSubmit={e=>{e.preventDefault();const value=Number(limit);if(!Number.isInteger(value)||value<0||value>100){setError('Укажите целое число от 0 до 100');return}if(!window.confirm(`Лимит доступов: ${data.limit||'без ограничения'} → ${value||'без ограничения'}. Уже выданные доступы автоматически не отзываются.`))return;void change('PUT',{limit:value})}}>

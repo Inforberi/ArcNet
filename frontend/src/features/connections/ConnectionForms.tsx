@@ -1,7 +1,7 @@
 import {useState, type FormEvent} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {api, type ProtocolKind, type VPNConfig} from '../../shared/api';
-import {Advanced, Button, Field, Notice} from '../../shared/ui';
+import {Advanced, Badge, Button, Field, Notice} from '../../shared/ui';
 import TargetPicker from '../targets/TargetPicker';
 import type {RecommendationState} from '../targets/model';
 
@@ -11,6 +11,17 @@ export const protocolCatalog: {kind: ProtocolKind; name: string; description: st
  {kind: 'wireguard', name: 'WireGuard', description: 'Туннель UDP, отдельные ключи подключения', port: 51820},
 ];
 type Defaults = {address: string; address_source: string; ports: Record<string, number>};
+export type ConnectionKind='vless-reality'|ProtocolKind;
+export function ProtocolChoice({kind,available,busy,onChange}:{kind:ConnectionKind;available:ConnectionKind[];busy:boolean;onChange:(kind:ConnectionKind)=>void}){
+ const vless=kind.startsWith('vless');
+ const transports=available.filter(value=>value.startsWith('vless'));
+ return <div className="grid gap-4 sm:grid-cols-2 [&_.field]:mb-0">
+  <label className="field"><span>Протокол</span><select aria-label="Протокол" disabled={busy} value={vless?'vless':kind} onChange={e=>{const value=e.target.value;const next=value==='vless'?transports[0]:value as ConnectionKind;if(next)onChange(next);}}>
+   {transports.length>0&&<option value="vless">VLESS</option>}{available.includes('hysteria2')&&<option value="hysteria2">Hysteria2</option>}{available.includes('wireguard')&&<option value="wireguard">WireGuard</option>}
+  </select><small>Способ подключения VPN-приложения к серверу</small></label>
+  {vless?<label className="field"><span>Транспорт</span><select aria-label="Транспорт" disabled={busy} value={kind} onChange={e=>onChange(e.target.value as ConnectionKind)}>{transports.map(value=><option key={value} value={value}>{value==='vless-reality'?'TCP':'XHTTP'}</option>)}</select><small>Передача данных · защита <Badge>REALITY</Badge></small></label>:<div className="grid content-center gap-1 text-sm"><strong>{kind==='hysteria2'?'QUIC / UDP · TLS':'UDP · ключи WireGuard'}</strong><span className="muted">Транспорт и защита определяются протоколом</span></div>}
+ </div>;
+}
 export type RealityInput = {address: string; target: string; port: number};
 export type ProtocolInput = RealityInput & {kind: ProtocolKind; sni: string};
 const useDefaults = () => useQuery({queryKey: ['connection-defaults'], queryFn: () => api<Defaults>('/api/vpn/defaults'), staleTime: 0});
@@ -40,7 +51,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
    <Button type="button" onClick={() => {setAddress(undefined); setPort(undefined); setTarget(undefined);}}>Вернуть автоматические параметры</Button>
   </Advanced>
   {!chosenTarget && <p className="muted">Если подбор не найдёт подходящий SNI, откройте расширенные настройки для повторной проверки или ручного ввода.</p>}
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || !chosenTarget}>{busy?'Применяем…':'Создать подключение'}</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || !chosenTarget}>{busy?'Применяем…':'Создать протокол'}</Button></div>
  </form>;
 }
 
@@ -75,6 +86,6 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
    </>}
    <Button type="button" onClick={() => {setAddress(undefined); setDrafts(all => ({...all, [kind]: {}}));}}>Вернуть автоматические параметры</Button>
   </Advanced>
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>{busy?'Применяем…':'Создать подключение'}</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>{busy?'Применяем…':'Создать протокол'}</Button></div>
  </form>;
 }

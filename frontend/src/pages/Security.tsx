@@ -15,15 +15,16 @@ type MFAStatus={enabled:boolean};
 type MFASetup={secret:string;uri:string;qr_svg_base64:string;expires_in:string};
 export default function Security(){
  const queryClient=useQueryClient();
- const query=useQuery({queryKey:['log-settings'],queryFn:()=>api<LogSettings>('/api/settings/logs')});
- const updateState=useQuery({queryKey:['update-state'],queryFn:()=>api<UpdateState>('/api/system/update')});
+ const [section,setSection]=useState<'account'|'server'|'updates'>('account');
+ const query=useQuery({queryKey:['log-settings'],queryFn:()=>api<LogSettings>('/api/settings/logs'),enabled:section==='server'});
+ const updateState=useQuery({queryKey:['update-state'],queryFn:()=>api<UpdateState>('/api/system/update'),enabled:section==='updates'});
  const [signedFile,setSignedFile]=useState<File|null>(null);
  const [uploading,setUploading]=useState(false);
  const [applying,setApplying]=useState(false);
- const firewall=useQuery({queryKey:['firewall'],queryFn:()=>api<FirewallState>('/api/settings/firewall')});
+ const firewall=useQuery({queryKey:['firewall'],queryFn:()=>api<FirewallState>('/api/settings/firewall'),enabled:section==='server'});
  const firewallMutation=useMutation({mutationFn:(value:{port:number;transport:string;allow:boolean})=>api('/api/settings/firewall','POST',value),onSuccess:()=>queryClient.invalidateQueries({queryKey:['firewall']})});
- const mfa=useQuery({queryKey:['mfa-status'],queryFn:()=>api<MFAStatus>('/api/security/mfa')});
- const journal=useQuery({queryKey:['journal-settings'],queryFn:()=>api<JournalSettings>('/api/settings/journal'),retry:false});
+ const mfa=useQuery({queryKey:['mfa-status'],queryFn:()=>api<MFAStatus>('/api/security/mfa'),enabled:section==='account'});
+ const journal=useQuery({queryKey:['journal-settings'],queryFn:()=>api<JournalSettings>('/api/settings/journal'),retry:false,enabled:section==='server'});
  const [journalLimit,setJournalLimit]=useState<number|null>(null);
  const updateJournal=useMutation({mutationFn:(value:number)=>api('/api/settings/journal','POST',{budget_mb:value}),onSuccess:()=>queryClient.invalidateQueries({queryKey:['journal-settings']})});
  const[limit,setLimit]=useState<number|null>(null);const [service,setService]=useState('xray');const [serviceTail,setServiceTail]=useState<string|null>(null);
@@ -38,12 +39,16 @@ export default function Security(){
  async function disableMFA(e:FormEvent){e.preventDefault();if(!window.confirm('Отключить второй фактор и завершить все административные сессии?'))return;setAuthBusy(true);setError('');try{await api('/api/security/mfa/disable','POST',{password,code});setPassword('');setCode('');await queryClient.invalidateQueries({queryKey:['session']})}catch(err){setError(err instanceof Error?err.message:'Не удалось отключить 2FA')}finally{setAuthBusy(false)}}
  return <>
   <PageHeading title="Настройки" description="Авторизация администратора, HTTPS и журналы панели"/>
-  <AccountSettings/>
+  <nav className="settings-navigation" aria-label="Разделы настроек">
+   {([{id:'account',label:'Аккаунт'},{id:'server',label:'Сервер'},{id:'updates',label:'Обновления'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant={section===item.id?'primary':'default'} disabled={authBusy||uploading||applying||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
+  </nav>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
+  <section aria-label="Аккаунт и безопасность" hidden={section!=='account'}>
+  <AccountSettings/>
   <Panel title="Состояние панели"><div className="panel-body">
    <div className="kv"><span>Соединение</span><span>{location.protocol==='https:'?'HTTPS':'Локальный HTTP'}</span></div>
-   <div className="kv"><span>Сессии</span><span>HttpOnly, SameSite=Strict, CSRF</span></div>
+   <div className="kv"><span>Сессии</span><span>Защищённые серверные сессии</span></div>
    <div className="kv"><span>Защита входа</span><span>Ограничение попыток</span></div>
    <div className="kv"><span>Двухфакторная авторизация</span><span>{mfa.isPending?'Загрузка…':mfa.isError?'Недоступно':mfa.data.enabled?'Включена':'Выключена'}</span></div>
   </div></Panel>
@@ -68,6 +73,8 @@ export default function Security(){
     </form>}
    </>}
   </div></Panel>
+  </section>
+  <section aria-label="Настройки сервера" hidden={section!=='server'}>
   <Panel title="Ограничение файлов журнала Go-панели"><div className="panel-body">
    <p className="muted">По умолчанию 500 МБ. Ротация касается только локальных файлов журнала Go-панели, не Xray и не systemd-journald.</p>
    {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:<>
@@ -118,6 +125,8 @@ export default function Security(){
     })}
    </>}
   </div></Panel>
+  </section>
+  <section aria-label="Обновления ArcNet" hidden={section!=='updates'}>
   <Panel title="Обновление ArcNet"><div className="panel-body">
    <p className="muted">Устанавливаются только архивы с проверенной подписью Ed25519. Один архив может содержать панель и совместимые VPN-движки. В случае ошибки перезапуска предыдущие бинарники восстанавливаются; реальная проверка восстановления служб требуется на VPS.</p>
    {updateState.isPending?<Loading/>:updateState.isError?<Notice>{updateState.error.message}</Notice>:<>
@@ -148,6 +157,6 @@ export default function Security(){
     </div>
    </>}
   </div></Panel>
-  <Notice>Системные операции требуют установки на Linux с systemd. До проверки в реальном окружении не используйте эту сборку на действующем VPN-сервере.</Notice>
+  </section>
  </>;
 }

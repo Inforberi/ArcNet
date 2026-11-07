@@ -301,10 +301,16 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 .session-actions .button:hover{color:var(--text)}
 @media(max-width:680px){
  .mobile-menu-toggle{display:flex;align-items:center;gap:8px}
- .mobile-links{grid-template-columns:1fr;padding:12px;max-height:calc(100dvh - 58px);overflow-y:auto;overscroll-behavior:contain}
- .mobile-links .nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
- .mobile-links .nav a{padding:12px;gap:10px;min-height:44px;font-size:13px}
- .mobile-links .mobile-system{border-top:1px solid var(--stroke);padding-top:12px;margin-top:4px}
- .mobile-links .session-actions{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:4px;padding-top:10px}
 }
 @media(prefers-reduced-motion:reduce){.sidebar .nav a{transition:none}}
+
+/* Mobile navigation is a native modal drawer: focus trap, Escape and explicit close. */
+.navigation-drawer.app-dialog{width:min(320px,calc(100vw - 32px));height:100dvh;min-height:100dvh;max-height:100dvh;margin:0;border-radius:0;border-width:0 1px 0 0;padding:0}
+.navigation-drawer .dialog-heading{padding:16px}
+.drawer-navigation{display:flex;flex-direction:column;min-height:calc(100dvh - 78px);padding:12px}
+.drawer-navigation .nav{display:flex;flex-direction:column;gap:4px}
+.drawer-navigation .nav a{display:flex;align-items:center;gap:12px;min-height:44px;padding:12px;border-radius:10px;color:var(--muted);font-size:14px}
+.drawer-navigation .nav a.active{background:color-mix(in srgb,var(--accent) 15%,var(--surface));color:var(--accent-hover)}
+.drawer-navigation .drawer-system{margin-top:auto;padding-top:24px}
+.settings-navigation{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+@media(max-width:680px){.settings-navigation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.settings-navigation .button{padding:10px 8px;font-size:13px;min-height:44px}}

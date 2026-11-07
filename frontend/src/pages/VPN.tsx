@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {Link} from 'react-router';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {api,ApiError,type VPNConfig,type ProtocolProfile,type ProtocolHealth,type ProtocolKind} from '../shared/api';
-import {RealitySetup,ProtocolSetup,protocolCatalog,type RealityInput,type ProtocolInput} from '../features/connections/ConnectionForms';
+import {RealitySetup,ProtocolSetup,ProtocolChoice,protocolCatalog,type RealityInput,type ProtocolInput} from '../features/connections/ConnectionForms';
 import {ConnectionTable,connectionItems,connectionLabel,type ConnectionItem} from '../features/connections/ConnectionTable';
 import ConnectionEditor,{type ConnectionSettings} from '../features/connections/ConnectionEditor';
 import Dialog from '../shared/Dialog';
@@ -37,7 +37,7 @@ export default function VPN() {
    {health.isError&&<p className="panel-body muted">Состояние служб недоступно. <Button className="small" onClick={()=>void health.refetch()}>Проверить снова</Button></p>}
   </Panel>
   {creating&&vpn.data&&<Dialog title="Новый протокол" busy={create.isPending} onClose={()=>setCreating(false)}>
-   <div className="panel-body"><label className="field"><span>Протокол</span><select aria-label="Протокол" disabled={create.isPending} value={kind} onChange={e=>{setKind(e.target.value as typeof kind);setError('');}}>{available.map(p=><option key={p.kind} value={p.kind}>{p.name}</option>)}</select></label>
+   <div className="panel-body"><ProtocolChoice kind={kind} available={available.map(p=>p.kind)} busy={create.isPending} onChange={value=>{setKind(value);setError('');}}/>
     {error&&<p className="error" role="alert">{error}</p>}
    </div>
    {kind==='vless-reality'?<RealitySetup busy={create.isPending} onSubmit={submit}/>:<ProtocolSetup key={kind} vpn={vpn.data} available={[kind]} busy={create.isPending} onSubmit={submit}/>}
