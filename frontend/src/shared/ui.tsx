@@ -1,4 +1,5 @@
 import type {ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode} from 'react';
+import {Icon} from './Icon';
 export function Button({variant='default',className='',...props}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'default'|'primary'|'danger'|'ghost'}){
   return <button {...props} className={`button ${variant==='default'?'':variant} ${className}`} />;
 }
@@ -14,5 +15,5 @@ export function Empty({children}:{children:ReactNode}){return <div className="em
 export function Notice({children}:{children:ReactNode}){return <div className="notice">{children}</div>}
 export function Loading(){return <div className="empty">Загрузка…</div>}
 export function Advanced({title='Расширенные настройки',children}:{title?:string;children:ReactNode}){
-  return <details className="profile-advanced" onInvalidCapture={event => {event.currentTarget.open = true;}}><summary>{title}</summary><div className="profile-settings">{children}</div></details>;
+  return <details className="profile-advanced" onInvalidCapture={event => {event.currentTarget.open = true;}}><summary><span>{title}</span><Icon name="chevron" className="advanced-chevron"/></summary><div className="profile-settings">{children}</div></details>;
 }

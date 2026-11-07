@@ -1,5 +1,5 @@
 import {useState,type FormEvent} from 'react';
-import Dialog from '../../shared/Dialog';
+import Dialog, {canDismiss} from '../../shared/Dialog';
 import {Advanced,Button,Field} from '../../shared/ui';
 import {connectionLabel,type ConnectionItem} from './ConnectionTable';
 import TargetPicker from '../targets/TargetPicker';
@@ -11,10 +11,10 @@ export default function ConnectionEditor({item,busy,error,onClose,onSubmit}:{ite
  const reality=item.kind.startsWith('vless');
  const changes=[draft.port!==item.port?`Порт: ${item.port} → ${draft.port}`:'',draft.sni!==item.sni?`SNI: ${item.sni} → ${draft.sni}`:'',draft.target!==item.target?`Target: ${item.target} → ${draft.target}`:''].filter(Boolean);
  function submit(event:FormEvent){event.preventDefault();void onSubmit(draft);}
- return <Dialog title={`Настройки · ${connectionLabel(item.kind)}`} onClose={onClose} busy={busy}><form onSubmit={submit}>
+ return <Dialog title={`Настройки · ${connectionLabel(item.kind)}`} onClose={onClose} busy={busy} dirty={changes.length>0}><form onSubmit={submit}>
   <div className="dialog-body [&_.field]:mb-0">
    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
-   <Field label="Адрес сервера" value={item.address} readOnly description="Общий адрес локальных протоколов"/>
+   <Field label="Адрес подключения" value={item.address} readOnly description="Клиент подключается к этому адресу. Это не SNI; адрес общий для протоколов этого сервера."/>
    <Field label={reality?'TCP-порт':'UDP-порт'} type="number" required min={1} max={65535} disabled={busy} value={draft.port} onChange={e=>setDraft(d=>({...d,port:Number(e.target.value)}))}/>
    </div>
    {reality?<><Field label="Домен SNI" required maxLength={253} disabled={busy} value={draft.sni} onChange={e=>{const sni=e.target.value;setDraft(d=>({...d,sni,target:d.target===d.sni?sni:d.target}));}}/>
@@ -26,6 +26,6 @@ export default function ConnectionEditor({item,busy,error,onClose,onSubmit}:{ite
    {changes.length>0&&<section aria-label="Изменения" className="rounded-lg border border-[var(--stroke)] p-4"><strong>Будут изменены</strong><ul className="mt-2 grid gap-1 list-disc pl-5">{changes.map(change=><li key={change} className="break-words">{change}</li>)}</ul><p className="muted mt-3">Применение может кратко прервать соединения. После изменения обновите подписку или импортируйте конфигурацию заново. Ключи и пользователи сохранятся.</p></section>}
    {error&&<p className="error" role="alert">{error}</p>}
   </div>
-  <footer className="dialog-footer"><Button type="button" disabled={busy} onClick={onClose}>Отмена</Button><Button type="submit" variant="primary" disabled={busy||!changes.length}>{busy?'Применяем…':'Применить изменения'}</Button></footer>
+  <footer className="dialog-footer"><Button type="button" disabled={busy} onClick={()=>{if(canDismiss(changes.length>0,busy))onClose();}}>Отмена</Button><Button type="submit" variant="primary" disabled={busy||!changes.length}>{busy?'Применяем…':'Применить изменения'}</Button></footer>
  </form></Dialog>;
 }

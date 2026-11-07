@@ -1,3 +1,7 @@
+## 2026-11-07: базовое управление пользователем
+
+`features/users/UserDetails.tsx` компонует существующие PackageDialog/DevicesDialog; `pages/Users.tsx` — поиск/фильтр/карточка; `shared/Dialog.tsx` — фон и защита изменённых форм; `shared/ui.tsx`/`style.css` — раскрытия. `cmd/arcvpn/main.go` подключает только чтение UFW. [Доказательства](../testing/local-results/stage5-2026-11-07-base-ui.md).
+
 ## 2026-11-07: онлайн-обновления
 
 `internal/updater/catalog.go` — подписанный каталог/загрузка/привилегированная проверка; `internal/httpapi/update.go` — bounded download/cancel/stage/apply; `cmd/arcvpn/journal_helper.go` — typed update dispatch и состояние systemd; `frontend/src/features/settings/UpdateSettings.tsx` — выбор версии и прогресс. `cmd/arcvpn-release` подписывает каталог вне VPS. [Контракт](../features/online-updates.md), [проверки](../testing/local-results/stage5-2026-11-07-online-updates.md).

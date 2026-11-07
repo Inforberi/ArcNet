@@ -40,10 +40,10 @@ func (s *Server) firewallStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	status, err := ops.Firewall(r.Context(), s.App.Core.ControlSocket, "status", ops.FirewallRule{})
 	if err != nil {
-		respond(w, 200, map[string]any{"available": false, "endpoints": ends, "message": "UFW недоступен: требуется systemd root helper"})
+		respond(w, 200, map[string]any{"available": false, "writable": false, "endpoints": ends, "message": "Не удалось прочитать UFW. Проверьте наличие UFW и совместимость системного обработчика; состояние портов неизвестно."})
 		return
 	}
-	respond(w, 200, map[string]any{"available": true, "active": status.Active, "rules": status.Rules, "endpoints": ends, "message": "ArcVPN управляет только собственными UFW-правилами. SSH и глобальные настройки UFW не изменяются."})
+	respond(w, 200, map[string]any{"available": true, "writable": false, "active": status.Active, "rules": status.Rules, "endpoints": ends, "message": "Показаны правила ArcNet. Другие правила и firewall провайдера здесь не проверяются. Изменение правил через панель ожидает проверки безопасного отката."})
 }
 func (s *Server) firewallSave(w http.ResponseWriter, r *http.Request) {
 	var in struct {

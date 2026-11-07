@@ -33,6 +33,7 @@ import (
 	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/httpapi"
 	"github.com/arcvpn/arcvpn/internal/lifecycle"
+	"github.com/arcvpn/arcvpn/internal/ops"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/updater"
 	"github.com/arcvpn/arcvpn/internal/xray"
@@ -525,6 +526,10 @@ func runHelper() error {
 			}
 			if action, ok := updateCommand(line); ok {
 				sendUpdate(conn, action)
+				return
+			}
+			if firewallReadCommand(line) {
+				sendFirewall(conn, "status", ops.FirewallRule{})
 				return
 			}
 			var action, unit string

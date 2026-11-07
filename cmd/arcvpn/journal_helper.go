@@ -123,6 +123,9 @@ func rootOwned(info os.FileInfo) bool {
 
 // sendFirewall only invokes the fixed UFW adapter. It cannot enable/disable UFW
 // or alter arbitrary SSH, administrator or third-party firewall rules.
+// Mutation dispatch stays disabled until isolated-VM rollback acceptance.
+func firewallReadCommand(line string) bool { return line == "firewall status\n" }
+
 func sendFirewall(conn io.Writer, action string, rule ops.FirewallRule) {
 	var result ops.FirewallStatus
 	var err error

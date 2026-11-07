@@ -2,6 +2,17 @@ package main
 
 import "testing"
 
+func TestFirewallReadDispatch(t *testing.T) {
+	if !firewallReadCommand("firewall status\n") {
+		t.Fatal("missing read-only firewall dispatch")
+	}
+	for _, line := range []string{"firewall allow tcp 3443\n", "firewall remove udp 8444\n", "firewall status\nextra", "firewall status", "firewall enable\n"} {
+		if firewallReadCommand(line) {
+			t.Fatal("unexpected firewall operation", line)
+		}
+	}
+}
+
 func TestParseJournalBudget(t *testing.T) {
 	for _, tc := range []struct {
 		line  string

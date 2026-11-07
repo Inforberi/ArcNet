@@ -14,6 +14,7 @@ const shapes={
  logout:<><path d="M9 4H4v16h5m5-13 5 5-5 5m-5-5h10"/></>,
  menu:<path d="M4 6h16M4 12h16M4 18h16"/>,
  close:<path d="m6 6 12 12M6 18 18 6"/>,
+ chevron:<path d="m6 9 6 6 6-6"/>,
 } satisfies Record<string,ReactNode>;
 export type IconName=keyof typeof shapes;
 export function Icon({name,className=''}:{name:IconName;className?:string}){

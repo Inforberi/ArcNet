@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
-import PackageDialog, {UsageSummary} from '../features/users/PackageDialog';
+import {UsageSummary} from '../features/users/PackageDialog';
 import DevicesDialog from '../features/users/DevicesDialog';
 import DirectAccess from '../features/users/DirectAccess';
+import UserDetails from '../features/users/UserDetails';
 import Dialog from '../shared/Dialog';
 import {blockLabel, type UsageReply} from '../features/users/usage';
 import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
@@ -14,9 +15,13 @@ export default function Users() {
   const cache = useQueryClient();
   const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[] }>('/api/users') });
   const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
-  const [packageUser,setPackageUser] = useState<VPNUser | null>(null);
   const [deviceUser,setDeviceUser] = useState<VPNUser | null>(null);
+  const [detailID,setDetailID] = useState<number|null>(null);
+  const [search,setSearch] = useState('');
+  const [filter,setFilter] = useState('all');
   const packages = new Map(usage.data?.items.map(item=>[item.user_id,item]));
+  const visibleUsers=(users.data?.items??[]).filter(user=>(`${user.name} ${user.id}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')))&& (filter==='all'||filter==='enabled'&&user.enabled&&!packages.get(user.id)?.block_reason||filter==='disabled'&&!user.enabled||filter==='blocked'&&!!packages.get(user.id)?.block_reason));
+  const detailUser=users.data?.items.find(user=>user.id===detailID);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -79,22 +84,6 @@ export default function Users() {
     catch (err) { setError(explain(err)); }
   }
 
-  async function toggleUser(u: VPNUser) {
-    setError('');
-    try { await toggle.mutateAsync(u); }
-    catch (err) { setError(explain(err)); }
-  }
-
-  async function deleteUser(u: VPNUser) {
-    if (!window.confirm(`Безвозвратно удалить пользователя «${u.name}» и отозвать его доступ?`)) return;
-    setError('');
-    try {
-      await remove.mutateAsync(u);
-      if (subscriptionUser?.id === u.id) { setSubscription(null); setSubscriptionUser(null); }
-      setMessage('Пользователь удалён');
-    } catch (err) { setError(explain(err)); }
-  }
-
   async function copy(value: string) {
     setError('');
     try { await navigator.clipboard.writeText(value); setMessage('Скопировано в буфер обмена'); }
@@ -132,25 +121,22 @@ export default function Users() {
       {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state)&&<Notice>Изменение ограничений ещё не подтверждено VPN-службой. Проверьте состояние сервера.</Notice>}
       {users.isPending ? <Loading /> : users.isError ? <Notice>{explain(users.error)}</Notice> : (
         <Panel title={`Пользователи · ${users.data.items.length}`}>
+          <div className="users-toolbar"><Field label="Поиск пользователя" type="search" placeholder="Имя или ID" value={search} onChange={event=>setSearch(event.target.value)}/><label className="field"><span>Состояние</span><select value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">Все пользователи</option><option value="enabled">Доступ включён</option><option value="disabled">Отключены</option><option value="blocked">Ограничены пакетом</option></select></label></div>
           <div className="table-scroll">
             {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
-                <thead><tr><th scope="col">Пользователь</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Дата создания</th><th scope="col">Действия</th></tr></thead>
+                <thead><tr><th scope="col">Пользователь</th><th scope="col">Состояние</th><th scope="col">Расход / пакет</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
-                  {users.data.items.map(u => (
+                  {!visibleUsers.length&&<tr><td colSpan={5}><Empty>Ничего не найдено. Измените поиск или фильтр.</Empty></td></tr>}
+                  {visibleUsers.map(u => (
                     <tr key={u.id}>
-                      <td><strong>{u.name}</strong><div className="muted">ID {u.id}</div></td>
+                      <td><Button className="user-name" variant="ghost" onClick={()=>setDetailID(u.id)}>{u.name}</Button><div className="muted">ID {u.id}</div></td>
                       <td><Badge variant={u.enabled && !packages.get(u.id)?.block_reason ? 'green' : 'red'}>{!u.enabled ? 'Отключён' : packages.get(u.id)?.block_reason ? blockLabel[packages.get(u.id)!.block_reason] ?? 'Доступ ограничен' : 'Включён'}</Badge></td>
                       <td><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
-                      <td>{new Date(u.created_at * 1000).toLocaleDateString('ru-RU')}</td>
+                      <td>{packages.has(u.id)?packages.get(u.id)!.expires_at?new Date(packages.get(u.id)!.expires_at*1000).toLocaleDateString('ru-RU'):'Без срока':'Нет данных'}</td>
                       <td><div className="flex wrap">
-                        <Button className="small" onClick={()=>{setSubscription(null);setSubscriptionUser(null);setDeviceUser(u)}}>Устройства</Button>
-                        <Button className="small" disabled={!packages.has(u.id)} onClick={() => setPackageUser(u)}>Пакет / расход</Button>
-                        <Button className="small" disabled={u.devices_managed} title={u.devices_managed?'Подписки доступны в разделе «Устройства»':undefined} onClick={() => void showSubscription(u)}>{u.devices_managed?'Общий ключ отключён':'Подключить'}</Button>
-                        <Button className="small" disabled={toggle.isPending || remove.isPending} onClick={() => void toggleUser(u)}>
-                          {u.enabled ? 'Отключить' : 'Включить'}
-                        </Button>
-                        <Button className="small" variant="danger" disabled={remove.isPending || toggle.isPending} onClick={() => void deleteUser(u)}>Удалить</Button>
+                        <Button className="small" onClick={()=>setDetailID(u.id)}>Управление</Button>
+                        <Button className="small" onClick={()=>{if(u.devices_managed){setSubscription(null);setSubscriptionUser(null);setDeviceUser(u);}else void showSubscription(u);}}>Подключить</Button>
                       </div></td>
                     </tr>
                   ))}
@@ -161,8 +147,8 @@ export default function Users() {
         </Panel>
       )}
 
-      {packageUser && usage.data && packages.get(packageUser.id) && <PackageDialog key={packageUser.id} name={packageUser.name} initial={packages.get(packageUser.id)!} status={usage.data} onClose={()=>setPackageUser(null)}/>}
       {deviceUser && <DevicesDialog id={deviceUser.id} name={deviceUser.name} onClose={()=>setDeviceUser(null)}/>}
+      {detailUser&&<UserDetails key={detailUser.id} user={detailUser} usage={usage.data} account={packages.get(detailUser.id)} onClose={()=>setDetailID(null)} onConnect={()=>{setDetailID(null);void showSubscription(detailUser);}} onToggle={()=>toggle.mutateAsync(detailUser)} onDelete={()=>remove.mutateAsync(detailUser)}/>}
 
       {subscription && subscriptionUser && (
         <Dialog title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>

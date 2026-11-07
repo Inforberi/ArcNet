@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +19,43 @@ import (
 	"github.com/arcvpn/arcvpn/internal/db"
 	"github.com/arcvpn/arcvpn/internal/store"
 )
+
+func TestFirewallReadStatusDoesNotPromisePortReachability(t *testing.T) {
+	s, cookie := monitoringFixture(t)
+	socket := filepath.Join(t.TempDir(), "firewall.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	s.App.Core.ControlSocket = socket
+	command := make(chan string, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		line, _ := bufio.NewReader(conn).ReadString('\n')
+		command <- line
+		_, _ = conn.Write([]byte(`{"active":true,"rules":[{"port":3443,"transport":"tcp"}]}`))
+	}()
+	r := httptest.NewRequest("GET", "https://example.test/api/settings/firewall", nil)
+	r.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	s.Routes().ServeHTTP(w, r)
+	var state struct {
+		Available bool `json:"available"`
+		Active    bool `json:"active"`
+		Writable  bool `json:"writable"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil || w.Code != 200 || !state.Available || !state.Active || state.Writable {
+		t.Fatal("invalid read-only state", w.Code, w.Body.String(), err)
+	}
+	if got := <-command; got != "firewall status\n" {
+		t.Fatal("unexpected privileged operation", got)
+	}
+}
 
 func TestStage3AuthenticatedOperationsFailClosed(t *testing.T) {
 	dir := t.TempDir()

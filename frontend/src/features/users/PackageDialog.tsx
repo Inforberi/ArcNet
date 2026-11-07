@@ -1,6 +1,6 @@
-import {useState, type FormEvent} from 'react';
+import {useState, type FormEvent, type ReactNode} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import Dialog from '../../shared/Dialog';
+import Dialog, {canDismiss} from '../../shared/Dialog';
 import {Advanced, Button, Field, Notice} from '../../shared/ui';
 import {api, ApiError} from '../../shared/api';
 import {quotaBytes, usageGB, type Debit, type UsageReply, type UserPackage} from './usage';
@@ -8,10 +8,9 @@ import {quotaBytes, usageGB, type Debit, type UsageReply, type UserPackage} from
 export function UsageSummary({item, complete}: {item?: UserPackage; complete: boolean}) {
  if (!item?.observed_at) return <span className="muted">Нет данных о расходе</span>;
  const spent = item.upload_bytes + item.download_bytes;
- return <div><strong>{usageGB(spent)}{item.quota_bytes > 0 ? ` из ${usageGB(item.quota_bytes)}` : ' · без лимита'}</strong>
+ return <div className="grid gap-1"><strong>{usageGB(spent)}{item.quota_bytes > 0 ? ` из ${usageGB(item.quota_bytes)}` : ' · без лимита'}</strong>
   {item.quota_bytes > 0 && <small className="muted">{item.incomplete ? 'По учёту осталось' : 'Осталось'} {usageGB(Math.max(0, item.quota_bytes - spent))}</small>}
-  {!complete && <small className="muted">Частичный учёт: локальные Xray, Hysteria2 и WireGuard</small>}
-  {item.incomplete && <small className="muted">Есть разрыв между процессами VPN. Показан только подтверждённый расход.</small>}
+  {(!complete || item.incomplete) && <details className="usage-details"><summary>Учёт неполный</summary><small className="muted">{item.incomplete?'Есть разрыв между процессами VPN. Показан только подтверждённый расход.':'Учёт охватывает не все подключения. Показан подтверждённый расход.'}</small></details>}
  </div>;
 }
 
@@ -21,7 +20,7 @@ function localDate(seconds: number) {
  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export default function PackageDialog({name, initial: initialValue, status, onClose}: {name: string; initial: UserPackage; status: UsageReply; onClose: () => void}) {
+export default function PackageDialog({name, initial: initialValue, status, onClose, navigation}: {name: string; initial: UserPackage; status: UsageReply; onClose: () => void; navigation?: ReactNode}) {
  const cache = useQueryClient();
  const [initial, setInitial] = useState(initialValue);
  const [unlimited, setUnlimited] = useState(initial.quota_bytes === 0);
@@ -60,14 +59,15 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
  const changed = plannedQuota !== initial.quota_bytes || plannedExpiry !== initial.expires_at || reset;
  const quotaLabel = (bytes: number) => bytes === 0 ? 'Без лимита' : usageGB(bytes);
  const expiryLabel = (seconds: number) => seconds ? new Date(seconds * 1000).toLocaleString('ru-RU') : 'Без срока';
- return <Dialog title={`Пакет · ${name}`} onClose={onClose} busy={save.isPending}>
+ return <Dialog title={`Пакет · ${name}`} onClose={onClose} busy={save.isPending} dirty={changed && !message}>
+  {navigation&&<div onClickCapture={event=>{if((event.target as HTMLElement).closest('button[aria-pressed="false"]')&&!canDismiss(changed && !message,save.isPending)){event.preventDefault();event.stopPropagation();}}}>{navigation}</div>}
   <form className="dialog-body" onSubmit={event => void submit(event)}>
    <UsageSummary item={initialValue} complete={status.complete_coverage}/>
    <label className="flex"><input type="checkbox" checked={unlimited} onChange={event => setUnlimited(event.target.checked)}/><span>Без ограничения трафика</span></label>
    {!unlimited && <Field label="Пакет, ГБ" aria-label="Пакет, ГБ" inputMode="decimal" required value={quota} onChange={event => setQuota(event.target.value)} description="1 ГБ = 1 000 000 000 байт. Считаем загрузку и отправку вместе."/>}
    {unavailable && <Notice>Для конечного пакета нужны свежие счётчики и учёт всех выданных подключений. Поддержаны локальные Xray, Hysteria2 и WireGuard; AmneziaWG и ноды не входят в поддержанный учёт.</Notice>}
-   <Advanced>
-    <Field label="Действует до" aria-label="Действует до" type="datetime-local" value={expires} onChange={event => setExpires(event.target.value)} description="Пусто — без срока. Время в часовом поясе вашего браузера."/>
+   <Field label="Действует до" aria-label="Действует до" type="datetime-local" value={expires} onChange={event => setExpires(event.target.value)} description="Пусто — без срока. Время в часовом поясе вашего браузера."/>
+   <Advanced title="Новый период пакета">
     <label className="flex"><input type="checkbox" checked={reset} onChange={event => setReset(event.target.checked)}/><span>Начать новый период и обнулить расход пакета</span></label>
     <small>Перед новым периодом панель получает свежие счётчики. При ошибке расход не сбрасывается. Ключи и ссылки пользователя сохраняются.</small>
    </Advanced>
@@ -80,7 +80,7 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
    {error && <p className="error" role="alert">{error}</p>}
    {conflict && <div><Button type="button" onClick={() => {setInitial(initialValue); setConflict(false); setError('');}}>Обновить версию</Button><p className="muted">Ваши поля сохранятся. Проверьте новый план перед сохранением.</p></div>}
    {message && <Notice>{message}</Notice>}
-   <div className="form-actions"><Button type="button" disabled={save.isPending} onClick={onClose}>Закрыть</Button><Button type="submit" variant="primary" disabled={save.isPending || unavailable || !!message}>Сохранить пакет</Button></div>
+   <div className="form-actions"><Button type="button" disabled={save.isPending} onClick={()=>{if(canDismiss(changed && !message,save.isPending))onClose();}}>Закрыть</Button><Button type="submit" variant="primary" disabled={save.isPending || unavailable || !!message}>Сохранить пакет</Button></div>
   </form>
   <section className="dialog-body" aria-label="Последние списания"><strong>Последние списания</strong>
    {history.isError ? <Notice>{history.error.message}</Notice> : !history.data?.items.length ? <p className="muted">Подтверждённых списаний пока нет.</p> : history.data.items.map(row => <div className="kv" key={`${row.period}/${row.at}`}><span>{new Date(row.at * 1000).toLocaleString('ru-RU')} · период {row.period}</span><span>{usageGB(row.upload_bytes + row.download_bytes)}</span></div>)}

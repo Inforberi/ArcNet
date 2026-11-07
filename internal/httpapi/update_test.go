@@ -20,6 +20,7 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/auth"
 	"github.com/arcvpn/arcvpn/internal/ops"
+	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/updater"
 )
 
@@ -245,6 +246,12 @@ func TestOnlineUpdateBrowserFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = s.App.Store.CreateAdmin(context.Background(), "browser-owner", hash); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.App.Store.InsertUser(context.Background(), store.User{Name: "Browser user", UUID: "11111111-1111-4111-8111-111111111111", Subscription: strings.Repeat("t", 43), Enabled: true, CreatedAt: time.Now().Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.App.Store.SaveReality(context.Background(), store.Reality{Address: "198.51.100.25", Port: 443, Target: "www.example.com", SNI: "www.example.com", Public: strings.Repeat("B", 43), Private: strings.Repeat("A", 43), ShortID: "0123456789abcdef", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.WithWebRoot("../../frontend/dist"); err != nil {

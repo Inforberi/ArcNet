@@ -82,3 +82,7 @@
 ## Локальное восстановление — продолжение 2026-11-05
 
 Реализованы [команды settings/password/session](../ops/local-admin-recovery.md): без чтения старого пароля, default сохраняет активную 2FA, отдельное явное удаление второго фактора, атомарный отзыв сессий и безопасный audit. KDF admission limit и no-store защищают границы нового мониторинга. [Проверки/ограничения](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md); это не приёмка SSH/UFW/systemd или всех настроек сервера.
+
+## Read-only firewall — 2026-11-07
+
+Подключена точная root-команда `firewall status`; неизвестные/изменяющие firewall команды этим dispatch отклоняются. GET `/api/settings/firewall` дополнен `writable:false`; список rules — только exact owned marker ArcVPN, не полная оценка внешней доступности порта. UI не предлагает неработающие команды изменения и позволяет перечитать статус. Full firewall/network changes остаются за isolated VM rollback gate. Схема БД/units/SSH/правила UFW не менялись.

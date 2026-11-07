@@ -1,7 +1,7 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type ReactNode} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '../../shared/api';
-import Dialog from '../../shared/Dialog';
+import Dialog,{canDismiss} from '../../shared/Dialog';
 import DirectAccess from './DirectAccess';
 import {Advanced,Button,Field,Loading,Notice} from '../../shared/ui';
 
@@ -9,7 +9,7 @@ type Device={id:string;name:string;created_at:number;revoked_at:number;wireguard
 type Reply={items:Device[];managed:boolean;limit:number;version:number;active:number;supported:boolean;runtime_state:string;remote_pending:boolean};
 type Links={title?:string;url:string;links:string[];link_ids:string[];device_id:string;wireguard_url?:string};
 
-export default function DevicesDialog({id,name,onClose}:{id:number;name:string;onClose:()=>void}) {
+export default function DevicesDialog({id,name,onClose,navigation}:{id:number;name:string;onClose:()=>void;navigation?:ReactNode}) {
  const cache=useQueryClient();
  const query=useQuery({queryKey:['user-devices',id],queryFn:()=>api<Reply>(`/api/users/${id}/devices`),refetchInterval:q=>q.state.data?.remote_pending?5000:false,refetchIntervalInBackground:false});
  const [deviceName,setDeviceName]=useState('Устройство 1');
@@ -36,7 +36,8 @@ export default function DevicesDialog({id,name,onClose}:{id:number;name:string;o
   catch(e){setError(e instanceof Error?e.message:'Не удалось получить подключения')}
   finally{setBusy(false)}
  }
- return <Dialog title={`Устройства · ${name}`} onClose={onClose} busy={busy}>
+ return <Dialog title={`Устройства · ${name}`} onClose={onClose} busy={busy} dirty={limitDirty}>
+  {navigation&&<div onClickCapture={event=>{if((event.target as HTMLElement).closest('button[aria-pressed="false"]')&&!canDismiss(limitDirty,busy)){event.preventDefault();event.stopPropagation();}}}>{navigation}</div>}
   <div className="dialog-body">
    <p className="muted">Каждому устройству — отдельный доступ. Копию одного ключа нельзя отличить от оригинала: лимит считает выданные доступы.</p>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}

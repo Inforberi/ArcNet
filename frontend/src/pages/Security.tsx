@@ -10,7 +10,7 @@ type LogTail={text:string;available:boolean};
 type JournalSettings={budget_mb:number;scope:string;system_journal_unchanged:boolean};
 type FirewallRule={port:number;transport:'tcp'|'udp'};
 type FirewallEndpoint=FirewallRule&{kind:string;enabled:boolean};
-type FirewallState={available:boolean;active?:boolean;rules?:FirewallRule[];endpoints:FirewallEndpoint[];message:string};
+type FirewallState={available:boolean;writable?:boolean;active?:boolean;rules?:FirewallRule[];endpoints:FirewallEndpoint[];message:string};
 type MFAStatus={enabled:boolean};
 type MFASetup={secret:string;uri:string;qr_svg_base64:string;expires_in:string};
 export default function Security(){
@@ -101,7 +101,7 @@ export default function Security(){
     <Button onClick={async()=>{setError('');try{const v=await api<{text:string}>(`/api/settings/journal/tail?service=${service}`);setServiceTail(v.text)}catch(e){setError(e instanceof Error?e.message:'Журнал недоступен')}}}>Показать журнал</Button>
     {serviceTail!==null&&<pre className="log-view">{serviceTail}</pre>}
    </div></Panel>
-  <Panel title="Firewall: порты VPN"><div className="panel-body">
+  <Panel title="Firewall: порты VPN" actions={<Button disabled={firewall.isFetching} onClick={()=>void firewall.refetch()}>Обновить состояние</Button>}><div className="panel-body">
    <p className="muted">Управляются только правила UFW, созданные ArcNet. Панель не включает UFW и не меняет SSH или сторонние правила. Если UFW выключен, включение выполняется отдельно после проверки доступа по SSH.</p>
    {firewall.isPending?<Loading/>:firewall.isError?<Notice>{firewall.error.message}</Notice>:<>
     <div className="kv"><span>Состояние UFW</span><span>{!firewall.data.available?'Системный обработчик недоступен':firewall.data.active?'Активен':'Выключен'}</span></div>
@@ -110,13 +110,13 @@ export default function Security(){
       const open=(firewall.data.rules??[]).some(rule=>rule.port===endpoint.port&&rule.transport===endpoint.transport);
       return <div key={`${endpoint.kind}-${index}`} className="kv">
        <span>{endpoint.kind} · {endpoint.port}/{endpoint.transport} · {endpoint.enabled?'Включён':'Отключён'}</span>
-       <Button disabled={!firewall.data.available||!firewall.data.active||firewallMutation.isPending||(!open&&!endpoint.enabled)} variant={open?'danger':'primary'} onClick={async()=>{
+       {firewall.data.writable?<Button disabled={!firewall.data.available||!firewall.data.active||firewallMutation.isPending||(!open&&!endpoint.enabled)} variant={open?'danger':'primary'} onClick={async()=>{
         const action=open?'Закрыть':'Открыть';
         if(!window.confirm(`${action} порт ${endpoint.port}/${endpoint.transport} в UFW?`))return;
         setError('');
         try{await firewallMutation.mutateAsync({port:endpoint.port,transport:endpoint.transport,allow:!open})}
         catch(e){setError(e instanceof Error?e.message:'Ошибка UFW')}
-       }}>{open?'Закрыть порт':'Открыть порт'}</Button>
+       }}>{open?'Удалить правило ArcNet':'Добавить правило ArcNet'}</Button>:<span className="muted">{!firewall.data.available?'Состояние неизвестно':open?'Правило ArcNet найдено':'Правило ArcNet не найдено'}</span>}
       </div>
     })}
    </>}
