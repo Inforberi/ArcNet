@@ -31,6 +31,7 @@ bash -n install.sh
 
 echo '[4/5] Embed React and build Linux x86_64 binary'
 mkdir -p dist
+install -m 0644 deploy/update-public.hex dist/update-public.hex
 rm -rf web/react-dist
 trap 'rm -rf "$ROOT/web/react-dist"' EXIT
 cp -a frontend/dist web/react-dist

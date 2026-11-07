@@ -1,3 +1,7 @@
+## 2026-11-07 — A7: выбор версии и загрузка обновления в UI
+
+Подписанный каталог, проверка платформы/версии/размера/hash на HTTP и root границах, сериализация/cancel, явная установка и ожидание фактической версии. Исправлен отсутствовавший update dispatch root helper в A5/A6. Один начальный переход через Termius; затем UI. Только core/UI без миграции БД/units/SSH/UFW. [Контракт](../features/online-updates.md).
+
 ## 2026-11-07 — опубликован A6 для UI update
 
 Подписанный core/UI пакет из 7d7c9b3, полный release pipeline и offline signature/contents PASS. Инструкция загрузки через существующую админку добавлена в install-and-update; A6 bootstrap/build defaults закреплены для новых установок. Изменений серверных данных/units/SSH/UFW не выполнялось. VPS upgrade/rollback ещё требует проверки.

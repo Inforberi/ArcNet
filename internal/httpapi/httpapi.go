@@ -32,6 +32,7 @@ import (
 )
 
 type Server struct {
+	updates              updateManager
 	App                  *app.App
 	log                  *slog.Logger
 	limiter              loginLimiter
@@ -62,7 +63,7 @@ func New(a *app.App, logger *slog.Logger) *Server {
 	if a != nil && a.Store != nil && a.Store.DB != nil {
 		directory = filepath.Dir(a.Store.DB.Path())
 	}
-	return &Server{App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), loginSlots: make(chan struct{}, 1), targetChecker: targetcheck.Checker{Guard: publicnet.New()}, monitoring: newMonitoringHub(), telemetry: metrics.NewSampler(directory)}
+	return &Server{updates: newUpdateManager(), App: a, log: logger, limiter: loginLimiter{attempts: make(map[string]loginAttempt)}, bootstrapSlots: make(chan struct{}, 2), targetSlots: make(chan struct{}, 2), loginSlots: make(chan struct{}, 1), targetChecker: targetcheck.Checker{Guard: publicnet.New()}, monitoring: newMonitoringHub(), telemetry: metrics.NewSampler(directory)}
 }
 
 // WithLogRotator enables per-application log budgeting from the web panel.
@@ -278,6 +279,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/connections/{kind}", s.mustAuth(s.connectionDelete, true))
 	mux.HandleFunc("GET /api/events", s.mustAuth(s.events, false))
 	mux.HandleFunc("GET /api/system/update", s.mustAuth(s.updateStatus, false))
+	mux.HandleFunc("GET /api/system/update/releases", s.mustAuth(s.updateCatalog, false))
+	mux.HandleFunc("POST /api/system/update/download", s.mustAuth(s.updateDownload, true))
+	mux.HandleFunc("POST /api/system/update/download/cancel", s.mustAuth(s.updateCancelDownload, true))
 	mux.HandleFunc("POST /api/system/update/upload", s.mustAuth(s.updateUpload, true))
 	mux.HandleFunc("POST /api/system/update/apply", s.mustAuth(s.updateApply, true))
 	mux.HandleFunc("POST /api/system/update/discard", s.mustAuth(s.updateDiscard, true))

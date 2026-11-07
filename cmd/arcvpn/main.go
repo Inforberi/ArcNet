@@ -134,7 +134,7 @@ func run() error {
 		if os.Geteuid() != 0 {
 			return errors.New("update-execute requires dedicated root-owned systemd unit")
 		}
-		return (updater.Installer{}).Apply(context.Background())
+		return (updater.Installer{CurrentVersion: nodeagent.Version}).Apply(context.Background())
 	case "helper":
 		return runHelper()
 	case "node-helper":
@@ -521,6 +521,10 @@ func runHelper() error {
 			line, err := bufio.NewReader(io.LimitReader(conn, 32)).ReadString('\n')
 			if err != nil {
 				_, _ = conn.Write([]byte("error\n"))
+				return
+			}
+			if action, ok := updateCommand(line); ok {
+				sendUpdate(conn, action)
 				return
 			}
 			var action, unit string

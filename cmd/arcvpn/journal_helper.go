@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/arcvpn/arcvpn/internal/firewall"
+	"github.com/arcvpn/arcvpn/internal/nodeagent"
 	"github.com/arcvpn/arcvpn/internal/ops"
 	"github.com/arcvpn/arcvpn/internal/updater"
 	"io"
@@ -140,20 +141,46 @@ func sendFirewall(conn io.Writer, action string, rule ops.FirewallRule) {
 	_ = json.NewEncoder(conn).Encode(result)
 }
 
+func updateCommand(line string) (string, bool) {
+	switch line {
+	case "update status\n":
+		return "status", true
+	case "update verify\n":
+		return "verify", true
+	case "update apply\n":
+		return "apply", true
+	}
+	return "", false
+}
 func sendUpdate(conn io.Writer, action string) {
 	status := ops.UpdateStatus{}
+	ctx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+	defer stop()
+	output, unitErr := exec.CommandContext(ctx, "/usr/bin/systemctl", "show", "arcvpn-update.service", "-p", "LoadState", "-p", "ActiveState", "-p", "Result", "-p", "ExecMainStartTimestampMonotonic").Output()
+	unit, parseErr := parseUpdateUnit(output)
+	if unitErr != nil || parseErr != nil {
+		_, _ = conn.Write([]byte("error\n"))
+		return
+	}
+	status.Busy = unit.Busy
+	status.Result = unit.Result
+	status.StartedAt = unit.StartedAt
+	if action != "status" && status.Busy {
+		_, _ = conn.Write([]byte("error\n"))
+		return
+	}
 	_, publicErr := updater.ReadPublicKey(updater.PublicKeyFile)
 	status.Trusted = publicErr == nil
 	if action == "status" {
 		_, err := os.Stat(updater.StagedArchive)
 		status.Staged = err == nil
 		if status.Trusted && status.Staged {
-			if manifest, e := (updater.Installer{}).Verify(); e == nil {
+			if manifest, e := (updater.Installer{CurrentVersion: nodeagent.Version}).Verify(); e == nil {
 				status.Version = manifest.Version
 			}
 		}
 	} else {
-		manifest, err := (updater.Installer{}).Verify()
+		manifest, err := (updater.Installer{CurrentVersion: nodeagent.Version}).Verify()
 		if err != nil {
 			_, _ = conn.Write([]byte("error\n"))
 			return
@@ -171,4 +198,27 @@ func sendUpdate(conn io.Writer, action string) {
 		}
 	}
 	_ = json.NewEncoder(conn).Encode(status)
+}
+
+func parseUpdateUnit(output []byte) (ops.UpdateStatus, error) {
+	values := map[string]string{}
+	for _, line := range strings.Split(string(output), "\n") {
+		p := strings.SplitN(line, "=", 2)
+		if len(p) == 2 {
+			values[p[0]] = p[1]
+		}
+	}
+	started, err := strconv.ParseUint(values["ExecMainStartTimestampMonotonic"], 10, 64)
+	if values["LoadState"] != "loaded" || values["Result"] == "" || err != nil {
+		return ops.UpdateStatus{}, errors.New("unknown update unit")
+	}
+	state := ops.UpdateStatus{Result: values["Result"], StartedAt: started}
+	switch values["ActiveState"] {
+	case "active", "activating", "deactivating":
+		state.Busy = true
+		return state, nil
+	case "inactive", "failed":
+		return state, nil
+	}
+	return ops.UpdateStatus{}, errors.New("unknown update state")
 }

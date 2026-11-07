@@ -18,3 +18,23 @@ func TestParseJournalBudget(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateHelperDispatchAndUnitState(t *testing.T) {
+	for _, action := range []string{"status", "verify", "apply"} {
+		if got, ok := updateCommand("update " + action + "\n"); !ok || got != action {
+			t.Fatal("missing update dispatch", action)
+		}
+	}
+	for _, line := range []string{"update apply other\n", "update shell\n", "update apply", "update apply\nextra", "update status \n"} {
+		if _, ok := updateCommand(line); ok {
+			t.Fatal("unexpected helper command", line)
+		}
+	}
+	state, err := parseUpdateUnit([]byte("LoadState=loaded\nActiveState=activating\nResult=success\nExecMainStartTimestampMonotonic=1234\n"))
+	if err != nil || !state.Busy || state.StartedAt != 1234 {
+		t.Fatal("unit state", err)
+	}
+	if _, err = parseUpdateUnit([]byte("LoadState=not-found\nActiveState=inactive\nResult=success\n")); err == nil {
+		t.Fatal("unknown unit accepted")
+	}
+}

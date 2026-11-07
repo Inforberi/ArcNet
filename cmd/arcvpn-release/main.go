@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/arcvpn/arcvpn/internal/releasebundle"
+	"github.com/arcvpn/arcvpn/internal/updater"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 }
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("arcvpn-release: keygen | sign | verify")
+		return errors.New("arcvpn-release: keygen | sign | verify | catalog-sign")
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	if args[0] == "keygen" {
@@ -38,6 +39,31 @@ func run(args []string) error {
 		}
 		fmt.Println("Signing key created outside installer payload; keep private key offline.")
 		return nil
+	}
+	if args[0] == "catalog-sign" {
+		input := flags.String("input", "", "catalog source JSON")
+		keyPath := flags.String("key", "", "offline private key")
+		output := flags.String("output", "", "signed catalog JSON")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *input == "" || *keyPath == "" || *output == "" || flags.NArg() != 0 {
+			return errors.New("catalog-sign requires --input --key --output")
+		}
+		key, err := releasebundle.ReadKey(*keyPath, true)
+		if err != nil {
+			return err
+		}
+		defer clear(key)
+		raw, err := os.ReadFile(*input)
+		if err != nil {
+			return err
+		}
+		signed, err := updater.SignCatalog(raw, key)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(*output, signed, 0644)
 	}
 	if args[0] != "sign" && args[0] != "verify" {
 		return errors.New("unknown release command")

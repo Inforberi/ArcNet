@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-version="${ARCVPN_BUILD_VERSION:-0.7.0-stage5-a6}"
+version="${ARCVPN_BUILD_VERSION:-0.7.0-stage5-a7}"
 [[ "$version" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Invalid release version' >&2;exit 65; }
 revision="$(git rev-parse --verify HEAD)"
 dirty=true

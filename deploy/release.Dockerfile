@@ -11,7 +11,7 @@ COPY --from=go-toolchain /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
 WORKDIR /src
 COPY . .
-ARG ARCVPN_BUILD_VERSION=0.7.0-stage5-a6
+ARG ARCVPN_BUILD_VERSION=0.7.0-stage5-a7
 ARG ARCVPN_SOURCE_REVISION=unknown
 ARG ARCVPN_SOURCE_DIRTY=true
 ENV ARCVPN_BUILD_VERSION=$ARCVPN_BUILD_VERSION

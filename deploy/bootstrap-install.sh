@@ -2,7 +2,7 @@
 # Pinned preview installer. Authenticate this script by its published SHA256 first.
 set -Eeuo pipefail
 umask 077
-RELEASE_VERSION=0.7.0-stage5-a6
+RELEASE_VERSION=0.7.0-stage5-a7
 FILE="arcvpn-$RELEASE_VERSION-linux-amd64.tar.gz"
 BASE="https://github.com/Inforberi/ArcNet/releases/download/v$RELEASE_VERSION"
 VERIFY=0
@@ -88,7 +88,7 @@ with archive.open('rb') as stream:
     hasher = hashlib.sha256()
     for chunk in iter(lambda: stream.read(1048576), b''): hasher.update(chunk)
 require(hasher.hexdigest() == manifest['sha256'], 'Archive hash mismatch')
-allowed = set('dist/arcvpn-linux-amd64 dist/VERSION dist/BUILDINFO.json SOURCE_MANIFEST.sha256 install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/ops/local-service-control.md docs/planning/short-work-blocks.md dist/SHA256SUMS'.split())
+allowed = set('dist/arcvpn-linux-amd64 dist/VERSION dist/BUILDINFO.json SOURCE_MANIFEST.sha256 install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/ops/local-service-control.md docs/planning/short-work-blocks.md dist/SHA256SUMS dist/update-public.hex'.split())
 # Bound decompression including headers/padding before tar parsing.
 raw = pathlib.Path(work, 'payload.tar')
 with gzip.open(archive, 'rb') as src, raw.open('xb') as dst:

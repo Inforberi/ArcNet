@@ -1,3 +1,7 @@
+## 2026-11-07: онлайн-обновления
+
+`internal/updater/catalog.go` — подписанный каталог/загрузка/привилегированная проверка; `internal/httpapi/update.go` — bounded download/cancel/stage/apply; `cmd/arcvpn/journal_helper.go` — typed update dispatch и состояние systemd; `frontend/src/features/settings/UpdateSettings.tsx` — выбор версии и прогресс. `cmd/arcvpn-release` подписывает каталог вне VPS. [Контракт](../features/online-updates.md), [проверки](../testing/local-results/stage5-2026-11-07-online-updates.md).
+
 ## 2026-11-07: управление протоколами и ArcNet navigation
 
 `internal/app/connection_edit.go` — revision/редактирование/валидация/compensation; `internal/httpapi/connection_edit.go` — typed authenticated PUT/DELETE; `internal/store/local_server.go` — disabled REALITY delete/local identity guard. Tests рядом. `frontend/src/features/connections/ConnectionEditor.tsx` + `ConnectionTable.tsx` + `pages/VPN.tsx` — диалоги/таблица; `shared/Icon.tsx`, `app/Layout.tsx`, `shared/Dialog.tsx` — общая навигация/центрирование. [Контракт](../features/first-connection.md#продолжение-управление-протоколами-arcnet), [проверки](../testing/local-results/stage5-2026-11-07-connection-management.md).

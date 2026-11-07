@@ -1,0 +1,15 @@
+{
+  "format": "arcnet-update-catalog-v1",
+  "releases": [
+    {
+      "version": "0.7.0-stage5-a6",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a5",
+      "scope": "core-ui",
+      "file": "update-a6.zip",
+      "size": 4519417,
+      "sha256": "753032258d156d14eb27e8630649e37e0fc576039159ebb5dc9b6619f5dfc937",
+      "notes": "ArcNet: управление протоколами, мобильное меню, настройки и название подписки."
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import {useState, type FormEvent} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {api,uploadSignedUpdate} from '../shared/api';
+import {api} from '../shared/api';
 import AccountSettings from '../features/users/AccountSettings';
+import UpdateSettings from '../features/settings/UpdateSettings';
 import {Button,Field,Loading,Notice,PageHeading,Panel} from '../shared/ui';
 
 type LogSettings={budget_mb:number;used_bytes:number;scope:string;xray_journal_managed:boolean};
@@ -10,17 +11,12 @@ type JournalSettings={budget_mb:number;scope:string;system_journal_unchanged:boo
 type FirewallRule={port:number;transport:'tcp'|'udp'};
 type FirewallEndpoint=FirewallRule&{kind:string;enabled:boolean};
 type FirewallState={available:boolean;active?:boolean;rules?:FirewallRule[];endpoints:FirewallEndpoint[];message:string};
-type UpdateState={available:boolean;trusted:boolean;staged:boolean;version?:string;message?:string};
 type MFAStatus={enabled:boolean};
 type MFASetup={secret:string;uri:string;qr_svg_base64:string;expires_in:string};
 export default function Security(){
  const queryClient=useQueryClient();
  const [section,setSection]=useState<'account'|'server'|'updates'>('account');
  const query=useQuery({queryKey:['log-settings'],queryFn:()=>api<LogSettings>('/api/settings/logs'),enabled:section==='server'});
- const updateState=useQuery({queryKey:['update-state'],queryFn:()=>api<UpdateState>('/api/system/update'),enabled:section==='updates'});
- const [signedFile,setSignedFile]=useState<File|null>(null);
- const [uploading,setUploading]=useState(false);
- const [applying,setApplying]=useState(false);
  const firewall=useQuery({queryKey:['firewall'],queryFn:()=>api<FirewallState>('/api/settings/firewall'),enabled:section==='server'});
  const firewallMutation=useMutation({mutationFn:(value:{port:number;transport:string;allow:boolean})=>api('/api/settings/firewall','POST',value),onSuccess:()=>queryClient.invalidateQueries({queryKey:['firewall']})});
  const mfa=useQuery({queryKey:['mfa-status'],queryFn:()=>api<MFAStatus>('/api/security/mfa'),enabled:section==='account'});
@@ -40,7 +36,7 @@ export default function Security(){
  return <>
   <PageHeading title="Настройки" description="Авторизация администратора, HTTPS и журналы панели"/>
   <nav className="settings-navigation" aria-label="Разделы настроек">
-   {([{id:'account',label:'Аккаунт'},{id:'server',label:'Сервер'},{id:'updates',label:'Обновления'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant={section===item.id?'primary':'default'} disabled={authBusy||uploading||applying||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
+   {([{id:'account',label:'Аккаунт'},{id:'server',label:'Сервер'},{id:'updates',label:'Обновления'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant={section===item.id?'primary':'default'} disabled={authBusy||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
   </nav>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
@@ -127,36 +123,7 @@ export default function Security(){
   </div></Panel>
   </section>
   <section aria-label="Обновления ArcNet" hidden={section!=='updates'}>
-  <Panel title="Обновление ArcNet"><div className="panel-body">
-   <p className="muted">Устанавливаются только архивы с проверенной подписью Ed25519. Один архив может содержать панель и совместимые VPN-движки. В случае ошибки перезапуска предыдущие бинарники восстанавливаются; реальная проверка восстановления служб требуется на VPS.</p>
-   {updateState.isPending?<Loading/>:updateState.isError?<Notice>{updateState.error.message}</Notice>:<>
-    <div className="kv"><span>Системная служба</span><span>{updateState.data.available?'Доступна':'Недоступна локально'}</span></div>
-    <div className="kv"><span>Доверенный ключ релизов</span><span>{updateState.data.trusted?'Настроен':'Не настроен'}</span></div>
-    <div className="kv"><span>Проверенный архив</span><span>{updateState.data.version||'Нет'}</span></div>
-    <label className="field"><span>Подписанный архив обновления (.zip)</span><input type="file" accept=".zip,application/zip" onChange={e=>setSignedFile(e.target.files?.[0]??null)}/></label>
-    <div className="flex wrap">
-     <Button variant="primary" disabled={!updateState.data.available||!updateState.data.trusted||!signedFile||uploading||applying} onClick={async()=>{
-       if(!signedFile)return;setError('');setUploading(true);
-       try{const result=await uploadSignedUpdate(signedFile);setMessage(`Архив версии ${result.version} проверен и готов к применению`);await queryClient.invalidateQueries({queryKey:['update-state']})}
-       catch(e){setError(e instanceof Error?e.message:'Ошибка загрузки обновления')}
-       finally{setUploading(false)}
-     }}>Проверить и загрузить</Button>
-     <Button disabled={!updateState.data.available||!updateState.data.staged||!updateState.data.version||applying} onClick={async()=>{
-       if(!window.confirm('Обновить ArcNet и кратковременно перезапустить панель? При ошибке запуска предыдущая версия будет восстановлена.'))return;
-       setApplying(true);setError('');
-       try{await api('/api/system/update/apply','POST',{confirm:'INSTALL_SIGNED_UPDATE'});setMessage('Запущено обновление. Страница может временно стать недоступной.');}
-       catch(e){setError(e instanceof Error?e.message:'Обновление не запущено')}
-       finally{setApplying(false)}
-     }}>Установить проверенную версию</Button>
-     <Button variant="danger" disabled={!updateState.data.available||!updateState.data.staged||uploading||applying} onClick={async()=>{
-       if(!window.confirm('Удалить подготовленный архив обновления, не устанавливая его?'))return;
-       setError('');
-       try{await api('/api/system/update/discard','POST',{});setSignedFile(null);setMessage('Подготовленный архив удалён');await queryClient.invalidateQueries({queryKey:['update-state']})}
-       catch(e){setError(e instanceof Error?e.message:'Не удалось удалить архив')}
-     }}>Отменить подготовленное обновление</Button>
-    </div>
-   </>}
-  </div></Panel>
+  <UpdateSettings active={section==='updates'}/>
   </section>
  </>;
 }

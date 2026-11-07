@@ -11,10 +11,13 @@ import (
 )
 
 type UpdateStatus struct {
-	Trusted  bool   `json:"trusted"`
-	Staged   bool   `json:"staged"`
-	Version  string `json:"version,omitempty"`
-	Accepted bool   `json:"accepted,omitempty"`
+	StartedAt uint64 `json:"started_at"`
+	Busy      bool   `json:"busy"`
+	Result    string `json:"result"`
+	Trusted   bool   `json:"trusted"`
+	Staged    bool   `json:"staged"`
+	Version   string `json:"version,omitempty"`
+	Accepted  bool   `json:"accepted,omitempty"`
 }
 
 func Update(ctx context.Context, socket, action string) (UpdateStatus, error) {

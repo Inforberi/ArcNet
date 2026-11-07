@@ -2,12 +2,14 @@ package updater
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"syscall"
 	"time"
@@ -28,12 +30,15 @@ func (commandRunner) Run(ctx context.Context, name string, args ...string) error
 }
 
 type Installer struct {
-	Binary       string
-	Staged       string
-	PublicKey    string
-	LockFile     string
-	Runner       Exec
-	Coordination *lifecycle.Guard
+	CurrentVersion string
+	Catalog        string
+	Platform       string
+	Binary         string
+	Staged         string
+	PublicKey      string
+	LockFile       string
+	Runner         Exec
+	Coordination   *lifecycle.Guard
 }
 
 func (i Installer) defaults() Installer {
@@ -45,6 +50,12 @@ func (i Installer) defaults() Installer {
 	}
 	if i.PublicKey == "" {
 		i.PublicKey = PublicKeyFile
+	}
+	if i.Catalog == "" {
+		i.Catalog = filepath.Join(filepath.Dir(i.Staged), "catalog.json")
+	}
+	if i.Platform == "" {
+		i.Platform = runtime.GOOS + "/" + runtime.GOARCH
 	}
 	if i.LockFile == "" {
 		i.LockFile = "/run/arcvpn-update/lock"
@@ -58,24 +69,35 @@ func (i Installer) defaults() Installer {
 // Read through one descriptor and refuse symlinks, special files and oversized
 // archives before allocating memory. The staged path is writable by the
 // unprivileged panel, while this verifier executes as root.
-func readStagedArchive(path string) ([]byte, error) {
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+func readStagedArchive(path string) ([]byte, error) { return readUpdateFile(path, MaxArchive) }
+func readUpdateFile(path string, limit int64) ([]byte, error) {
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, ErrInvalid
 	}
 	f := os.NewFile(uintptr(fd), path)
 	defer f.Close()
 	stat, err := f.Stat()
-	if err != nil || !stat.Mode().IsRegular() || stat.Size() == 0 || stat.Size() > MaxArchive {
+	if err != nil || !stat.Mode().IsRegular() || stat.Size() == 0 || stat.Size() > limit {
 		return nil, ErrInvalid
 	}
-	data, err := io.ReadAll(io.LimitReader(f, MaxArchive+1))
-	if err != nil || len(data) == 0 || len(data) > MaxArchive {
+	data, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil || len(data) == 0 || int64(len(data)) > limit {
 		return nil, ErrInvalid
 	}
 	return data, nil
 }
 
+func (i Installer) verifyPayload(data []byte, key ed25519.PublicKey) (Payload, error) {
+	if i.CurrentVersion == "" {
+		return Verify(data, key)
+	}
+	signed, err := readUpdateFile(i.Catalog, 96<<10)
+	if err != nil {
+		return Payload{}, err
+	}
+	return VerifyPublished(data, signed, key, i.CurrentVersion, i.Platform)
+}
 func (i Installer) Verify() (Manifest, error) {
 	i = i.defaults()
 	pub, err := ReadPublicKey(i.PublicKey)
@@ -86,9 +108,12 @@ func (i Installer) Verify() (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
-	payload, err := Verify(b, pub)
+	payload, err := i.verifyPayload(b, pub)
 	if err != nil {
 		return Manifest{}, err
+	}
+	if i.CurrentVersion != "" && !IsUpgrade(i.CurrentVersion, payload.Manifest.Version) {
+		return Manifest{}, ErrInvalid
 	}
 	return payload.Manifest, nil
 }
@@ -123,9 +148,12 @@ func (i Installer) Apply(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	payload, err := Verify(blob, pub)
+	payload, err := i.verifyPayload(blob, pub)
 	if err != nil {
 		return err
+	}
+	if i.CurrentVersion != "" && !IsUpgrade(i.CurrentVersion, payload.Manifest.Version) {
+		return ErrInvalid
 	}
 	binaryDir := filepath.Dir(i.Binary)
 	data := map[string][]byte{"arcvpn-core": payload.Binary}
@@ -293,6 +321,9 @@ func (i Installer) restartAndCheck(ctx context.Context) error {
 		if err := i.Runner.Run(ctx, "/usr/bin/systemctl", "is-active", "--quiet", "arcvpn-panel.service"); err != nil {
 			return err
 		}
+	}
+	if err := i.Runner.Run(ctx, "/usr/bin/systemctl", "try-restart", "arcvpn-control.service"); err != nil {
+		return err
 	}
 	return nil
 }

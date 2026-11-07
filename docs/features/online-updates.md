@@ -1,0 +1,38 @@
+# Онлайн-обновления ArcNet
+
+Сценарий: «Настройки → Обновления» → проверка версий → выбрать совместимую версию → сервер загружает и проверяет пакет → явное подтверждение установки → проверка возвращения панели и фактической версии. Ручная загрузка ZIP остаётся резервом, но также требует доверенных метаданных релиза. Автоустановка без подтверждения не включается.
+
+## Доверие и совместимость
+
+Фиксированный источник — `https://raw.githubusercontent.com/Inforberi/ArcNet/main/deploy/update-catalog.json`. Это envelope с base64 payload/signature; подпись Ed25519 покрывает `ArcNet update catalog v1\n` + точные байты payload. Ключ — прежний independently pinned `/etc/arcvpn/update-public.hex`; ключ из загруженного пакета/каталога не принимается. В новых installer bundles публичный ключ включён через `deploy/update-public.hex`; приватный ключ никогда не включается в Git/build context/VPS.
+
+Payload `arcnet-update-catalog-v1` содержит не более 32 релизов. У каждого version/platform/minimum_version/scope/file/size/sha256/notes. Сейчас разрешены только опубликованные core/UI пакеты линии `0.7.0-stage5-aN`, N≥5, Linux/amd64, с более новой версией и соблюдённым minimum_version. Старые/текущие, неизвестные платформы, миграции ОС/units/DB и другие scope не предлагаются. Это не полный updater для произвольных будущих релизов.
+
+URL пакета строится сервером только для `Inforberi/ArcNet/releases/download/v{version}/{file}`. Ввод URL из браузера отсутствует. TLS-проверка обязательна, environment proxies не используются, DNS/IP проверяются общим publicnet guard; redirects ограничены HTTPS GitHub/GitHubusercontent, без private/local IP, credentials и произвольных доменов. ZIP проверяется по точному размеру/SHA256, внутренней подписи и manifest version, не содержит дополнительных движков для core-ui scope.
+
+Root verifier повторно проверяет ZIP и подписанный `update/catalog.json`, включая платформу/minimum_version/версию/size/hash и запрет replay/downgrade. Проверка в UI/HTTP не заменяет эту границу. Чтение однофайловое, no-follow/nonblocking, только regular files с ограничением размера. Смена доверия/ключей не выполняется из UI обновления.
+
+## Операция и ошибки
+
+- GET `/api/system/update`: текущая версия процесса, доверие/подготовленный пакет, состояние загрузки/установки и результат службы. GET `/releases` — только подписанные совместимые версии. Все endpoint требуют admin session, изменения — CSRF; ответы состояния no-store.
+- POST `/api/system/update/download` принимает только version из перепроверенного каталога. Возвращает 202, не «установлено». Один bounded background download (до двух минут на операцию), не более двух одновременных запросов каталога; без очереди неограниченного размера. POST `/download/cancel` отменяет ещё не завершённую загрузку. Если подготовка уже зафиксирована, используется отдельная отмена подготовленного пакета.
+- Upload/download/apply/discard сериализованы. Подготовленный хороший пакет не заменяется плохим/новым без явной отмены. Ошибка подписи/каталога не запускает службу. Неподписанные raw diagnostics/ссылки с секретами не показываются.
+- Apply требует подтверждение и ожидаемую версию. Привилегированный allowlist обрабатывает только update status/verify/apply; UID/Unix socket boundary сохранены. Проверяется busy state службы; её monotonic start timestamp связывает результат с новой попыткой, а не предыдущим запуском.
+- UI ждёт реальную текущую версию + завершение службы; переживает краткий restart/reconnect. Ожидание хранит только version/expiration/start receipt в sessionStorage, без credentials, и ограничено тремя минутами. Ошибка/timeout не становится успехом. Установщик сохраняет `.previous` и пытается восстановить бинарники; гарантии отката БД этим не добавлены.
+
+## Первоначальный переход со старого кода
+
+При реализации обнаружено: `sendUpdate` существовал, но не вызывался `runHelper`. Поэтому старый A5/A6 UI updater нельзя считать реально работающим. A7 подключает typed dispatch; после установки и проверки панели обновляется root helper. Для перехода со старой установленной версии нужен один ограниченный initial update через Termius/существующую systemd update unit, затем выбор версий работает в UI. SSH-ключи/3x-ui/данные/схема/units/firewall не меняются. Не запускать installer поверх существующих данных.
+
+## Выпуск каталога сопровождающим
+
+После проверенной сборки, подписи и публикации update ZIP добавить точный version/platform/minimum_version/core-ui scope/file/size/SHA256/краткие notes в `deploy/update-catalog-source.json`. Подписать на доверенном build host существующим offline ключом:
+
+```bash
+arcvpn-release catalog-sign --input deploy/update-catalog-source.json \
+  --key /secure/offline/installer-private.hex --output deploy/update-catalog.json
+```
+
+Пример пути не является ключом из репозитория. Публиковать подписанный каталог только после доступности соответствующего immutable release asset. Metadata разрешает конкретную совместимость: издатель обязан проверить, что релиз действительно не требует иной миграции. Компрометация доверенного издателя/его private key остаётся угрозой; подпись не доказывает безопасность бинарника.
+
+Проверки source/browser с simulated helper отдельно от настоящего systemd/VPS apply/rollback. Реальная серверная приёмка A7 ещё требуется.
