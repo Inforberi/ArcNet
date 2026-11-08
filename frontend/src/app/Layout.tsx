@@ -11,12 +11,13 @@ import Dialog from '../shared/Dialog';
 type NavItem = {url:string;label:string;icon:IconName};
 const workspace:NavItem[]=[
  {url:'/',label:'Обзор',icon:'overview'},
- {url:'/vpn',label:'Протоколы',icon:'protocols'},
+ {url:'/vpn',label:'Подключения',icon:'protocols'},
  {url:'/users',label:'Пользователи',icon:'users'},
  {url:'/nodes',label:'Серверы',icon:'servers'},
  {url:'/routing',label:'Маршруты',icon:'routes'},
 ];
 const system:NavItem[]=[
+ {url:'/versions',label:'Версии ArcNet',icon:'backup'},
  {url:'/events',label:'Журнал',icon:'logs'},
  {url:'/backup',label:'Резервные копии',icon:'backup'},
  {url:'/security',label:'Настройки',icon:'settings'},

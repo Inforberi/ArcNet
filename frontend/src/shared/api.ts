@@ -48,7 +48,9 @@ export interface ConnectionProfile {
   configuration?: string;
 }
 
+export type UserPreferences={version:number;group:string;comment:string;title:string;access_mode:string;direct_kind:string;allowed_kinds:string[]|null};
 export interface VPNUser {
+ preferences?:UserPreferences;
   devices_managed: boolean;
   id: number;
   name: string;

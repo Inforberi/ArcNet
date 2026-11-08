@@ -1,16 +1,16 @@
 import {useState, type FormEvent, type ReactNode} from 'react';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 import Dialog, {canDismiss} from '../../shared/Dialog';
 import {Advanced, Button, Field, Notice} from '../../shared/ui';
 import {api, ApiError} from '../../shared/api';
-import {quotaBytes, usageGB, type Debit, type UsageReply, type UserPackage} from './usage';
+import {quotaBytes, usageGB, usageAmount, type UsageReply, type UserPackage} from './usage';
 
-export function UsageSummary({item, complete}: {item?: UserPackage; complete: boolean}) {
- if (!item?.observed_at) return <span className="muted">Нет данных о расходе</span>;
- const spent = item.upload_bytes + item.download_bytes;
- return <div className="grid gap-1"><strong>{usageGB(spent)}{item.quota_bytes > 0 ? ` из ${usageGB(item.quota_bytes)}` : ' · без лимита'}</strong>
-  {item.quota_bytes > 0 && <small className="muted">{item.incomplete ? 'По учёту осталось' : 'Осталось'} {usageGB(Math.max(0, item.quota_bytes - spent))}</small>}
-  {(!complete || item.incomplete) && <details className="usage-details"><summary>Учёт неполный</summary><small className="muted">{item.incomplete?'Есть разрыв между процессами VPN. Показан только подтверждённый расход.':'Учёт охватывает не все подключения. Показан подтверждённый расход.'}</small></details>}
+export function UsageSummary({item,complete}:{item?:UserPackage;complete:boolean}){
+ if(!item)return <span className="muted">Нет данных</span>;
+ const observed=item.observed_at>0,spent=item.upload_bytes+item.download_bytes;
+ return <div className="usage-summary"><strong title={observed?'Получено и отправлено вместе':'Расход ещё не измерен'}>{observed?usageAmount(spent):'—'}</strong><small className="muted">{item.quota_bytes>0?`Пакет ${usageGB(item.quota_bytes)}`:'Без лимита трафика'}</small>
+ {observed&&item.quota_bytes>0&&<progress value={Math.min(spent,item.quota_bytes)} max={item.quota_bytes} aria-label={`Израсходовано ${usageAmount(spent)} из ${usageGB(item.quota_bytes)}`}/>}
+ {item.quota_bytes>0&&(!complete||item.incomplete)&&<details className="usage-details"><summary>Учёт неполный</summary><small className="muted">{item.incomplete?'Часть расхода после перезапуска не подтверждена.':'Учёт охватывает не все подключения.'}</small></details>}
  </div>;
 }
 
@@ -30,7 +30,6 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
  const [error, setError] = useState('');
  const [message, setMessage] = useState('');
  const [conflict, setConflict] = useState(false);
- const history = useQuery({queryKey: ['user-debits', initial.user_id], queryFn: () => api<{items: Debit[]}>(`/api/users/${initial.user_id}/debits`)});
  const save = useMutation({mutationFn: (input: unknown) => api<{saved: boolean; runtime_state: string}>(`/api/users/${initial.user_id}/package`, 'PUT', input)});
  async function submit(event: FormEvent<HTMLFormElement>) {
   event.preventDefault(); setError(''); setMessage(''); setConflict(false);
@@ -41,7 +40,6 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
   try {
    const reply = await save.mutateAsync({quota_bytes: bytes, expires_at: timestamp, expected_version: initial.version, reset_usage: reset});
    await cache.invalidateQueries({queryKey: ['user-usage']});
-   await cache.invalidateQueries({queryKey: ['user-debits', initial.user_id]});
    if (reply.runtime_state === 'applied') onClose();
    else setMessage('Пакет сохранён. Применение доступа ещё не подтверждено; панель повторит попытку. Закройте окно и проверьте состояние пользователя.');
   } catch (err) {
@@ -75,16 +73,12 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
     <strong>План изменения</strong>
     {plannedQuota !== initial.quota_bytes && <div>Трафик: {quotaLabel(initial.quota_bytes)} → {quotaLabel(plannedQuota)}</div>}
     {plannedExpiry !== initial.expires_at && <div>Срок: {expiryLabel(initial.expires_at)} → {expiryLabel(plannedExpiry)}</div>}
-    {reset && <div>Новый период: расход начнётся с нуля, прежние списания сохранятся.</div>}
+    {reset && <div>Новый период: расход начнётся с нуля, учёт прежнего периода сохранится.</div>}
    </div>}
    {error && <p className="error" role="alert">{error}</p>}
    {conflict && <div><Button type="button" onClick={() => {setInitial(initialValue); setConflict(false); setError('');}}>Обновить версию</Button><p className="muted">Ваши поля сохранятся. Проверьте новый план перед сохранением.</p></div>}
    {message && <Notice>{message}</Notice>}
    <div className="form-actions"><Button type="button" disabled={save.isPending} onClick={()=>{if(canDismiss(changed && !message,save.isPending))onClose();}}>Закрыть</Button><Button type="submit" variant="primary" disabled={save.isPending || unavailable || !!message}>Сохранить пакет</Button></div>
   </form>
-  <section className="dialog-body" aria-label="Последние списания"><strong>Последние списания</strong>
-   {history.isError ? <Notice>{history.error.message}</Notice> : !history.data?.items.length ? <p className="muted">Подтверждённых списаний пока нет.</p> : history.data.items.map(row => <div className="kv" key={`${row.period}/${row.at}`}><span>{new Date(row.at * 1000).toLocaleString('ru-RU')} · период {row.period}</span><span>{usageGB(row.upload_bytes + row.download_bytes)}</span></div>)}
-   <small className="muted">До 60 последних минутных записей локальных Xray/Hysteria2/WireGuard. Это не денежные списания.</small>
-  </section>
  </Dialog>;
 }

@@ -78,20 +78,24 @@ func Delta(previous *Counter, current Counter) (int64, int64, error) {
 }
 
 type Package struct {
-	UserID          int64 `json:"user_id"`
-	QuotaBytes      int64 `json:"quota_bytes"`
-	Upload          int64 `json:"upload_bytes"`
-	Download        int64 `json:"download_bytes"`
-	ExpiresAt       int64 `json:"expires_at"`
-	Period          int64 `json:"period"`
-	PeriodStartedAt int64 `json:"period_started_at"`
-	Version         int64 `json:"version"`
-	ObservedAt      int64 `json:"observed_at"`
-	Incomplete      bool  `json:"incomplete"`
-	NeedsReview     bool  `json:"needs_review"`
+	ResetSchedule   *ResetSchedule `json:"reset_schedule,omitempty"`
+	UserID          int64          `json:"user_id"`
+	QuotaBytes      int64          `json:"quota_bytes"`
+	Upload          int64          `json:"upload_bytes"`
+	Download        int64          `json:"download_bytes"`
+	ExpiresAt       int64          `json:"expires_at"`
+	Period          int64          `json:"period"`
+	PeriodStartedAt int64          `json:"period_started_at"`
+	Version         int64          `json:"version"`
+	ObservedAt      int64          `json:"observed_at"`
+	Incomplete      bool           `json:"incomplete"`
+	NeedsReview     bool           `json:"needs_review"`
 }
 
 func (p Package) Validate() error {
+	if p.ResetSchedule != nil && !p.ResetSchedule.Valid() {
+		return ErrInvalid
+	}
 	if p.UserID < 1 || p.QuotaBytes < 0 || p.QuotaBytes > MaxBytes || p.Upload < 0 || p.Download < 0 || p.Upload > MaxBytes || p.Download > MaxBytes-p.Upload || p.ExpiresAt < 0 || p.ExpiresAt > 253402300799 || p.Period < 1 || p.Period >= MaxBytes || p.PeriodStartedAt < 0 || p.Version < 0 || p.Version >= MaxBytes || p.ObservedAt < 0 {
 		return ErrInvalid
 	}

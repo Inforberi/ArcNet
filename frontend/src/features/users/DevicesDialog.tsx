@@ -12,12 +12,11 @@ type Links={title?:string;url:string;links:string[];link_ids:string[];device_id:
 export default function DevicesDialog({id,name,onClose,navigation}:{id:number;name:string;onClose:()=>void;navigation?:ReactNode}) {
  const cache=useQueryClient();
  const query=useQuery({queryKey:['user-devices',id],queryFn:()=>api<Reply>(`/api/users/${id}/devices`),refetchInterval:q=>q.state.data?.remote_pending?5000:false,refetchIntervalInBackground:false});
- const [deviceName,setDeviceName]=useState('Устройство 1');
  const [limit,setLimit]=useState('0');const [limitDirty,setLimitDirty]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
  const [message,setMessage]=useState('');const [links,setLinks]=useState<Links|null>(null);
  const data=query.data;
  useEffect(()=>{if(data){if(!limitDirty)setLimit(String(data.limit));setLinks(null)}},[data?.version]);
- async function change(method:'POST'|'PUT'|'DELETE',body:object,device?:string) {
+ async function change(method:'PUT'|'DELETE',body:object,device?:string) {
   if(!data)return;setBusy(true);setError('');setMessage('');setLinks(null);
   try {
    const updated=await api<Reply>(`/api/users/${id}/devices${device?`/${device}`:''}`,method,{...body,expected_version:data.version});
@@ -26,7 +25,6 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
    await cache.invalidateQueries({queryKey:['users']});
    await cache.invalidateQueries({queryKey:['user-usage']});
    setMessage(updated.runtime_state==='applied'&&!updated.remote_pending?'Изменение применено.':'Изменение сохранено. Применение VPN-службой ещё не подтверждено.');
-   if(method==='POST'){setDeviceName(`Устройство ${updated.items.length+1}`)}
   }catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить');await query.refetch()}
   finally{setBusy(false)}
  }
@@ -39,27 +37,24 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
  return <Dialog title={`Устройства · ${name}`} onClose={onClose} busy={busy} dirty={limitDirty}>
   {navigation&&<div onClickCapture={event=>{if((event.target as HTMLElement).closest('button[aria-pressed="false"]')&&!canDismiss(limitDirty,busy)){event.preventDefault();event.stopPropagation();}}}>{navigation}</div>}
   <div className="dialog-body">
-   <p className="muted">Каждому устройству — отдельный доступ. Копию одного ключа нельзя отличить от оригинала: лимит считает выданные доступы.</p>
+   <h3 className="section">Устройства и ограничения</h3><p className="muted">Наблюдения активных подключений пока недоступны. Обновление подписки не подтверждает, что устройство подключено к VPN.</p>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}
    {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:data&&<>
     {!data.supported&&<Notice>Поддерживаются локальные Xray/Hysteria2/WireGuard и обновлённые прямые TCP/REALITY-ноды. Для удалённых нод нужны device-capability и отсутствие конечных пакетов или активного каскада.</Notice>}
     {data.managed&&!message&&data.runtime_state!=='applied'&&<Notice>Применение доступа VPN-службой пока не подтверждено. При ошибке панель повторит применение; старые соединения могут продолжать работать.</Notice>}
-    {data.managed?<p>Активных доступов: {data.active} / {data.limit||'без ограничения'}. Общий ключ отключён.</p>:<Notice>При добавлении первого устройства общий ключ и прежняя подписка пользователя будут отключены. Подключите клиентов по новым индивидуальным подпискам.</Notice>}
-    <form onSubmit={e=>{e.preventDefault();if(!data.managed&&!window.confirm('Отключить общий ключ и прежнюю подписку, перейти на отдельные доступы?'))return;void change('POST',{name:deviceName.trim()})}}>
-     <Field label="Имя устройства" value={deviceName} onChange={e=>setDeviceName(e.target.value)} required maxLength={60}/>
-     <Button type="submit" variant="primary" disabled={busy||!data.supported||!deviceName.trim()||(data.limit>0&&data.active>=data.limit)||data.active>=100}>Добавить устройство</Button>
-    </form>
+    {data.managed?<p>Ранее выданных доступов: {data.active} / {data.limit||'без ограничения'}. Общий ключ отключён.</p>:<p className="muted">Используется общий профиль. Число устройств и IP нельзя определить по одному ключу.</p>}
     {data.remote_pending&&<Notice>Удалённые ноды ещё не подтвердили текущие доступы. Выдача новых ссылок заблокирована; отзыв не считается завершённым до применения узлами.</Notice>}
-    <div className="protocol-grid">{data.items.map(device=><div className="protocol-card" key={device.id}>
+    {data.items.length>0&&<Advanced title="Ранее выданные доступы"><div className="protocol-grid">{data.items.map(device=><div className="protocol-card" key={device.id}>
      <strong>{device.name}</strong><p className="muted">{device.revoked_at?'Доступ отозван':`Создан ${new Date(device.created_at*1000).toLocaleDateString('ru-RU')}`}</p>
      {device.wireguard_address&&<p className="muted">WireGuard · {device.wireguard_address}</p>}
      {!device.revoked_at&&<div className="flex wrap"><Button disabled={busy} onClick={()=>void showLinks(device)}>Подключить</Button><Button variant="danger" disabled={busy} onClick={()=>{if(window.confirm(`Отозвать доступ «${device.name}»? Его подписка перестанет работать. Завершение VPN-соединений зависит от применения изменения службой.`))void change('DELETE',{},device.id)}}>Отозвать</Button></div>}
-    </div>)}</div>
+    </div>)}</div></Advanced>}
     {links&&<div>
       <DirectAccess links={links.links} ids={links.link_ids} subscription={{title:links.title,url:links.url,qrURL:`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?format=subscription`}} qrURL={selection=>`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?selection=${encodeURIComponent(selection)}`} onCopy={async value=>{try{await navigator.clipboard.writeText(value);setMessage('Ссылка скопирована')}catch{setError('Скопируйте ссылку вручную')}}} onError={()=>setError('QR недоступен: обновите подключение или скопируйте ссылку.')}/>
       {links.wireguard_url&&<a className="button inline-action" href={links.wireguard_url} download>Скачать WireGuard .conf</a>}
     </div>}
-    {data.managed&&<Advanced><form onSubmit={e=>{e.preventDefault();const value=Number(limit);if(!Number.isInteger(value)||value<0||value>100){setError('Укажите целое число от 0 до 100');return}if(!window.confirm(`Лимит доступов: ${data.limit||'без ограничения'} → ${value||'без ограничения'}. Уже выданные доступы автоматически не отзываются.`))return;void change('PUT',{limit:value})}}>
+    {!data.managed&&<div className="notice"><strong>Лимит одновременных подключений</strong><p>Исполнение ограничения устройств или IP ещё не подключено. Сохранение числа в интерфейсе само по себе не ограничит доступ.</p></div>}
+    {data.managed&&<Advanced title="Лимит ранее выданных доступов"><form onSubmit={e=>{e.preventDefault();const value=Number(limit);if(!Number.isInteger(value)||value<0||value>100){setError('Укажите целое число от 0 до 100');return}if(!window.confirm(`Лимит доступов: ${data.limit||'без ограничения'} → ${value||'без ограничения'}. Уже выданные доступы автоматически не отзываются.`))return;void change('PUT',{limit:value})}}>
      <Field label="Лимит активных доступов" type="number" min={0} max={100} step={1} value={limit} onChange={e=>{setLimit(e.target.value);setLimitDirty(true)}}/><p className="muted">0 — без ограничения тарифа. Технический предел — 100 активных доступов на пользователя.</p>
      <Button type="submit" disabled={busy||!data.supported||Number(limit)===data.limit}>Сохранить лимит</Button>
     </form></Advanced>}

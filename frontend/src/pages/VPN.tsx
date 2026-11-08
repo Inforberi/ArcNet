@@ -30,14 +30,14 @@ export default function VPN() {
  function openCreate(){setKind(available[0]?.kind??'vless-reality');setError('');setCreated(false);setCreating(true);}
  const busy=create.isPending||change.isPending;
  return <>
-  <PageHeading title="Протоколы" description="Настройте протоколы на сервере. Доступ и подписки выдаются в разделе «Пользователи»." actions={<><Link className="button" to="/users">Пользователи</Link>{available.length>0&&<Button variant="primary" disabled={busy||vpn.isPending||profiles.isPending||vpn.isError||profiles.isError} onClick={openCreate}>Добавить протокол</Button>}</>}/>
+  <PageHeading title="Подключения" description="Настройте протоколы на сервере. Доступ и подписки выдаются в разделе «Пользователи»." actions={<><Link className="button" to="/users">Пользователи</Link>{available.length>0&&<Button variant="primary" disabled={busy||vpn.isPending||profiles.isPending||vpn.isError||profiles.isError} onClick={openCreate}>Добавить протокол</Button>}</>}/>
   {created&&<p className="connection-success" role="status">Протокол добавлен. <Link to="/users">Выдать доступ пользователю</Link></p>}
   <Panel title="Протоколы сервера">
    {vpn.isPending||profiles.isPending?<Loading/>:vpn.isError||profiles.isError?<div className="panel-body"><p className="error" role="alert">{vpn.error?.message??profiles.error?.message}</p><Button onClick={()=>void refresh()}>Повторить</Button></div>:<ConnectionTable items={connectionItems(vpn.data!,profiles.data!.items)} health={health.data?.items??[]} busy={busy} onEdit={item=>{setError('');setEditing(item);setCreated(false);}} onToggle={item=>{setError('');setAction({item,remove:false});setCreated(false);}} onRemove={item=>{setError('');setAction({item,remove:true});setCreated(false);}}/>}
    {health.isError&&<p className="panel-body muted">Состояние служб недоступно. <Button className="small" onClick={()=>void health.refetch()}>Проверить снова</Button></p>}
   </Panel>
   {creating&&vpn.data&&<Dialog title="Новый протокол" busy={create.isPending} onClose={()=>setCreating(false)}>
-   <div className="panel-body"><ProtocolChoice kind={kind} available={available.map(p=>p.kind)} busy={create.isPending} onChange={value=>{setKind(value);setError('');}}/>
+   <div className="panel-body"><ProtocolChoice kind={kind} available={available.map(p=>p.kind)} configured={new Set([...configured,...(vpn.data.configured?['vless-reality']:[])])} busy={create.isPending} onChange={value=>{setKind(value);setError('');}}/>
     {error&&<p className="error" role="alert">{error}</p>}
    </div>
    {kind==='vless-reality'?<RealitySetup busy={create.isPending} onSubmit={submit}/>:<ProtocolSetup key={kind} vpn={vpn.data} available={[kind]} busy={create.isPending} onSubmit={submit}/>}

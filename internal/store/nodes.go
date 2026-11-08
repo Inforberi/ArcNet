@@ -43,6 +43,9 @@ func (s *Store) CreateEnrollment(ctx context.Context, name string) (string, erro
 	}
 	now := time.Now().Unix()
 	err = s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := requireUnrestrictedUsers(tx); err != nil {
+			return err
+		}
 		if err := tx.Exec("DELETE FROM node_enrollments WHERE expires < ?", strconv.FormatInt(now, 10)); err != nil {
 			return err
 		}

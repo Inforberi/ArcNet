@@ -9,13 +9,14 @@ export function connectionItems(vpn:VPNConfig,profiles:ProtocolProfile[]):Connec
 }
 export function ConnectionTable({items,health,busy,onEdit,onToggle,onRemove}:{items:ConnectionItem[];health:ProtocolHealth[];busy:boolean;onEdit:(item:ConnectionItem)=>void;onToggle:(item:ConnectionItem)=>void;onRemove:(item:ConnectionItem)=>void}) {
  if(!items.length)return <Empty><h2>Добавьте первый протокол</h2><p>Выберите нужный протокол. Адрес, порт и ключи подготовим автоматически.</p></Empty>;
- return <div className="table-wrap connections-table"><table><thead><tr><th>Протокол</th><th>Адрес</th><th>Состояние службы</th><th>Управление</th></tr></thead><tbody>
+ return <div className="table-wrap connections-table"><table><thead><tr><th>Протокол</th><th>Транспорт</th><th>Адрес</th><th>Состояние службы</th><th>Управление</th></tr></thead><tbody>
   {items.map(item=>{
    const state=health.find(h=>h.kind===item.kind)?.state;
    const active=state==='active',managed=item.kind!=='amneziawg';
    return <tr key={item.kind}>
-    <td data-label="Протокол"><strong>{connectionLabel(item.kind)}</strong>{item.sni&&<small className="connection-meta">SNI: {item.sni}</small>}</td>
-    <td data-label="Адрес"><code>{item.address.includes(':')?`[${item.address}]:${item.port}`:`${item.address}:${item.port}`}</code><small className="connection-meta">{item.kind.startsWith('vless')?'TCP':'UDP'}</small></td>
+    <td data-label="Протокол"><strong>{item.kind.startsWith('vless')?'VLESS + REALITY':connectionLabel(item.kind)}</strong>{item.sni&&<small className="connection-meta">SNI: {item.sni}</small>}</td>
+    <td data-label="Транспорт">{item.kind==='vless-reality'?'TCP / RAW':item.kind==='vless-xhttp'?'XHTTP':item.kind==='hysteria2'?'QUIC / UDP':'UDP'}</td>
+    <td data-label="Адрес"><code>{item.address.includes(':')?`[${item.address}]:${item.port}`:`${item.address}:${item.port}`}</code></td>
     <td data-label="Состояние службы"><Badge variant={!item.enabled?'blue':active?'green':state==='failed'?'red':'blue'}>{!item.enabled?'Отключён':active?'Запущен':state==='failed'?'Ошибка запуска':state==='activating'?'Запускается':state==='inactive'?'Не запущен':state==='unverified'?'Нет проверки':state==='unknown'?'Недоступно':'Проверяется'}</Badge></td>
     <td data-label="Управление"><div className="flex flex-wrap items-center gap-2">
      {managed?<><Button className="small" disabled={busy} onClick={()=>onEdit(item)}>Изменить</Button><Button className="small" disabled={busy} onClick={()=>onToggle(item)}>{item.enabled?'Отключить':'Включить'}</Button>{!item.enabled&&<Button className="small" variant="danger" disabled={busy} onClick={()=>onRemove(item)}>Удалить</Button>}</>:<span className="muted">Сохранённый протокол</span>}

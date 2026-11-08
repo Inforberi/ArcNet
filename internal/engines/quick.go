@@ -253,9 +253,9 @@ func RunQuickTunnel(ctx context.Context, action, kind string) error {
 		}
 	} else {
 		cmd := exec.CommandContext(c, quick, action, target)
-		result, err := cmd.CombinedOutput()
+		err := cmd.Run()
 		if err != nil {
-			return fmt.Errorf("tunnel %s failed: %w: %s", action, err, shortMessage(result))
+			return fmt.Errorf("tunnel %s failed: %w", action, err)
 		}
 		if action == "up" {
 			if err := stampWireGuardEpoch(trustedDir, target); err != nil {
@@ -273,11 +273,4 @@ func RunQuickTunnel(ctx context.Context, action, kind string) error {
 		}
 	}
 	return nil
-}
-
-func shortMessage(b []byte) string {
-	if len(b) > 256 {
-		b = b[:256]
-	}
-	return strings.ReplaceAll(string(b), "\x00", "")
 }

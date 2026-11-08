@@ -1,6 +1,6 @@
 # Дашборд сервера панели и подключённых нод
 
-Актуальное продолжение: [подписка и интервал 5 секунд](../adr/007-live-monitoring-and-simple-connection-forms.md).
+Актуальное продолжение8 ноября: [пакетный polling и пользовательская телеметрия](user-traffic.md). История решения: [подписка и интервал5 секунд](../adr/007-live-monitoring-and-simple-connection-forms.md).
 
 Дата: 2026-11-05. Реализовано в исходниках; [ADR-006](../adr/006-bounded-dashboard-and-local-recovery.md), [локальные результаты](../testing/local-results/stage5-2026-11-05-dashboard-recovery.md). Приёмка реальных VPS/VPN отсутствует.
 
@@ -32,7 +32,7 @@
 - Один lifecycle worker на контроллер: по сохраняемой настройке 5/10/15/30/60 секунд (по умолчанию 5), cache 5 секунд, без collector на вкладку; systemctl-state кешируется на 5 секунд. Resource report нового агента — отдельный цикл по настройке контроллера, не блокируется apply/target checks. Heartbeat отдельно с прежней базой 20 секунд и jitter/backoff. Старые агенты не получают новый cadence автоматически без обновления бинарника.
 - Resource freshness 180 секунд, heartbeat freshness 75 секунд. CPU/network требуют двух подходящих снимков. Никаких target/VPN-проб на каждое открытие дашборда.
 - Один record/minute/node, 120 минут, глобальный cap 32768 строк; rate-limited writes, purge при новом bucket. История не копируется в VPN-state backup и удаляется при замене/отзыве identity. В metrics audit/log не пишется каждое измерение.
-- UI snapshot/fleet — по общей SSE-подписке с coalesced refresh (по умолчанию 5 секунд), резервный опрос при обрыве; история раз в минуту. Скрытая вкладка закрывает подписку и не опрашивает данные. Только выбранный сервер получает history; до 20 карточек за одно раскрытие. Без новой chart library, Redis, Prometheus или Node.js на VPS.
+- UI snapshot/fleet — общий polling без SSE по решению8 ноября (по умолчанию5с, без наложения циклов); история раз в минуту. Скрытая вкладка не опрашивает данные. Только выбранный сервер получает history; до 20 карточек за одно раскрытие. Без новой chart library, Redis, Prometheus или Node.js на VPS.
 - Ошибка записи истории не превращает известные текущие показатели в нули; флаг доступности истории выводится отдельно. Worker завершается до закрытия DB.
 
 Полная долговременная VPN-нагрузка, performance per-user accounting, cgroup-aware dashboard, реальная fleet и bare-VPS systemd/network acceptance ещё не подтверждены. Не считать локальный UI/container benchmark выполнением этих gates.

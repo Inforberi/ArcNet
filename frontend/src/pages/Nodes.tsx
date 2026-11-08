@@ -222,7 +222,7 @@ export default function Nodes(){
         <div className="node-diagram-grid">{filteredNodes.map(node=><article className="node-diagram-card" key={node.id}><h3>{node.name}</h3>{summary(node)}<small className="muted">{node.control.address}:{node.control.port}</small>{actionButtons(node)}</article>)}</div>
       </div>}
     </Panel>
-    <Button onClick={()=>setSniOpen(current=>!current)} aria-expanded={sniOpen}>{sniOpen?'Закрыть проверку SNI':'Проверить SNI с сервера'}</Button>
+    <Button className="node-sni-action" onClick={()=>setSniOpen(current=>!current)} aria-expanded={sniOpen}>{sniOpen?'Закрыть проверку SNI':'Проверить SNI с сервера'}</Button>
     {sniOpen&&<Panel title="Диагностика Reality target/SNI"><div className="panel-body"><label className="field"><span>Сервер для проверки SNI</span><select value={sniNode} onChange={event=>setSniNode(event.target.value)}><option value="local">Сервер панели</option>{nodes.data?.items.map(node=><option key={node.id} value={node.id}>{node.name}</option>)}</select></label><TargetPicker key={sniNode} nodeID={sniNode}/><p className="muted">Диагностика не изменяет SNI действующей ноды и не подтверждает VPN-подключение.</p></div></Panel>}
     {linkNode&&<Panel title="VLESS-ссылки для внешнего тестирования"><div className="panel-body">
       <p className="muted">Административные тестовые ссылки. Наличие подтверждённой ревизии не доказывает доступность VPN извне. Не публикуются в подписках автоматически.</p>

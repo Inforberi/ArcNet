@@ -1,6 +1,8 @@
 import type {ReactNode} from 'react';
 
 const shapes={
+ info:<><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></>,
+ download:<><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></>,
  overview:<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
  protocols:<><rect x="8" y="3" width="8" height="6" rx="1.5"/><path d="M12 9v5M5 14h14M5 14v3m14-3v3"/><rect x="2" y="17" width="6" height="4" rx="1"/><rect x="16" y="17" width="6" height="4" rx="1"/></>,
  users:<><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-17a3 3 0 0 1 0 6m2 5a5 5 0 0 1 3 4v2"/></>,

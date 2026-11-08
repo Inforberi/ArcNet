@@ -250,47 +250,60 @@ func recordCounters(tx *db.Tx, source string, counters []usage.Counter, observed
 	return tx.Exec("DELETE FROM traffic_debits WHERE rowid IN(SELECT rowid FROM traffic_debits ORDER BY bucket DESC LIMIT -1 OFFSET 65536)")
 }
 func (s *Store) SavePackage(ctx context.Context, id, quota, expires, version int64, reset bool) error {
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error { return saveUserPackage(tx, id, quota, expires, version, reset) })
+}
+
+func saveUserPackage(tx *db.Tx, id, quota, expires, version int64, reset bool) error {
+	if err := checkPackageCoverage(tx, quota, expires); err != nil {
+		return err
+	}
 	if quota < 0 || quota > usage.MaxBytes || expires < 0 || expires > 253402300799 || version < 0 || version >= usage.MaxBytes {
 		return usage.ErrInvalid
 	}
-	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		if e := requireNoCascadeLeases(tx); e != nil {
-			return e
+
+	if e := requireNoCascadeLeases(tx); e != nil {
+		return e
+	}
+	items, err := readPackages(tx)
+	if err != nil {
+		return err
+	}
+	p, ok := items[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if p.Version != version {
+		return ErrConflict
+	}
+	p.QuotaBytes = quota
+	p.ExpiresAt = expires
+	p.Version++
+	if reset {
+		p.Upload = 0
+		p.Download = 0
+		p.Period++
+		p.PeriodStartedAt = time.Now().Unix()
+		p.Incomplete = false
+		p.NeedsReview = false
+		if p.ResetSchedule != nil {
+			next, err := p.ResetSchedule.Next(time.Now())
+			if err != nil {
+				return err
+			}
+			p.ResetSchedule.NextAt = next
 		}
-		items, err := readPackages(tx)
-		if err != nil {
-			return err
-		}
-		p, ok := items[id]
-		if !ok {
-			return ErrNotFound
-		}
-		if p.Version != version {
-			return ErrConflict
-		}
-		p.QuotaBytes = quota
-		p.ExpiresAt = expires
-		p.Version++
-		if reset {
-			p.Upload = 0
-			p.Download = 0
-			p.Period++
-			p.PeriodStartedAt = time.Now().Unix()
-			p.Incomplete = false
-			p.NeedsReview = false
-		}
-		if err := savePackage(tx, p); err != nil {
-			return err
-		}
-		action := "user.package.saved"
-		if reset {
-			action = "user.package.reset"
-		}
-		if err := tx.Exec("INSERT INTO events(time,action,details) VALUES(?,?,?)", strconv.FormatInt(time.Now().Unix(), 10), action, "user ID "+strconv.FormatInt(id, 10)); err != nil {
-			return err
-		}
-		return tx.Exec("DELETE FROM events WHERE id NOT IN(SELECT id FROM events ORDER BY id DESC LIMIT 500)")
-	})
+	}
+	if err := savePackage(tx, p); err != nil {
+		return err
+	}
+	action := "user.package.saved"
+	if reset {
+		action = "user.package.reset"
+	}
+	if err := tx.Exec("INSERT INTO events(time,action,details) VALUES(?,?,?)", strconv.FormatInt(time.Now().Unix(), 10), action, "user ID "+strconv.FormatInt(id, 10)); err != nil {
+		return err
+	}
+	return tx.Exec("DELETE FROM events WHERE id NOT IN(SELECT id FROM events ORDER BY id DESC LIMIT 500)")
 }
 func (s *Store) UserAccess(ctx context.Context, id int64) (bool, string, error) {
 	allowed := false
@@ -353,29 +366,31 @@ func (s *Store) Debits(ctx context.Context, id int64) ([]Debit, error) {
 var ErrUsageUnsupported = errors.New("traffic accounting is not available for every configured connection")
 
 func (s *Store) CheckPackageCoverage(ctx context.Context, quota, expires int64) error {
+	return s.DB.Read(ctx, func(tx *db.Tx) error { return checkPackageCoverage(tx, quota, expires) })
+}
+func checkPackageCoverage(tx *db.Tx, quota, expires int64) error {
 	if quota == 0 && expires == 0 {
 		return nil
 	}
-	return s.DB.Read(ctx, func(tx *db.Tx) error {
-		rows, err := tx.Query("SELECT id FROM managed_nodes LIMIT 1")
+	rows, err := tx.Query("SELECT id FROM managed_nodes LIMIT 1")
+	if err != nil {
+		return err
+	}
+	if len(rows) > 0 {
+		return ErrUsageUnsupported
+	}
+	if quota > 0 {
+		rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
 		if err != nil {
 			return err
 		}
 		if len(rows) > 0 {
 			return ErrUsageUnsupported
 		}
-		if quota > 0 {
-			rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
-			if err != nil {
-				return err
-			}
-			if len(rows) > 0 {
-				return ErrUsageUnsupported
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
+
 func (s *Store) HasRestrictedPackages(ctx context.Context, trafficOnly bool) (bool, error) {
 	managed, err := s.HasManagedDevices(ctx)
 	if err != nil || managed {
@@ -386,7 +401,7 @@ func (s *Store) HasRestrictedPackages(ctx context.Context, trafficOnly bool) (bo
 		return false, err
 	}
 	for _, p := range items {
-		if p.QuotaBytes > 0 || (!trafficOnly && p.ExpiresAt > 0) {
+		if p.ResetSchedule != nil || p.QuotaBytes > 0 || (!trafficOnly && p.ExpiresAt > 0) {
 			return true, nil
 		}
 	}

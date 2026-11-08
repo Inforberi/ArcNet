@@ -5,9 +5,9 @@ export const directAccessLabel=(link:string,index:number)=>{
   try{const parsed=new URL(link);const protocol=parsed.protocol==='hysteria2:'||parsed.protocol==='hy2:'?'Hysteria2':parsed.searchParams.get('type')==='xhttp'?'VLESS XHTTP':parsed.protocol==='vless:'?'VLESS REALITY':parsed.protocol.replace(':','').toUpperCase();return `${protocol} · ${parsed.host}`;}
   catch{return `Подключение ${index+1}`;}
 };
-export default function DirectAccess({links,ids,qrURL,onCopy,onError,subscription}:{links:string[];ids:string[];qrURL:(id:string)=>string;onCopy:(link:string)=>void|Promise<void>;onError:()=>void;subscription?:{title?:string;url:string;qrURL:string}}){
-  const [selection,setSelection]=useState(ids[0]??'');
-  const [method,setMethod]=useState<'subscription'|'direct'>(subscription?'subscription':'direct');
+export default function DirectAccess({links,ids,qrURL,onCopy,onError,subscription,preferredMode,preferredKind}:{links:string[];ids:string[];qrURL:(id:string)=>string;onCopy:(link:string)=>void|Promise<void>;onError:()=>void;preferredMode?:string;preferredKind?:string;subscription?:{title?:string;url:string;qrURL:string}}){
+  const [selection,setSelection]=useState(()=>{const index=links.findIndex(value=>{try{const url=new URL(value);return preferredKind==='hysteria2'?['hysteria2:','hy2:'].includes(url.protocol):preferredKind?.startsWith('vless')&&url.protocol==='vless:'&&(preferredKind==='vless-xhttp'?url.searchParams.get('type')==='xhttp':url.searchParams.get('type')!=='xhttp')}catch{return false}});return ids[index>=0?index:0]??''});
+  const [method,setMethod]=useState<'subscription'|'direct'>(preferredMode==='direct'?'direct':subscription?'subscription':'direct');
   useEffect(()=>{if(!ids.includes(selection))setSelection(ids[0]??'');},[ids,selection]);
   const index=ids.indexOf(selection),link=index>=0?links[index]:'';
   if(!links.length)return null;

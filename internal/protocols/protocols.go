@@ -256,7 +256,7 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 	}
 	out := make([]Connection, 0, len(profiles)+1)
 	for _, p := range profiles {
-		if !p.Enabled {
+		if !p.Enabled || !user.Allows(p.Kind) {
 			continue
 		}
 		c, ok := creds[p.Kind]

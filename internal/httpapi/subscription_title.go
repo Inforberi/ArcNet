@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/base64"
+	"github.com/arcvpn/arcvpn/internal/store"
 	"net/http"
 	"strings"
 	"unicode"
@@ -27,4 +28,18 @@ func subscriptionTitle(name string) string {
 }
 func setSubscriptionTitle(w http.ResponseWriter, name string) {
 	w.Header().Set("Profile-Title", "base64:"+base64.StdEncoding.EncodeToString([]byte(subscriptionTitle(name))))
+}
+
+func userSubscriptionTitle(u store.User) string {
+	if u.Preferences.Title == "" {
+		return subscriptionTitle(u.Name)
+	}
+	r := []rune(u.Preferences.Title)
+	if len(r) > 25 {
+		r = r[:25]
+	}
+	return string(r)
+}
+func setUserSubscriptionTitle(w http.ResponseWriter, u store.User) {
+	w.Header().Set("Profile-Title", "base64:"+base64.StdEncoding.EncodeToString([]byte(userSubscriptionTitle(u))))
 }

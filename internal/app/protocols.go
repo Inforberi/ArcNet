@@ -25,8 +25,8 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 		return deviceErr
 	}
 	previousEpoch := ""
-	previousHysteriaEpoch, _ := a.collectHysteriaUsage(ctx, users, "")
-	previousWireGuardEpoch, _ := a.collectWireGuardUsage(ctx, users, "")
+	previousHysteriaEpoch, _, _ := a.collectHysteriaUsage(ctx, users, "")
+	previousWireGuardEpoch, _, _ := a.collectWireGuardUsage(ctx, users, "")
 	if counters, at, err := a.Core.Statistics(ctx, users, true); err == nil {
 		if err := a.Store.RecordUsage(ctx, counters, at); err != nil {
 			return err
@@ -99,7 +99,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	}
 	for _, p := range profiles {
 		if p.Kind == protocols.WireGuard && p.Enabled {
-			_, _ = a.collectWireGuardUsage(ctx, users, previousWireGuardEpoch)
+			_, _, _ = a.collectWireGuardUsage(ctx, users, previousWireGuardEpoch)
 			break
 		}
 	}
@@ -109,7 +109,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 			// Type=simple can become active before its HTTP listener is ready.
 			// Bound this observation wait; uncertainty never becomes a fake ACK.
 			for attempt := 0; attempt < 10 && observeCtx.Err() == nil; attempt++ {
-				if _, err := a.collectHysteriaUsage(observeCtx, users, previousHysteriaEpoch); err == nil {
+				if _, _, err := a.collectHysteriaUsage(observeCtx, users, previousHysteriaEpoch); err == nil {
 					break
 				}
 				if a.Engines.SkipRestart {
@@ -418,7 +418,7 @@ func (a *App) SubscriptionLinks(ctx context.Context, u store.User) ([]string, er
 	}
 	links := []string{}
 	// Existing VLESS URI remains stable for backwards compatibility.
-	if r.Enabled {
+	if r.Enabled && u.Allows("vless-reality") {
 		links = append(links, xray.Link(r, u))
 	}
 	extra, err := a.Connections(ctx, u.ID)

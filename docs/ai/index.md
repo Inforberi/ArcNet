@@ -253,3 +253,15 @@ A2: `deploy/release.Dockerfile`, `scripts/build-installer-docker.sh`, `scripts/{
 ## Публичный вход и упаковка
 
 `README.md`, `LICENSE`, `docs/ops/install-and-update.md` — актуальный пользовательский вход, MIT, clean install/signed update и явные ограничения. `docs/planning/short-work-blocks.md` — обязательный процесс коротких задач/достаточных проверок. `scripts/package-release.sh` — явный список artifacts и установочный tar.gz; `tests/release_packaging.sh` — быстрый макет целостности/исключения секретов, не настоящий build/установка. `build-release.sh` по умолчанию 0.7 без обязательной сборки AmneziaWG, installer определяет legacy extras по manifest.
+
+### Пользовательские настройки и local assignments (2026-11-08)
+
+`internal/store/user_preferences.go`, `internal/app/user_preferences.go`, `internal/httpapi/user_preferences.go`, `frontend/src/features/users/UserEditor.tsx` — preferences/CAS/runtime compensation/UI. [Контракт и ограничения](../features/user-preferences.md).
+
+`internal/store/user_editor.go`, `internal/app/user_editor.go`, `internal/httpapi/user_editor.go`, `frontend/src/features/users/BulkUserAccess.tsx` — транзакционный единый редактор и bulk access; [контракт](../features/user-preferences.md#единый-редактор-и-массовый-доступ).
+
+`internal/store/user_batch.go`, `internal/app/user_batch.go`, `internal/httpapi/user_batch.go`, `internal/usage/schedule.go`, `internal/store/user_schedule.go`, `frontend/src/features/users/BulkCreateUsers.tsx`, `frontend/src/features/users/BulkEditUsers.tsx`, `frontend/src/features/users/user-table.ts` — batch/сортировка/CSV и календарные reset; контракты в `docs/features/user-preferences.md`. Scheduler использует RunUsage; нового фонового сервиса нет.
+
+`internal/usage/traffic.go`, `internal/app/user_traffic.go`, `internal/store/user_traffic.go`, `internal/httpapi/user_traffic.go` — bounded cached user telemetry. `frontend/src/features/users/UserTrafficPanel.tsx`, `traffic.ts`, `frontend/src/shared/TrafficChart.tsx`, `traffic-chart.ts` — graph/status composition; `Monitoring.tsx` — layout polling. [Контракт](../features/user-traffic.md).
+
+`frontend/src/features/users/UserToolbar.tsx`, `UserDataStatus.tsx` — компактный поиск/порядок и progressive disclosure статистики; `usage.ts` — presentation access/traffic units; shared DS controls — единая focus граница. [UI полировка](../design/v6-local-implementation.md#полировка-по-скриншоту-8-ноября-1458).

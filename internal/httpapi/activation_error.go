@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/lifecycle"
 	"github.com/arcvpn/arcvpn/internal/xray"
 )
@@ -12,6 +13,7 @@ import (
 func activationFailure(w http.ResponseWriter, err error) {
 	message, code := "Не удалось применить подключение. Откройте диагностику сервера; ключи в сообщении не показываются.", "apply_failed"
 	var operation *xray.OperationError
+	var engine *engines.OperationError
 	switch {
 	case errors.As(err, &operation):
 		code = "xray_" + operation.Stage
@@ -24,6 +26,26 @@ func activationFailure(w http.ResponseWriter, err error) {
 			message = "Xray не запустился. Проверьте свободный порт и состояние службы; предыдущая конфигурация восстановлена."
 		case "rollback":
 			message = "Не удалось запустить Xray и подтвердить откат. Нужна проверка службы на сервере."
+		}
+	case errors.As(err, &engine):
+		name := map[string]string{"wireguard": "WireGuard", "hysteria2": "Hysteria2", "amneziawg": "Служба туннеля"}[engine.Kind]
+		if name == "" {
+			name = "VPN"
+		}
+		code = "engine_" + engine.Kind + "_" + engine.Stage
+		switch engine.Stage {
+		case "runtime":
+			message = name + ": не найден или недоступен установленный движок. Проверьте его установку и права запуска."
+		case "configuration":
+			message = name + ": не удалось подготовить конфигурацию. Проверьте параметры и доступы устройств."
+		case "validation":
+			message = name + ": установленный инструмент отклонил проверку конфигурации. Служба ещё не перезапускалась."
+		case "status":
+			message = name + ": не удалось прочитать состояние службы. Проверьте системный обработчик."
+		case "restart":
+			message = name + ": служба не запустилась. Предыдущие файлы и состояние служб восстановлены."
+		case "rollback":
+			message = name + ": применение завершилось ошибкой, восстановление не подтверждено. Нужна диагностика сервера."
 		}
 	case errors.Is(err, lifecycle.ErrPaused):
 		message, code = "VPN остановлен для обслуживания. Запустите его через sudo arcvpn start.", "runtime_paused"

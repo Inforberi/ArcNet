@@ -13,14 +13,17 @@ export const protocolCatalog: {kind: ProtocolKind; name: string; description: st
 ];
 type Defaults = {address: string; address_source: string; ports: Record<string, number>};
 export type ConnectionKind='vless-reality'|ProtocolKind;
-export function ProtocolChoice({kind,available,busy,onChange}:{kind:ConnectionKind;available:ConnectionKind[];busy:boolean;onChange:(kind:ConnectionKind)=>void}){
+export function ProtocolChoice({kind,available,configured=new Set<string>(),busy,onChange}:{kind:ConnectionKind;available:ConnectionKind[];configured?:ReadonlySet<string>;busy:boolean;onChange:(kind:ConnectionKind)=>void}){
  const vless=kind.startsWith('vless');
  const transports=available.filter(value=>value.startsWith('vless'));
+ const choices:ConnectionKind[]=['vless-reality','vless-xhttp','hysteria2','wireguard'];
+ const visible=choices.filter(value=>available.includes(value)||configured.has(value));
  return <div className="grid gap-4 sm:grid-cols-2 [&_.field]:mb-0">
   <label className="field"><span>Протокол</span><select aria-label="Протокол" disabled={busy} value={vless?'vless':kind} onChange={e=>{const value=e.target.value;const next=value==='vless'?transports[0]:value as ConnectionKind;if(next)onChange(next);}}>
-   {transports.length>0&&<option value="vless">VLESS</option>}{available.includes('hysteria2')&&<option value="hysteria2">Hysteria2</option>}{available.includes('wireguard')&&<option value="wireguard">WireGuard</option>}
+   {visible.some(value=>value.startsWith('vless'))&&<option value="vless" disabled={!transports.length}>VLESS{!transports.length?' — уже создан':''}</option>}{visible.filter(value=>!value.startsWith('vless')).map(value=><option key={value} value={value} disabled={!available.includes(value)}>{value==='hysteria2'?'Hysteria2':'WireGuard'}{configured.has(value)?' — уже создан':''}</option>)}
   </select><small>Способ подключения VPN-приложения к серверу</small></label>
-  {vless?<label className="field"><span>Транспорт</span><select aria-label="Транспорт" disabled={busy} value={kind} onChange={e=>onChange(e.target.value as ConnectionKind)}>{transports.map(value=><option key={value} value={value}>{value==='vless-reality'?'TCP':'XHTTP'}</option>)}</select><small>Передача данных · защита <Badge>REALITY</Badge></small></label>:<div className="grid content-center gap-1 text-sm"><strong>{kind==='hysteria2'?'QUIC / UDP · TLS':'UDP · ключи WireGuard'}</strong><span className="muted">Транспорт и защита определяются протоколом</span></div>}
+  {vless?<label className="field"><span>Транспорт</span><select aria-label="Транспорт" disabled={busy} value={kind} onChange={e=>onChange(e.target.value as ConnectionKind)}>{visible.filter(value=>value.startsWith('vless')).map(value=><option key={value} value={value} disabled={!available.includes(value)}>{value==='vless-reality'?'TCP / RAW':'XHTTP'}{configured.has(value)?' — уже создан':''}</option>)}</select><small>Передача данных · защита <Badge>REALITY</Badge></small></label>:<div className="grid content-center gap-1 text-sm"><strong>{kind==='hysteria2'?'QUIC / UDP · TLS':'UDP · ключи WireGuard'}</strong><span className="muted">Транспорт и защита определяются протоколом</span></div>}
+  {configured.size>0&&<p className="muted sm:col-span-2">Созданные протоколы настраиваются кнопкой «Изменить» в таблице.</p>}
  </div>;
 }
 export type RealityInput = {fingerprint?:string;address: string; target: string; port: number};

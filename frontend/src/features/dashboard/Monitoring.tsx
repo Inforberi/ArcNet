@@ -6,62 +6,31 @@ import {Button, Notice} from '../../shared/ui';
 type Settings = {interval_seconds: number; available_seconds: number[]};
 type Connection = 'connecting' | 'live' | 'reconnecting' | 'paused';
 const MonitoringContext = createContext<{connection: Connection; seconds: number}>({connection: 'connecting', seconds: 5});
-const liveKeys = new Set(['overview', 'server-telemetry', 'nodes', 'node-bootstraps', 'protocol-health', 'events', 'users', 'user-usage', 'user-debits', 'user-devices']);
+const liveKeys = new Set(['overview', 'server-telemetry', 'nodes', 'node-bootstraps', 'protocol-health', 'events', 'users', 'user-usage', 'user-debits', 'user-devices', 'user-traffic']);
 
-// One subscription for the authenticated layout; only mounted queries refetch.
-// A disconnected stream falls back to bounded polling at the same cadence.
+// One polling clock for the authenticated layout; only mounted queries refetch.
 export function MonitoringProvider({children}: {children: ReactNode}) {
  const cache = useQueryClient();
  const settings = useQuery({queryKey: ['monitoring-settings'], queryFn: () => api<Settings>('/api/settings/monitoring')});
  const seconds = settings.data?.interval_seconds ?? 5;
  const [connection, setConnection] = useState<Connection>('connecting');
  useEffect(() => {
-  let source: EventSource | undefined;
-  let live = false;
-  let lastActivity = Date.now();
-  let lastHistory = 0;
-  const refresh = () => {
-   if (document.hidden) return;
-   void cache.invalidateQueries({predicate: query => liveKeys.has(String(query.queryKey[0]))}, {cancelRefetch: false});
-   if (Date.now() - lastHistory >= 60000) {
-    lastHistory = Date.now();
-    void cache.invalidateQueries({queryKey: ['server-history']}, {cancelRefetch: false});
-   }
+  let stopped=false,running=false,lastHistory=0,timer:ReturnType<typeof setTimeout>|undefined;
+  const tick=async()=>{
+   clearTimeout(timer);
+   if(stopped||running)return;
+   if(document.hidden){setConnection('paused');return}
+   if(!navigator.onLine){setConnection('reconnecting');return}
+   running=true;setConnection('live');
+   try{
+    await cache.invalidateQueries({predicate:query=>liveKeys.has(String(query.queryKey[0]))},{cancelRefetch:false});
+    if(Date.now()-lastHistory>=60000){lastHistory=Date.now();await Promise.all([cache.invalidateQueries({queryKey:['server-history']},{cancelRefetch:false}),cache.invalidateQueries({queryKey:['monitoring-settings']},{cancelRefetch:false})])}
+   }finally{running=false;if(!stopped)timer=setTimeout(()=>void tick(),seconds*1000)}
   };
-  const open = () => {
-   source?.close(); source = undefined; live = false;
-   if (document.hidden) {setConnection('paused'); return;}
-   if (!navigator.onLine) {setConnection('reconnecting'); return;}
-   setConnection('connecting');
-   if (typeof EventSource === 'undefined') {setConnection('reconnecting'); return;}
-   source = new EventSource('/api/monitoring/events');
-   source.addEventListener('refresh', event => {
-    try {
-     const message = JSON.parse((event as MessageEvent<string>).data) as {interval_seconds: number};
-     if (![5, 10, 15, 30, 60].includes(message.interval_seconds)) return;
-     cache.setQueryData<Settings>(['monitoring-settings'], old => ({available_seconds: old?.available_seconds ?? [5,10,15,30,60], interval_seconds: message.interval_seconds}));
-     lastActivity = Date.now();
-     live = true; setConnection('live'); refresh();
-    } catch {live = false; setConnection('reconnecting');}
-   });
-   source.addEventListener('keepalive', () => {lastActivity = Date.now();});
-   source.addEventListener('unauthorized', () => {
-    source?.close(); live = false;
-    window.dispatchEvent(new Event('arcvpn:unauthorized'));
-   });
-   source.onerror = () => {live = false; setConnection('reconnecting'); refresh();};
-  };
-  const offline = () => {source?.close(); source = undefined; live = false; setConnection('reconnecting');};
-  open();
-  const timer = window.setInterval(() => {if (!live) refresh();}, seconds * 1000);
-  const watchdog = window.setInterval(() => {
-   if (live && !document.hidden && Date.now() - lastActivity > Math.max(20000, seconds * 2000)) open();
-  }, 1000);
-  document.addEventListener('visibilitychange', open);
-  window.addEventListener('offline', offline);
-  window.addEventListener('online', open);
-  return () => {source?.close(); window.clearInterval(timer); window.clearInterval(watchdog); document.removeEventListener('visibilitychange', open); window.removeEventListener('offline', offline); window.removeEventListener('online', open);};
- }, [cache, seconds]);
+  const resume=()=>void tick();
+  void tick();document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);window.addEventListener('offline',resume);
+  return()=>{stopped=true;clearTimeout(timer);document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);window.removeEventListener('offline',resume)};
+ },[cache,seconds]);
  return <MonitoringContext.Provider value={{connection, seconds}}>{children}</MonitoringContext.Provider>;
 }
 
@@ -73,7 +42,7 @@ export function MonitoringControls() {
   mutationFn: (interval: number) => api<Settings>('/api/settings/monitoring', 'PUT', {interval_seconds: interval}),
   onSuccess: data => {cache.setQueryData(['monitoring-settings'], data); setChoice(null);},
  });
- const label = {connecting: 'Подключаем обновления', live: 'Обновляется автоматически', reconnecting: 'Восстанавливаем подписку · временно опрашиваем сервер', paused: 'Обновления приостановлены в скрытой вкладке'}[connection];
+ const label = {connecting: 'Запускаем опрос сервера', live: 'Обновляется автоматически', reconnecting: 'Нет сети · опрос приостановлен', paused: 'Обновления приостановлены в скрытой вкладке'}[connection];
  return <div className="monitoring-controls">
   <p className="muted" role="status">{label} · каждые {seconds} с</p>
   <details className="profile-advanced"><summary>Расширенные настройки мониторинга</summary><div className="profile-settings">

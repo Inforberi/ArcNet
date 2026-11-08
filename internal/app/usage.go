@@ -12,6 +12,7 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/store"
+	"github.com/arcvpn/arcvpn/internal/usage"
 )
 
 func (a *App) effectiveUsers(ctx context.Context, users []store.User) ([]store.User, error) {
@@ -44,6 +45,7 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var sampled []usage.Counter
 	var xrayErr error
 	profiles, err := a.Store.ListProtocols(ctx)
 	if err != nil {
@@ -61,67 +63,79 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 			xrayErr = err
 		} else {
 			xrayErr = a.Store.RecordUsage(ctx, counters, observed)
+			if xrayErr == nil {
+				sampled = append(sampled, counters...)
+			}
 		}
 	}
 	var hysteriaErr error
 	var wireGuardErr error
 	for _, p := range profiles {
 		if p.Kind == protocols.Hysteria2 && p.Enabled {
-			_, hysteriaErr = a.collectHysteriaUsage(ctx, users, "")
+			var counters []usage.Counter
+			_, counters, hysteriaErr = a.collectHysteriaUsage(ctx, users, "")
+			if hysteriaErr == nil {
+				sampled = append(sampled, counters...)
+			}
 		}
 		if p.Kind == protocols.WireGuard && p.Enabled {
-			_, wireGuardErr = a.collectWireGuardUsage(ctx, users, "")
+			var counters []usage.Counter
+			_, counters, wireGuardErr = a.collectWireGuardUsage(ctx, users, "")
+			if wireGuardErr == nil {
+				sampled = append(sampled, counters...)
+			}
 		}
 	}
+	a.sampleUserTraffic(ctx, users, r, profiles, sampled)
 	return errors.Join(xrayErr, hysteriaErr, wireGuardErr)
 }
 
-func (a *App) collectWireGuardUsage(ctx context.Context, users []store.User, previousEpoch string) (string, error) {
+func (a *App) collectWireGuardUsage(ctx context.Context, users []store.User, previousEpoch string) (string, []usage.Counter, error) {
 	if a.Engines == nil {
-		return "", errors.New("WireGuard engine unavailable")
+		return "", nil, errors.New("WireGuard engine unavailable")
 	}
 	if _, err := os.Stat(filepath.Join(a.Engines.Dir, "arcwg.conf")); err != nil {
-		return "", errors.New("WireGuard configuration unavailable")
+		return "", nil, errors.New("WireGuard configuration unavailable")
 	}
 	creds, err := a.Store.ListProtocolCredentials(ctx)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	counters, at, err := a.Engines.WireGuardStatistics(ctx, users, creds)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := a.Store.RecordEngineUsage(ctx, "wireguard", counters, at, previousEpoch); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(counters) > 0 {
-		return counters[0].Epoch, nil
+		return counters[0].Epoch, counters, nil
 	}
-	return "", nil
+	return "", counters, nil
 }
 
-func (a *App) collectHysteriaUsage(ctx context.Context, users []store.User, previousEpoch string) (string, error) {
+func (a *App) collectHysteriaUsage(ctx context.Context, users []store.User, previousEpoch string) (string, []usage.Counter, error) {
 	if a.Engines == nil {
-		return "", errors.New("Hysteria engine is not configured")
+		return "", nil, errors.New("Hysteria engine is not configured")
 	}
 	if _, err := os.Stat(filepath.Join(a.Engines.Dir, "hysteria.yaml")); err != nil {
-		return "", errors.New("Hysteria configuration unavailable")
+		return "", nil, errors.New("Hysteria configuration unavailable")
 	}
 	credentials, err := a.Store.ListProtocolCredentials(ctx)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	counters, at, err := a.Engines.HysteriaStatistics(ctx, users, credentials)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := a.Store.RecordEngineUsage(ctx, "hysteria", counters, at, previousEpoch); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(counters) > 0 {
-		return counters[0].Epoch, nil
+		return counters[0].Epoch, counters, nil
 	}
-	return "", nil
+	return "", counters, nil
 }
 
 func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
@@ -147,13 +161,22 @@ func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
+	policies := make(map[int64][]string, len(users))
+	for _, u := range users {
+		policies[u.ID] = u.Preferences.AllowedKinds
+	}
 	blob, _ := json.Marshal(struct {
-		Allowed []string
-		Devices any
-	}{allowed, deviceState})
+		Allowed  []string
+		Devices  any
+		Policies any
+	}{allowed, deviceState, policies})
 	digest := sha256.Sum256(blob)
 	key := hex.EncodeToString(digest[:])
-	if !force && key == a.usageApplied {
+	stateBefore, err := a.Store.AccountingState(ctx)
+	if err != nil {
+		return err
+	}
+	if !force && key == a.usageApplied && (stateBefore == "applied" || stateBefore == "unverified") {
 		return nil
 	}
 	if err := a.applyAll(ctx, r, users); err != nil {
@@ -189,6 +212,8 @@ func (a *App) RunUsage(ctx context.Context, report func(error)) {
 		if prepared {
 			if err := a.collectUsageLocked(call); err != nil && ctx.Err() == nil {
 				_ = a.Store.SetAccountingState(call, "source_unavailable")
+			} else if _, err := a.Store.ResetDuePackages(call, time.Now()); err != nil && ctx.Err() == nil {
+				report(errors.New("scheduled package reset unavailable"))
 			}
 			if err := a.reconcilePackagesLocked(call, false); err != nil && ctx.Err() == nil {
 				report(err)

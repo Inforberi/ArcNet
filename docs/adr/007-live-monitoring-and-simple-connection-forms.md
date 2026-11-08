@@ -15,3 +15,7 @@ Hub принадлежит `Server`: максимум 32 stream, один pendin
 Ограничения основного VLESS до дополнительных протоколов, учёт пользовательского пакета, устройства и каскадный runtime остаются отдельной незавершённой работой: [план](../planning/simple-operation-and-user-packages-2026-11-05.md).
 
 Основания: React Query установлен 5.90.1, проверена близкая документация ветки [v5.90.3](https://github.com/TanStack/query/blob/v5.90.3/docs/reference/QueryClient.md); [SSE/EventSource](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events); [Go ResponseController](https://pkg.go.dev/net/http#ResponseController.SetWriteDeadline).
+
+## Уточнение владельца 2026-11-08: UI polling
+
+По прямому требованию собирать/обновлять polling современный UI больше не открывает EventSource. Один layout clock обновляет только активные queries после завершения предыдущего цикла; 5с default, прежняя настройка5/10/15/30/60 сохранена. Hidden/offline останавливают запросы. History/settings перечитываются раз в минуту. Старый серверный SSE endpoint остаётся для совместимости, его безопасность/лимиты не ослаблены. Пользовательская телеметрия получает batch RAM snapshot только текущей страницы/карточки без запуска движков на GET. [Контракт](../features/user-traffic.md). Базовый выбор отдельного коллектора и ограниченной истории сохранён.

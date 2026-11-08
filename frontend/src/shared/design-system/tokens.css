@@ -1,0 +1,28 @@
+:root {
+ color-scheme:dark;
+ --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m5 7 5 5 5-5' stroke='%23b0acbc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+ --bg:#0d0e12;--sidebar:#17181d;--surface:#1d1e24;--surface2:#25262e;--hover:#2b2d37;
+ --stroke:#41434f;--border:var(--stroke);--stroke-soft:#30323c;--field-border:#555765;
+ --text:#f0f0f4;--muted:#b0acbc;--subtle:#9591a3;
+ --accent:#8b3dff;--accent-hover:#a86aff;--accent-text:#d6bcff;--on-accent:#fff;
+ --selected:#30243f;--selected-border:#a776f0;--focus:#cfacff;
+ --green:#9edcba;--green-bg:#203b2d;--red:#ffb0b5;--red-bg:#43272f;--amber:#efd0a1;--amber-bg:#3a3022;
+ --info-bg:#2a2335;--info-text:#d9c7ed;--info-border:#5a496f;
+ --chart-received:#a56bff;--chart-sent:#6daaff;--backdrop:#07070bbc;
+ --shadow-color:#0007;--field-bg:#17171d;--on-field:var(--text);--radius:10px;--shadow:0 18px 64px #0007;
+ --space-page:clamp(1rem,.727rem + 1.165vw,2.125rem);
+ --space-panel:clamp(1rem,.879rem + .518vw,1.5rem);
+ --space-gap:clamp(.75rem,.659rem + .388vw,1.125rem);
+ --type-title:clamp(1.5rem,1.379rem + .518vw,2rem);
+ --type-metric:clamp(1.625rem,1.443rem + .777vw,2.375rem);
+ --control-radius:7px;--control-height:40px;--duration:140ms;
+}
+/* A theme replaces roles, never component selectors. The default remains v6 dark. */
+:root[data-theme="light"] {
+ color-scheme:light;--select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m5 7 5 5 5-5' stroke='%2362566f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--bg:#f5f3f8;--sidebar:#fff;--surface:#fff;--surface2:#efedf4;--hover:#e8e2f0;
+ --stroke:#b4aabd;--stroke-soft:#d9d2df;--field-border:#9b8eaa;--text:#272131;--muted:#62566f;--subtle:#71647d;
+ --accent:#7330ce;--accent-hover:#6426b9;--accent-text:#6023a8;--selected:#eee3fc;--selected-border:#8647cb;--focus:#7236ba;
+ --green:#17613b;--green-bg:#e0f2e7;--red:#9d2537;--red-bg:#fce7eb;--amber:#775018;--amber-bg:#fff1d9;
+ --info-bg:#f0e8fa;--info-text:#51356f;--info-border:#b69bce;--chart-received:#7936c9;--chart-sent:#2568aa;
+ --shadow-color:#30204422;--field-bg:#fff;--shadow:0 18px 64px #30204422;--backdrop:#21152980;
+}

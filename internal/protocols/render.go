@@ -21,7 +21,7 @@ func Render(p store.Protocol, users []store.User, credentials []store.ProtocolCr
 	}
 	live := make(map[int64]bool, len(users))
 	for _, u := range users {
-		live[u.ID] = u.Enabled
+		live[u.ID] = u.Enabled && u.Allows(p.Kind)
 	}
 	creds := make([]store.ProtocolCredential, 0)
 	for _, c := range credentials {

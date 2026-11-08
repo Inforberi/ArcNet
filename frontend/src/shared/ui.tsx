@@ -9,7 +9,7 @@ export function Panel({title,actions,children,...props}:{title:string;actions?:R
 export function Field({label,description,...props}:{label:string;description?:string}&InputHTMLAttributes<HTMLInputElement>){
   return <label className="field"><span>{label}</span><input {...props}/>{description&&<small>{description}</small>}</label>;
 }
-export function Badge({children,variant='blue'}:{children:ReactNode;variant?:'blue'|'red'|'green'}){return <span className={`badge ${variant}`}>{children}</span>}
+export function Badge({children,variant='blue',...props}:HTMLAttributes<HTMLSpanElement>&{variant?:'blue'|'red'|'green'|'neutral'}){return <span {...props} className={`badge ${variant} ${props.className??''}`}>{children}</span>}
 export function PageHeading({title,description,actions}:{title:string;description:string;actions?:ReactNode}){return <header className="top"><div><h1>{title}</h1><p>{description}</p></div>{actions&&<div className="flex">{actions}</div>}</header>}
 export function Empty({children}:{children:ReactNode}){return <div className="empty">{children}</div>}
 export function Notice({children}:{children:ReactNode}){return <div className="notice">{children}</div>}

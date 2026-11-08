@@ -88,7 +88,7 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 	}
 	clients := make([]map[string]any, 0, len(users))
 	for _, u := range users {
-		if !u.Enabled {
+		if !u.Enabled || !u.Allows("vless-reality") {
 			continue
 		}
 		clients = append(clients, userClients(u, false)...)
@@ -141,7 +141,7 @@ func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.
 		}
 		clients := make([]map[string]any, 0, len(users))
 		for _, u := range users {
-			if u.Enabled {
+			if u.Enabled && u.Allows("vless-xhttp") {
 				clients = append(clients, userClients(u, true)...)
 			}
 		}

@@ -59,7 +59,7 @@ func (m Manager) targets(profiles []store.Protocol, users []store.User, credenti
 		}
 		config, err := protocols.Render(p, users, credentials)
 		if err != nil {
-			return nil, err
+			return nil, &OperationError{Kind: p.Kind, Stage: "configuration", Err: err}
 		}
 		if p.Kind == protocols.Hysteria2 {
 			config, err = m.withHysteriaStatistics(config)
@@ -135,11 +135,14 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 	for _, t := range targets {
 		if t.enabled && !m.SkipRestart {
 			if t.validator == "" {
-				return fmt.Errorf("%s engine binary is not configured", t.kind)
+				return &OperationError{Kind: t.kind, Stage: "runtime", Err: errors.New("engine binary not configured")}
 			}
 			info, err := os.Stat(t.validator)
-			if err != nil || !info.Mode().IsRegular() {
-				return fmt.Errorf("%s engine binary missing or invalid: %v", t.kind, err)
+			if err == nil && !info.Mode().IsRegular() {
+				err = errors.New("engine binary is not a regular file")
+			}
+			if err != nil {
+				return &OperationError{Kind: t.kind, Stage: "runtime", Err: err}
 			}
 		}
 		stage := filepath.Join(stageDir, t.filename)
@@ -148,12 +151,12 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 		}
 		if t.enabled && !m.SkipRestart && (t.kind == protocols.WireGuard || t.kind == protocols.AmneziaWG) {
 			validateCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-			_, err := exec.CommandContext(validateCtx, t.validator, "strip", stage).CombinedOutput()
+			err := exec.CommandContext(validateCtx, t.validator, "strip", stage).Run()
 			cancel()
 			if err != nil {
 				// Some validators echo the offending configuration line, including
 				// private keys. Never propagate their stdout/stderr into logs.
-				return fmt.Errorf("%s configuration rejected: %w", t.kind, err)
+				return &OperationError{Kind: t.kind, Stage: "validation", Err: err}
 			}
 		}
 	}
@@ -163,7 +166,7 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 		for _, t := range all {
 			active, err := m.serviceActive(ctx, t.command)
 			if err != nil {
-				return fmt.Errorf("cannot determine previous state of %s: %w", t.kind, err)
+				return &OperationError{Kind: t.kind, Stage: "status", Err: err}
 			}
 			v := prior[t.kind]
 			v.active = active
@@ -196,7 +199,7 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 				applyErr = m.control(ctx, "stop", t.command)
 			}
 			if applyErr != nil {
-				applyErr = fmt.Errorf("service %s: %w", t.kind, applyErr)
+				applyErr = &OperationError{Kind: t.kind, Stage: "restart", Err: applyErr}
 				break
 			}
 		}
@@ -225,7 +228,12 @@ func (m Manager) Apply(ctx context.Context, profiles []store.Protocol, users []s
 		}
 	}
 	if restoreErr != nil {
-		return fmt.Errorf("engine apply failed (%v), rollback also failed: %w", applyErr, restoreErr)
+		kind := "vpn"
+		var operation *OperationError
+		if errors.As(applyErr, &operation) {
+			kind = operation.Kind
+		}
+		return &OperationError{Kind: kind, Stage: "rollback", Err: errors.Join(applyErr, restoreErr)}
 	}
 	return fmt.Errorf("engine apply failed, previous files and service states restored: %w", applyErr)
 }

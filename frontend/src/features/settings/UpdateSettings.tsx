@@ -1,3 +1,4 @@
+import {versionLabel,releaseLabel} from './version-label';
 import {useEffect,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api,ApiError,uploadSignedUpdate} from '../../shared/api';
@@ -42,19 +43,20 @@ export default function UpdateSettings({active}:{active:boolean}){
   catch(e){if(e instanceof ApiError&&[400,403,409,422].includes(e.status))remember(null);setError(e instanceof Error?e.message:'Ответ запуска не получен. Проверяем состояние сервера.');}
   finally{setBusy(false);void state.refetch();}
  }
- return <Panel title="Обновления ArcNet"><div className="panel-body grid gap-4">
+ return <Panel title="Обновления ArcNet"><div className="panel-body grid gap-4 update-settings">
   {state.isPending?<Loading/>:state.data?<>
-   <div className="kv"><span>Установленная версия</span><strong className="min-w-0 break-all text-right font-mono text-sm">{state.data.current_version}</strong></div>
+   <div className="kv"><span>Установленная версия</span><strong className="min-w-0 break-all text-right font-mono text-sm">{versionLabel(state.data.current_version)}</strong></div>
+   <details className="usage-details"><summary>Данные сборки</summary><code className="version-build">{state.data.current_version}</code></details>
    {!state.data.available||!state.data.trusted?<p role="status" className="muted">{state.data.message??'Доверенный ключ обновлений не настроен. Нужна проверенная первоначальная установка.'}</p>:<>
     {!state.data.staged&&<>
      <div className="flex flex-wrap items-center justify-between gap-3"><strong>Доступные версии</strong><Button disabled={disabled||releases.isFetching} onClick={()=>{void state.refetch();void releases.refetch();}}>Проверить обновления</Button></div>
      {releases.isPending?<Loading/>:releases.isError?<p role="alert" className="error">{releases.error.message}</p>:selected?<>
-      <label className="field"><span>Версия</span><select disabled={disabled} value={selected.version} onChange={e=>setSelection(e.target.value)}>{items.map(item=><option key={item.version} value={item.version}>{item.version}</option>)}</select></label>
+      <label className="field"><span>Версия</span><select disabled={disabled} value={selected.version} onChange={e=>setSelection(e.target.value)}>{items.map(item=><option key={item.version} value={item.version}>{releaseLabel(item.version,items.map(v=>v.version))}</option>)}</select></label>
       <p className="muted whitespace-pre-wrap break-words">{selected.notes}</p><small className="muted">{selected.platform} · {selected.size<1048576?`${Math.ceil(selected.size/1024)} КиБ`:`${(selected.size/1048576).toFixed(1)} МБ`} · Подписанный пакет панели и интерфейса</small>
       <Button variant="primary" disabled={disabled} onClick={()=>void prepare()}>{busy?'Загружаем и проверяем…':'Загрузить выбранную версию'}</Button>
      </>:<p className="muted">Новых совместимых версий нет.</p>}
     </>}
-    {state.data.staged&&<div className="grid gap-3"><p role="status">Подготовлена версия <strong>{state.data.version??'Проверка не пройдена'}</strong></p><div className="flex flex-wrap gap-2"><Button variant="primary" disabled={disabled||!state.data.version} onClick={()=>void install()}>Установить проверенную версию</Button><Button disabled={disabled} onClick={async()=>{if(!window.confirm('Отменить подготовленное обновление?'))return;setBusy(true);setError('');try{await api('/api/system/update/discard','POST',{});setMessage('Подготовка отменена');await state.refetch();}catch(e){setError(e instanceof Error?e.message:'Не удалось отменить');}finally{setBusy(false);}}}>Отменить подготовку</Button></div></div>}
+    {state.data.staged&&<div className="grid gap-3"><p role="status">Подготовлена версия <strong>{state.data.version?versionLabel(state.data.version):'Проверка не пройдена'}</strong></p><div className="flex flex-wrap gap-2"><Button variant="primary" disabled={disabled||!state.data.version} onClick={()=>void install()}>Установить проверенную версию</Button><Button disabled={disabled} onClick={async()=>{if(!window.confirm('Отменить подготовленное обновление?'))return;setBusy(true);setError('');try{await api('/api/system/update/discard','POST',{});setMessage('Подготовка отменена');await state.refetch();}catch(e){setError(e instanceof Error?e.message:'Не удалось отменить');}finally{setBusy(false);}}}>Отменить подготовку</Button></div></div>}
     <details className="profile-advanced"><summary>Загрузить ZIP вручную</summary><div className="profile-settings"><label className="field"><span>Подписанный архив обновления</span><input type="file" accept=".zip,application/zip" disabled={disabled} onChange={e=>setFile(e.target.files?.[0]??null)}/></label><Button disabled={disabled||!file||state.data.staged} onClick={()=>void prepare(true)}>Проверить и загрузить файл</Button></div></details>
    </>}
   </>:null}

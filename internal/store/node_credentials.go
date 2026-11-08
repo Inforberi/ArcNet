@@ -156,7 +156,7 @@ func checkDeviceCoverage(tx *db.Tx) error {
 			return e
 		}
 		for _, p := range packages {
-			if p.QuotaBytes > 0 || p.ExpiresAt > 0 {
+			if p.ResetSchedule != nil || p.QuotaBytes > 0 || p.ExpiresAt > 0 {
 				return ErrUsageUnsupported
 			}
 		}
@@ -235,7 +235,7 @@ func (s *Store) HasFinitePackages(ctx context.Context) (bool, error) {
 			return e
 		}
 		for _, p := range items {
-			if p.QuotaBytes > 0 || p.ExpiresAt > 0 {
+			if p.ResetSchedule != nil || p.QuotaBytes > 0 || p.ExpiresAt > 0 {
 				yes = true
 				break
 			}

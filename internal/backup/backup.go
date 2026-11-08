@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 13
+	Version         = 15
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -54,12 +54,13 @@ type VPN struct {
 	Enabled     bool   `json:"enabled"`
 }
 type User struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	UUID      string `json:"uuid"`
-	Token     string `json:"subscription_token"`
-	Enabled   bool   `json:"enabled"`
-	CreatedAt int64  `json:"created_at"`
+	Preferences store.UserPreferences `json:"preferences"`
+	ID          int64                 `json:"id"`
+	Name        string                `json:"name"`
+	UUID        string                `json:"uuid"`
+	Token       string                `json:"subscription_token"`
+	Enabled     bool                  `json:"enabled"`
+	CreatedAt   int64                 `json:"created_at"`
 }
 
 // Protocol carries key material inside the authenticated encrypted payload.
@@ -110,7 +111,7 @@ func FromStore(v *store.Reality, users []store.User) Snapshot {
 		result.VPN = &VPN{Fingerprint: v.Fingerprint, Address: v.Address, Port: v.Port, Target: v.Target, SNI: v.SNI, PrivateKey: v.Private, PublicKey: v.Public, ShortID: v.ShortID, Enabled: v.Enabled}
 	}
 	for _, u := range users {
-		result.Users = append(result.Users, User{ID: u.ID, Name: u.Name, UUID: u.UUID, Token: u.Subscription, Enabled: u.Enabled, CreatedAt: u.CreatedAt})
+		result.Users = append(result.Users, User{Preferences: u.Preferences, ID: u.ID, Name: u.Name, UUID: u.UUID, Token: u.Subscription, Enabled: u.Enabled, CreatedAt: u.CreatedAt})
 	}
 	return result
 }
@@ -122,7 +123,7 @@ func (s Snapshot) ToStore() (*store.Reality, []store.User) {
 	}
 	users := make([]store.User, 0, len(s.Users))
 	for _, u := range s.Users {
-		users = append(users, store.User{ID: u.ID, Name: u.Name, UUID: u.UUID, Subscription: u.Token, Enabled: u.Enabled, CreatedAt: u.CreatedAt})
+		users = append(users, store.User{Preferences: u.Preferences, ID: u.ID, Name: u.Name, UUID: u.UUID, Subscription: u.Token, Enabled: u.Enabled, CreatedAt: u.CreatedAt})
 	}
 	return r, users
 }
@@ -203,6 +204,18 @@ func (s Snapshot) Validate() error {
 		}
 	}
 	if s.Usage != nil {
+		for _, p := range s.Usage.Packages {
+			if p.ResetSchedule != nil {
+				if s.Version < 15 || len(s.Nodes) > 0 {
+					return ErrInvalid
+				}
+				for _, profile := range s.Protocols {
+					if profile.Enabled && profile.Kind != protocols.XHTTP && profile.Kind != protocols.Hysteria2 && profile.Kind != protocols.WireGuard {
+						return ErrInvalid
+					}
+				}
+			}
+		}
 		if s.Version < 12 {
 			for _, c := range s.Usage.Checkpoints {
 				if c.Source != "" {
@@ -295,7 +308,7 @@ func (s Snapshot) Validate() error {
 	ids, names, uuids, tokens := map[int64]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	userUUID := make(map[int64]string, len(s.Users))
 	for _, u := range s.Users {
-		if u.ID <= 0 || !utf8.ValidString(u.Name) || strings.TrimSpace(u.Name) == "" || strings.ContainsAny(u.Name, "\r\n\x00") || len([]rune(u.Name)) < 1 || len([]rune(u.Name)) > 60 || !uuidPattern.MatchString(u.UUID) || len(u.Token) != 43 || u.CreatedAt <= 0 {
+		if !u.Preferences.Valid() || (s.Version < 14 && (u.Preferences.Version != 0 || u.Preferences.Group != "" || u.Preferences.Comment != "" || u.Preferences.Title != "" || u.Preferences.AccessMode != "" || u.Preferences.DirectKind != "" || u.Preferences.AllowedKinds != nil)) || (u.Preferences.AllowedKinds != nil && len(s.Nodes) > 0) || u.ID <= 0 || !utf8.ValidString(u.Name) || strings.TrimSpace(u.Name) == "" || strings.ContainsAny(u.Name, "\r\n\x00") || len([]rune(u.Name)) < 1 || len([]rune(u.Name)) > 60 || !uuidPattern.MatchString(u.UUID) || len(u.Token) != 43 || u.CreatedAt <= 0 {
 			return ErrInvalid
 		}
 		decoded, err := base64.RawURLEncoding.DecodeString(u.Token)

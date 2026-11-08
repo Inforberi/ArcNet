@@ -5,7 +5,7 @@ import {api} from '../shared/api';
 import {Badge, Button, Field, Loading, Notice, PageHeading, Panel} from '../shared/ui';
 import {ageText, formatBytes, formatPercent, needsAttention, percentUsed, rateText, statusText, type FleetOverview, type ServerDetail} from '../features/dashboard/model';
 import {MonitoringControls} from '../features/dashboard/Monitoring';
-import TrafficChart from '../features/dashboard/TrafficChart';
+import TrafficChart from '../shared/TrafficChart';
 
 function Metric({name, value, note, percent}: {name: string; value: string; note: string; percent: number | null}) {
  return <div className="metric"><div className="label">{name}</div><div className="value">{value}</div><div className="description">{note}</div>{percent != null && <div className="bar"><span style={{width: `${Math.max(0, Math.min(100, percent))}%`}}/></div>}</div>;

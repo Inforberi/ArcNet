@@ -11,6 +11,7 @@ import (
 	"github.com/arcvpn/arcvpn/internal/auth"
 	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/store"
+	"github.com/arcvpn/arcvpn/internal/usage"
 	"github.com/arcvpn/arcvpn/internal/xray"
 )
 
@@ -22,6 +23,7 @@ type App struct {
 	RuntimeCheck    func() error // injected local maintenance boundary
 	mu              sync.Mutex
 	usageApplied    string
+	UserTraffic     usage.TrafficTracker
 }
 
 func (a *App) Setup(ctx context.Context, address, target string, port int) error {

@@ -50,7 +50,7 @@ func (s *Store) UsageBackup(ctx context.Context) (usage.State, error) {
 // package totals, checkpoints and debit history are restored atomically.
 func (s *Store) RestoreDeletedUser(ctx context.Context, u User, credentials []ProtocolCredential, accounting usage.State, deviceState ...devices.Record) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
+		if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at,preferences) VALUES(?,?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10), preferencesJSON(u.Preferences)); err != nil {
 			return err
 		}
 		for _, c := range credentials {

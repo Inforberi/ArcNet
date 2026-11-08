@@ -116,10 +116,10 @@ func (s *Server) userDeviceLinks(w http.ResponseWriter, r *http.Request) {
 				handleErr(w, err)
 				return
 			}
-			if err == nil && profile.Enabled && d.WGPrivate != "" {
+			if err == nil && profile.Enabled && user.Allows("wireguard") && d.WGPrivate != "" {
 				wgURL = s.origin(r) + "/device/" + d.Token + "/wireguard"
 			}
-			respond(w, 200, map[string]any{"title": subscriptionTitle(user.Name), "url": s.origin(r) + "/device/" + d.Token, "links": links, "link_ids": directLinkIDs(links), "device_id": d.ID, "wireguard_url": wgURL})
+			respond(w, 200, map[string]any{"title": userSubscriptionTitle(user), "url": s.origin(r) + "/device/" + d.Token, "links": links, "link_ids": directLinkIDs(links), "device_id": d.ID, "wireguard_url": wgURL})
 			return
 		}
 	}
@@ -171,7 +171,7 @@ func (s *Server) deviceSubscription(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	setSubscriptionTitle(w, user.Name)
+	setUserSubscriptionTitle(w, user)
 	s.subscriptionUsage(w, r, id)
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }

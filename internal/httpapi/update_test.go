@@ -19,9 +19,11 @@ import (
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/auth"
+	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/ops"
 	"github.com/arcvpn/arcvpn/internal/store"
 	"github.com/arcvpn/arcvpn/internal/updater"
+	"github.com/arcvpn/arcvpn/internal/xray"
 )
 
 type updateFixture struct {
@@ -257,6 +259,21 @@ func TestOnlineUpdateBrowserFixture(t *testing.T) {
 	if err = s.WithWebRoot("../../frontend/dist"); err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("ARCVPN_UI_REVIEW") == "1" {
+		dir := t.TempDir()
+		binary := filepath.Join(dir, "synthetic-xray")
+		if err := os.WriteFile(binary, []byte("#!/bin/sh\n[ \"$1\" = run ]\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		s.App.Core = xray.Controller{Binary: binary, Path: filepath.Join(dir, "xray.json"), SkipRestart: true}
+		s.App.Engines = &engines.Manager{Dir: filepath.Join(dir, "engines"), SkipRestart: true}
+		if err := s.App.Store.UpsertProtocol(context.Background(), store.Protocol{Kind: "hysteria2", Address: "198.51.100.25", Port: 8444, SNI: "198.51.100.25", TLSCert: "/etc/arcvpn/tls/fullchain.pem", TLSKey: "/etc/arcvpn/tls/privkey.pem", Enabled: true}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.App.Store.SaveCredentials(context.Background(), []store.ProtocolCredential{{UserID: 1, Kind: "hysteria2", Secret: strings.Repeat("x", 43)}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	done := make(chan struct{}, 1)
 	mux := http.NewServeMux()
 	mux.Handle("/", s.Routes())
@@ -272,11 +289,15 @@ func TestOnlineUpdateBrowserFixture(t *testing.T) {
 	result := make(chan error, 1)
 	go func() { result <- server.ListenAndServe() }()
 	t.Log("online update fixture ready :18394")
+	reviewTimeout := 3 * time.Minute
+	if os.Getenv("ARCVPN_UI_REVIEW") == "1" {
+		reviewTimeout = 30 * time.Minute
+	}
 	select {
 	case <-done:
 	case err := <-result:
 		t.Fatal(err)
-	case <-time.After(3 * time.Minute):
+	case <-time.After(reviewTimeout):
 		t.Fatal("browser fixture timeout")
 	}
 }

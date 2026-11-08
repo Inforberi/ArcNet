@@ -19,12 +19,12 @@ func WireGuardPeers(users []store.User, credentials []store.ProtocolCredential) 
 	result := []WireGuardPeer{}
 	for _, u := range users {
 		if c, ok := legacy[u.ID]; ok {
-			result = append(result, WireGuardPeer{u.ID, c.PublicKey, c.Address, u.Enabled && u.DeviceAccess == nil})
+			result = append(result, WireGuardPeer{u.ID, c.PublicKey, c.Address, u.Enabled && u.Allows(WireGuard) && u.DeviceAccess == nil})
 		}
 		if u.DeviceAccess != nil {
 			for _, d := range u.DeviceAccess.Devices {
 				if d.WGPublic != "" {
-					result = append(result, WireGuardPeer{u.ID, d.WGPublic, d.WGAddress, u.Enabled && d.RevokedAt == 0})
+					result = append(result, WireGuardPeer{u.ID, d.WGPublic, d.WGAddress, u.Enabled && u.Allows(WireGuard) && d.RevokedAt == 0})
 				}
 			}
 		}

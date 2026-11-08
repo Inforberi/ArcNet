@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -21,6 +22,7 @@ var ErrConflict = errors.New("conflict")
 
 type Store struct{ DB *db.DB }
 type User struct {
+	Preferences    UserPreferences `json:"preferences"`
 	DevicesManaged bool            `json:"devices_managed"`
 	DeviceAccess   *devices.Record `json:"-"`
 	ID             int64           `json:"id"`
@@ -63,6 +65,9 @@ func (s *Store) Migrate(ctx context.Context) error {
 			if err := tx.Exec(q); err != nil {
 				return err
 			}
+		}
+		if err := migrateUserPreferences(tx); err != nil {
+			return err
 		}
 		// Older databases predate protocol negotiation. Preserve existing nodes,
 		// but require a new compatible heartbeat before sending any operation.
@@ -222,10 +227,14 @@ func (s *Store) DropSession(ctx context.Context, hash string) error {
 func userFromRow(r db.Row) User {
 	id, _ := strconv.ParseInt(r["id"], 10, 64)
 	created, _ := strconv.ParseInt(r["created_at"], 10, 64)
-	return User{ID: id, Name: r["name"], UUID: r["uuid"], Enabled: r["enabled"] == "1", CreatedAt: created, Subscription: r["token"]}
+	var preferences UserPreferences
+	if json.Unmarshal([]byte(r["preferences"]), &preferences) != nil || !preferences.Valid() {
+		preferences.AllowedKinds = []string{}
+	}
+	return User{Preferences: preferences, ID: id, Name: r["name"], UUID: r["uuid"], Enabled: r["enabled"] == "1", CreatedAt: created, Subscription: r["token"]}
 }
 
-const userQuery = "SELECT id,name,uuid,token,enabled,created_at FROM users"
+const userQuery = "SELECT id,name,uuid,token,enabled,created_at,preferences FROM users"
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	var out []User
@@ -273,18 +282,20 @@ func (s *Store) ByID(ctx context.Context, id int64) (User, error) {
 	return user, err
 }
 func (s *Store) InsertUser(ctx context.Context, u User) error {
-	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
-		if e := requireNoCascadeLeases(tx); e != nil {
-			return e
+	return s.DB.WithTx(ctx, func(tx *db.Tx) error { return insertUser(tx, u) })
+}
+
+func insertUser(tx *db.Tx, u User) error {
+	if e := requireNoCascadeLeases(tx); e != nil {
+		return e
+	}
+	if err := tx.Exec("INSERT INTO users(name,uuid,token,enabled,created_at,preferences) VALUES(?,?,?,?,?,?)", u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10), preferencesJSON(u.Preferences)); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return ErrConflict
 		}
-		if err := tx.Exec("INSERT INTO users(name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?)", u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
-			if strings.Contains(err.Error(), "UNIQUE") {
-				return ErrConflict
-			}
-			return err
-		}
-		return nil
-	})
+		return err
+	}
+	return nil
 }
 func (s *Store) SetEnabled(ctx context.Context, id int64, enabled bool) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
@@ -314,7 +325,7 @@ func (s *Store) RestoreUser(ctx context.Context, u User) error {
 		if e := requireNoCascadeLeases(tx); e != nil {
 			return e
 		}
-		return tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10))
+		return tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at,preferences) VALUES(?,?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10), preferencesJSON(u.Preferences))
 	})
 }
 func boolean(v bool) string {
@@ -418,7 +429,7 @@ func (s *Store) ReplaceState(ctx context.Context, reality *Reality, users []User
 			}
 		}
 		for _, u := range users {
-			if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
+			if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at,preferences) VALUES(?,?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10), preferencesJSON(u.Preferences)); err != nil {
 				return err
 			}
 		}
@@ -511,7 +522,7 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 			}
 		}
 		for _, u := range users {
-			if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at) VALUES(?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10)); err != nil {
+			if err := tx.Exec("INSERT INTO users(id,name,uuid,token,enabled,created_at,preferences) VALUES(?,?,?,?,?,?,?)", strconv.FormatInt(u.ID, 10), u.Name, u.UUID, u.Subscription, boolean(u.Enabled), strconv.FormatInt(u.CreatedAt, 10), preferencesJSON(u.Preferences)); err != nil {
 				return err
 			}
 		}

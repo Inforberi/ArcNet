@@ -107,9 +107,13 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 	if err != nil {
 		return nil, err
 	}
-	user := store.User{ID: id, Name: selected.Name, UUID: selected.UUID, Enabled: true}
+	parent, e := a.Store.ByID(ctx, id)
+	if e != nil {
+		return nil, e
+	}
+	user := store.User{Preferences: parent.Preferences, ID: id, Name: selected.Name, UUID: selected.UUID, Enabled: true}
 	links := []string{}
-	if reality.Enabled {
+	if reality.Enabled && user.Allows("vless-reality") {
 		links = append(links, xray.Link(reality, user))
 	}
 	profiles, err := a.Store.ListProtocols(ctx)
@@ -126,7 +130,7 @@ func (a *App) DeviceLinks(ctx context.Context, id int64, deviceID string) ([]str
 		}
 	}
 	for _, p := range profiles {
-		if p.Kind == protocols.Hysteria2 && p.Enabled {
+		if p.Kind == protocols.Hysteria2 && p.Enabled && user.Allows(protocols.Hysteria2) {
 			links = append(links, protocols.HysteriaLink(p, selected.Name, protocols.HysteriaDeviceName(selected.ID), selected.UUID))
 		}
 	}
@@ -182,6 +186,13 @@ func (a *App) authorizedDevice(ctx context.Context, id int64, deviceID string) (
 func (a *App) DeviceWireGuardConfig(ctx context.Context, id int64, deviceID string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	parent, e := a.Store.ByID(ctx, id)
+	if e != nil {
+		return "", e
+	}
+	if !parent.Allows(protocols.WireGuard) {
+		return "", store.ErrNotFound
+	}
 	d, err := a.authorizedDevice(ctx, id, deviceID)
 	if err != nil {
 		return "", err

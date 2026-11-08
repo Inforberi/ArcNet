@@ -134,7 +134,7 @@ func (s *Server) userConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	all := make([]protocols.Connection, 0, 1+len(others))
-	if reality.Enabled {
+	if reality.Enabled && user.Allows("vless-reality") {
 		all = append(all, protocols.Connection{Kind: "vless-reality", Label: "VLESS + Reality TCP", Format: "uri", Link: xray.Link(reality, user)})
 	}
 	all = append(all, others...)

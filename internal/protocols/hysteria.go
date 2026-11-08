@@ -30,11 +30,11 @@ func HysteriaIdentities(users []store.User, credentials []store.ProtocolCredenti
 	for _, u := range users {
 		// Legacy aliases remain known for the tail of the current process epoch.
 		if secret := secrets[u.ID]; secret != "" {
-			result = append(result, HysteriaIdentity{u.ID, fmt.Sprintf("u%d", u.ID), secret, u.Enabled && u.DeviceAccess == nil})
+			result = append(result, HysteriaIdentity{u.ID, fmt.Sprintf("u%d", u.ID), secret, u.Enabled && u.Allows(Hysteria2) && u.DeviceAccess == nil})
 		}
 		if u.DeviceAccess != nil {
 			for _, d := range u.DeviceAccess.Devices {
-				result = append(result, HysteriaIdentity{u.ID, HysteriaDeviceName(d.ID), d.UUID, u.Enabled && d.RevokedAt == 0})
+				result = append(result, HysteriaIdentity{u.ID, HysteriaDeviceName(d.ID), d.UUID, u.Enabled && u.Allows(Hysteria2) && d.RevokedAt == 0})
 			}
 		}
 	}

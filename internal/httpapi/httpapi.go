@@ -245,6 +245,7 @@ func (s *Server) Routes() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(data)
 	})
+	mux.HandleFunc("GET /api/users/traffic", s.mustAuth(s.userTraffic, false))
 	mux.HandleFunc("GET /api/users/usage", s.mustAuth(s.userUsage, false))
 	mux.HandleFunc("GET /api/users/{id}/devices", s.mustAuth(s.userDevices, false))
 	mux.HandleFunc("POST /api/users/{id}/devices", s.mustAuth(s.userDeviceChange, true))
@@ -258,6 +259,13 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/users/{id}/debits", s.mustAuth(s.userDebits, false))
 	mux.HandleFunc("GET /api/users", s.mustAuth(s.users, false))
 	mux.HandleFunc("POST /api/users", s.mustAuth(s.usersCreate, true))
+	mux.HandleFunc("GET /api/users/{id}/editor", s.mustAuth(s.userEditor, false))
+	mux.HandleFunc("PUT /api/users/{id}/editor", s.mustAuth(s.userEditor, true))
+	mux.HandleFunc("POST /api/users/bulk-create", s.mustAuth(s.usersBulkCreate, true))
+	mux.HandleFunc("PUT /api/users/bulk-edit", s.mustAuth(s.usersBulkEdit, true))
+	mux.HandleFunc("POST /api/users/bulk-access", s.mustAuth(s.usersBulkAccess, true))
+	mux.HandleFunc("GET /api/users/{id}/preferences", s.mustAuth(s.userPreferences, false))
+	mux.HandleFunc("PUT /api/users/{id}/preferences", s.mustAuth(s.userPreferences, true))
 	mux.HandleFunc("PATCH /api/users/{id}", s.mustAuth(s.userPatch, true))
 	mux.HandleFunc("DELETE /api/users/{id}", s.mustAuth(s.userDelete, true))
 	mux.HandleFunc("GET /api/users/{id}/subscription", s.mustAuth(s.userSubscription, false))
@@ -683,7 +691,7 @@ func (s *Server) userSubscription(w http.ResponseWriter, r *http.Request) {
 	if len(links) > 0 {
 		link = links[0]
 	}
-	respond(w, 200, map[string]any{"title": subscriptionTitle(user.Name), "url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
+	respond(w, 200, map[string]any{"title": userSubscriptionTitle(user), "url": base + "/sub/" + user.Subscription, "link": link, "links": links, "link_ids": directLinkIDs(links)})
 }
 func (s *Server) vpn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -753,7 +761,7 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	setSubscriptionTitle(w, user.Name)
+	setUserSubscriptionTitle(w, user)
 	s.subscriptionUsage(w, r, user.ID)
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }
