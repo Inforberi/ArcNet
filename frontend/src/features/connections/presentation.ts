@@ -11,7 +11,7 @@ export function connectionService(state:string|undefined){
  }
 }
 const titles:Record<string,string>={'vless-reality':'VLESS · REALITY · TCP','vless-xhttp':'VLESS · REALITY · XHTTP',hysteria2:'Hysteria2',wireguard:'WireGuard'};
-export const connectionTitle=(kind:string)=>titles[kind]??kind;
+export const connectionTitle=(kind:string)=>{const [base,id]=kind.split(':');return (titles[base]??base)+(id?` · ${id.slice(0,8)}`:'')};
 import type {ServerOptions,ClientOptions} from '../../shared/api';
 export function clientOptionChanges(kind:string,before:ClientOptions={},after:ClientOptions={}){
  const fields:[string,string|number,string|number][]=kind==='wireguard'?
@@ -23,6 +23,7 @@ export function clientOptionChanges(kind:string,before:ClientOptions={},after:Cl
 export function serverOptionChanges(kind:string,before:ServerOptions={},after:ServerOptions={}){
  const fields:[string,string|number|boolean,string|number|boolean][]=kind.startsWith('vless')?[['Sniffing',before.sniffing??(kind==='vless-reality'),after.sniffing??(kind==='vless-reality')]]:kind==='hysteria2'?[['UDP timeout',before.udp_idle_seconds||60,after.udp_idle_seconds||60],['QUIC timeout',before.quic_idle_seconds||30,after.quic_idle_seconds||30]]:[];
  if(kind==='vless-reality')fields.push(['Flow',before.flow==='none'?'без flow':'Vision',after.flow==='none'?'без flow':'Vision']);
+ if(kind==='vless-xhttp')fields.push(['Host XHTTP',before.xhttp_host||'Автоматически',after.xhttp_host||'Автоматически']);
  if(kind==='hysteria2')fields.push(['Salamander',before.salamander??false,after.salamander??false],['От сервера клиенту, Мбит/с',before.up_mbps??0,after.up_mbps??0],['От клиента серверу, Мбит/с',before.down_mbps??0,after.down_mbps??0]);
  return fields.filter(([,old,next])=>old!==next).map(([label,old,next])=>`${label}: ${typeof old==='boolean'?(old?'включён':'выключен'):old} → ${typeof next==='boolean'?(next?'включён':'выключен'):next}`);
 }

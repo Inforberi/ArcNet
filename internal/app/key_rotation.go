@@ -29,7 +29,7 @@ func (a *App) rotationPlanLocked(ctx context.Context, kind string) (KeyRotationP
 		var r store.Reality
 		r, err = a.Store.ReadReality(ctx)
 		p = RealityProfile(r)
-	} else if kind == protocols.XHTTP || kind == protocols.WireGuard {
+	} else if store.ConnectionKind(kind) == protocols.XHTTP || store.IsAdditionalConnection(kind) || kind == protocols.WireGuard {
 		p, err = a.Store.GetProtocol(ctx, kind)
 	} else {
 		return KeyRotationPlan{}, p, protocols.ErrInvalid

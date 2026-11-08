@@ -44,7 +44,7 @@ func (a *App) CreateUsers(ctx context.Context, names []string, group string) ([]
 	created, err := a.Store.CreateUsers(ctx, users, func(u store.User) ([]store.ProtocolCredential, error) {
 		items := make([]store.ProtocolCredential, 0, len(profiles))
 		for _, p := range profiles {
-			c, err := protocols.NewCredential(p.Kind, u)
+			c, err := protocols.NewCredential(p.ConnectionID(), u)
 			if err != nil {
 				return nil, err
 			}

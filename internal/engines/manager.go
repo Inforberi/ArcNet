@@ -37,7 +37,7 @@ type target struct {
 func (m Manager) targets(profiles []store.Protocol, users []store.User, credentials []store.ProtocolCredential) ([]target, error) {
 	result := make([]target, 0, 3)
 	for _, p := range profiles {
-		if p.Kind == protocols.XHTTP {
+		if p.Kind == protocols.XHTTP || p.Kind == "vless-reality" {
 			continue
 		}
 		t := target{kind: p.Kind, enabled: p.Enabled}

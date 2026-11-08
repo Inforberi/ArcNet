@@ -26,7 +26,7 @@ func setPackageSchedule(tx *db.Tx, id int64, schedule usage.ResetSchedule, now t
 		return err
 	}
 	// Scheduled reset is local-only, including packages without quota or expiry.
-	for _, query := range []string{"SELECT id FROM managed_nodes LIMIT 1", "SELECT hash FROM node_enrollments LIMIT 1", "SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1"} {
+	for _, query := range []string{"SELECT id FROM managed_nodes LIMIT 1", "SELECT hash FROM node_enrollments LIMIT 1", "SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') AND kind NOT LIKE 'vless-xhttp:%' AND kind NOT LIKE 'vless-reality:%' LIMIT 1"} {
 		rows, err := tx.Query(query)
 		if err != nil {
 			return err

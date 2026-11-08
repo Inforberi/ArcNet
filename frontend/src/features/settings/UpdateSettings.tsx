@@ -1,3 +1,4 @@
+import {useConfirmation} from '../../shared/Confirmation';
 import {versionLabel,releaseLabel} from './version-label';
 import {useEffect,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
@@ -12,6 +13,7 @@ const pendingKey='arcnet.pending-update';
 function readPending():Pending|null{try{const p=JSON.parse(sessionStorage.getItem(pendingKey)??'null') as Pending|null;return p&&typeof p.version==='string'&&p.version.length<65&&typeof p.started_at==='number'&&p.until>Date.now()&&p.until<Date.now()+190000?p:null;}catch{return null;}}
 
 export default function UpdateSettings({active}:{active:boolean}){
+ const confirm=useConfirmation();
  const cache=useQueryClient();
  const [pending,setPending]=useState<Pending|null>(readPending),[busy,setBusy]=useState(false),[selection,setSelection]=useState(''),[file,setFile]=useState<File|null>(null),[error,setError]=useState(''),[message,setMessage]=useState('');
  const state=useQuery({queryKey:['update-state'],queryFn:()=>api<Status>('/api/system/update'),enabled:active||!!pending,retry:false,refetchInterval:q=>pending||q.state.data?.applying||q.state.data?.download?.state==='downloading'?2000:false,refetchIntervalInBackground:false});
@@ -36,7 +38,7 @@ export default function UpdateSettings({active}:{active:boolean}){
  }
  async function install(){
   const version=state.data?.version;if(!version)return;
-  if(!window.confirm(`Установить ${version}? Панель кратковременно перезапустится. При ошибке запуска служба попытается восстановить предыдущие бинарники.`))return;
+  if(!(await confirm(`Установить ${version}? Панель кратковременно перезапустится. При ошибке запуска служба попытается восстановить предыдущие бинарники.`)))return;
   setError('');setMessage('');setBusy(true);
   remember({version,until:Date.now()+180000,started_at:state.data?.started_at??0});
   try{const reply=await api<{accepted:boolean;version:string;started_at:number}>('/api/system/update/apply','POST',{confirm:'INSTALL_SIGNED_UPDATE',version});remember({version:reply.version,until:Date.now()+180000,started_at:reply.started_at});}
@@ -56,7 +58,7 @@ export default function UpdateSettings({active}:{active:boolean}){
       <Button variant="primary" disabled={disabled} onClick={()=>void prepare()}>{busy?'Загружаем и проверяем…':'Загрузить выбранную версию'}</Button>
      </>:<p className="muted">Новых совместимых версий нет.</p>}
     </>}
-    {state.data.staged&&<div className="grid gap-3"><p role="status">Подготовлена версия <strong>{state.data.version?versionLabel(state.data.version):'Проверка не пройдена'}</strong></p><div className="flex flex-wrap gap-2"><Button variant="primary" disabled={disabled||!state.data.version} onClick={()=>void install()}>Установить проверенную версию</Button><Button disabled={disabled} onClick={async()=>{if(!window.confirm('Отменить подготовленное обновление?'))return;setBusy(true);setError('');try{await api('/api/system/update/discard','POST',{});setMessage('Подготовка отменена');await state.refetch();}catch(e){setError(e instanceof Error?e.message:'Не удалось отменить');}finally{setBusy(false);}}}>Отменить подготовку</Button></div></div>}
+    {state.data.staged&&<div className="grid gap-3"><p role="status">Подготовлена версия <strong>{state.data.version?versionLabel(state.data.version):'Проверка не пройдена'}</strong></p><div className="flex flex-wrap gap-2"><Button variant="primary" disabled={disabled||!state.data.version} onClick={()=>void install()}>Установить проверенную версию</Button><Button disabled={disabled} onClick={async()=>{if(!(await confirm('Отменить подготовленное обновление?')))return;setBusy(true);setError('');try{await api('/api/system/update/discard','POST',{});setMessage('Подготовка отменена');await state.refetch();}catch(e){setError(e instanceof Error?e.message:'Не удалось отменить');}finally{setBusy(false);}}}>Отменить подготовку</Button></div></div>}
     <details className="profile-advanced"><summary>Загрузить ZIP вручную</summary><div className="profile-settings"><label className="field"><span>Подписанный архив обновления</span><input type="file" accept=".zip,application/zip" disabled={disabled} onChange={e=>setFile(e.target.files?.[0]??null)}/></label><Button disabled={disabled||!file||state.data.staged} onClick={()=>void prepare(true)}>Проверить и загрузить файл</Button></div></details>
    </>}
   </>:null}

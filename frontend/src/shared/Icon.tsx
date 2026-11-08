@@ -1,6 +1,13 @@
 import type {ReactNode} from 'react';
 
 const shapes={
+ plus:<path d="M12 4v16M4 12h16"/>,
+ edit:<><path d="m15 4 5 5M4 20l4-1 12-12a2 2 0 0 0-5-5L3 14l-1 6Z"/></>,
+ refresh:<><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></>,
+ shield:<><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6Z"/><path d="m8 12 3 3 5-6"/></>,
+ wave:<path d="M2 12h4l3-8 5 16 3-8h5"/>,
+ qr:<><rect x="3" y="3" width="6" height="6"/><rect x="15" y="3" width="6" height="6"/><rect x="3" y="15" width="6" height="6"/><path d="M15 15h3v3h3v3h-6v-3m6-3h.01"/></>,
+ trash:<><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></>,
  info:<><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></>,
  download:<><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></>,
  overview:<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
@@ -16,6 +23,7 @@ const shapes={
  logout:<><path d="M9 4H4v16h5m5-13 5 5-5 5m-5-5h10"/></>,
  menu:<path d="M4 6h16M4 12h16M4 18h16"/>,
  close:<path d="m6 6 12 12M6 18 18 6"/>,
+ search:<><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></>,
  chevron:<path d="m6 9 6 6 6-6"/>,
 } satisfies Record<string,ReactNode>;
 export type IconName=keyof typeof shapes;

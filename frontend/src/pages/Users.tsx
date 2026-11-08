@@ -1,5 +1,6 @@
 import UserToolbar from '../features/users/UserToolbar';
 import UserDataStatus from '../features/users/UserDataStatus';
+import {connectionTitle} from '../features/connections/presentation';
 import {Icon} from '../shared/Icon';
 import {activityText,trafficFresh,trafficNow,type TrafficReply} from '../features/users/traffic';
 import {rateText} from '../shared/traffic-chart';
@@ -16,7 +17,7 @@ import DirectAccess from '../features/users/DirectAccess';
 import UserDetails from '../features/users/UserDetails';
 import Dialog from '../shared/Dialog';
 import {userAccess, type UsageReply,type UserPackage} from '../features/users/usage';
-import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty } from '../shared/ui';
+import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty,StatStrip,IconButton,SwitchButton } from '../shared/ui';
 
 
 
@@ -26,6 +27,7 @@ export default function Users() {
   const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
   const [deviceUser,setDeviceUser] = useState<VPNUser | null>(null);
   const [detailID,setDetailID] = useState<number|null>(null);
+  const [detailTab,setDetailTab] = useState<'overview'|'edit'>('overview');
   const [search,setSearch] = useState('');
   const [filter,setFilter] = useState('all');
   const [groupFilter,setGroupFilter]=useState('all');
@@ -72,7 +74,8 @@ export default function Users() {
 
   const create = useMutation({
     mutationFn: () => api<VPNUser>('/api/users', 'POST', { name: name.trim() }),
-    onSuccess: async () => {
+    onSuccess: async (created) => {
+      setDetailTab('edit');setDetailID(created.id);
       setName('');
       setCreating(false);
       setMessage('Пользователь создан');
@@ -128,16 +131,16 @@ export default function Users() {
       <PageHeading
         title="Пользователи"
         description="Выдавайте доступ, следите за трафиком и управляйте ограничениями."
-        actions={<><Button onClick={()=>setBulkCreating(true)}>Добавить списком</Button><Button variant="primary" onClick={() => setCreating(true)}>Добавить пользователя</Button></>}
+        actions={<><Button onClick={()=>setBulkCreating(true)}><Icon name="plus"/>Массовое добавление</Button><Button variant="primary" onClick={() => setCreating(true)}><Icon name="plus"/>Добавить пользователя</Button></>}
       />
-      {users.data&&<section className="user-summary" aria-label="Сводка пользователей"><div><span>Всего пользователей</span><strong>{users.data.items.length}</strong></div><div><span>Доступ разрешён</span><strong>{usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'}</strong></div><div><span>Доступ ограничен</span><strong>{usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—'}</strong></div></section>}
+      {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
       {error && <p className="error" role="alert">{error}</p>}
       {message && <p className="notice" role="status">{message}</p>}
 
       {bulkCreating&&<BulkCreateUsers onClose={()=>setBulkCreating(false)}/>}
       {bulkEditing&&<BulkEditUsers users={bulkEditing.users} packages={bulkEditing.packages} onDone={()=>setSelected([])} onClose={()=>setBulkEditing(null)}/>}
       {creating && (
-        <Panel title="Новый пользователь">
+        <Dialog title="Добавить пользователя" onClose={()=>setCreating(false)} busy={create.isPending} dirty={!!name.trim()}>
           <form className="panel-body" onSubmit={e => void submit(e)}>
             <Field
               label="Имя пользователя" value={name} maxLength={60} required
@@ -146,10 +149,10 @@ export default function Users() {
             />
             <div className="form-actions">
               <Button type="button" onClick={() => { setCreating(false); setName(''); }}>Отмена</Button>
-              <Button type="submit" variant="primary" disabled={create.isPending}>Создать</Button>
+              <Button type="submit" variant="primary" disabled={create.isPending}>Создать и настроить</Button>
             </div>
           </form>
-        </Panel>
+        </Dialog>
       )}
 
       {usage.isError && <Notice>{usage.error.message}</Notice>}
@@ -160,7 +163,7 @@ export default function Users() {
           <UserToolbar value={{search,status:filter,group:groupFilter,sort,descending}} groups={groups} onChange={next=>{if(next.search!==search||next.status!==filter||next.group!==groupFilter)setSelected([]);setSearch(next.search);setFilter(next.status);setGroupFilter(next.group);setSort(next.sort);setDescending(next.descending);setPage(0)}}/>
           <div className="users-list-meta"><span className="muted">{visibleUsers.length===users.data.items.length?`Всего: ${visibleUsers.length}`:`Найдено: ${visibleUsers.length} из ${users.data.items.length}`}</span><UserDataStatus failed={traffic.isError} incomplete={!!traffic.data&&!traffic.data.complete_coverage}/></div>
           {selectedUsers.length>0&&<BulkUserAccess onEdit={()=>setBulkEditing({users:[...selectedUsers],packages:new Map(packages)})} users={selectedUsers} onDone={()=>setSelected([])} onCancel={()=>setSelected([])}/>}
-          <div className="table-scroll users-table">
+          <div className="table-scroll users-table responsive-data">
             {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
                 <thead><tr><th scope="col"><label className="user-select"><input type="checkbox" aria-label="Выбрать пользователей на странице" checked={allSelected} ref={el=>{if(el)el.indeterminate=displayedUsers.some(u=>selected.includes(u.id))&&!allSelected}} onChange={e=>selectVisible(e.target.checked)}/>Пользователь</label></th><th scope="col">Доступ</th><th scope="col">Подключения</th><th scope="col">Трафик</th><th scope="col">Скорость</th><th scope="col">Активность</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
@@ -168,16 +171,17 @@ export default function Users() {
                   {!visibleUsers.length&&<tr><td colSpan={8}><Empty>Ничего не найдено. Измените поиск или фильтр.</Empty></td></tr>}
                   {displayedUsers.map(u => (
                     <tr key={u.id}>
-                      <td data-label="Пользователь"><div className="user-identity"><input type="checkbox" aria-label={`Выбрать ${u.name}`} checked={selected.includes(u.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,u.id]:ids.filter(id=>id!==u.id))}/><Button className="user-name" variant="ghost" onClick={()=>setDetailID(u.id)}>{u.name}</Button><small className="muted">ID {u.id}{u.preferences?.group?` · ${u.preferences.group}`:''}</small></div></td>
+                      <td data-label="Пользователь"><div className="user-identity"><input type="checkbox" aria-label={`Выбрать ${u.name}`} checked={selected.includes(u.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,u.id]:ids.filter(id=>id!==u.id))}/><Button className="user-name" variant="ghost" onClick={()=>{setDetailTab('overview');setDetailID(u.id)}}>{u.name}</Button><small className="muted">ID {u.id}{u.preferences?.group?` · ${u.preferences.group}`:''}</small></div></td>
                       <td data-label="Доступ"><Badge variant={userAccess(u,packages.get(u.id)).tone} title={userAccess(u,packages.get(u.id)).description}>{userAccess(u,packages.get(u.id)).label}</Badge></td>
-                      <td data-label="Подключения"><div className="user-connection-tags">{u.preferences?.allowed_kinds==null?<Badge variant="neutral">Все подключения</Badge>:u.preferences.allowed_kinds.length?u.preferences.allowed_kinds.map(kind=><Badge variant="neutral" key={kind}>{({'vless-reality':'VLESS TCP','vless-xhttp':'VLESS XHTTP',hysteria2:'Hysteria2',wireguard:'WireGuard'} as Record<string,string>)[kind]??kind}</Badge>):<span className="muted">Нет разрешённых</span>}</div><small className="muted">{u.preferences?.access_mode==='direct'?'Прямая ссылка':'Подписка'}</small></td>
+                      <td data-label="Подключения"><div className="user-connection-tags">{u.preferences?.allowed_kinds==null?<Badge variant="neutral">Все подключения</Badge>:u.preferences.allowed_kinds.length?u.preferences.allowed_kinds.map(kind=><Badge variant="neutral" key={kind}>{connectionTitle(kind)}</Badge>):<span className="muted">Нет разрешённых</span>}</div><small className="muted">{u.preferences?.access_mode==='direct'?'Прямая ссылка':'Подписка'}</small></td>
                       <td data-label="Трафик"><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
                       <td data-label="Скорость">{!traffic.isError&&trafficFresh(trafficItems.get(u.id),trafficTime)?<div className="user-rate"><span>↓ {rateText(trafficItems.get(u.id)?.download_bps)}</span><span>↑ {rateText(trafficItems.get(u.id)?.upload_bps)}</span></div>:<span className="muted" aria-label="Скорость неизвестна" title="Панель ещё не получила свежие счётчики">—</span>}</td>
                       <td data-label="Активность"><span>{activityText(trafficItems.get(u.id),traffic.isError,trafficTime)}</span>{trafficItems.get(u.id)?.last_activity_at?<small className="muted user-activity-time">Трафик замечен {new Date(trafficItems.get(u.id)!.last_activity_at*1000).toLocaleString('ru-RU')}</small>:null}</td>
                       <td data-label="Срок действия">{packages.has(u.id)?packages.get(u.id)!.expires_at?new Date(packages.get(u.id)!.expires_at*1000).toLocaleDateString('ru-RU'):'Без срока':'Нет данных'}</td>
-                      <td data-label="Действия"><div className="flex wrap">
-                        <Button className="small" onClick={()=>setDetailID(u.id)}>Подробнее</Button>
-                        <Button className="small" onClick={()=>{if(u.devices_managed){setSubscription(null);setSubscriptionUser(null);setDeviceUser(u);}else void showSubscription(u);}}>Подключить</Button>
+                      <td data-label="Действия"><div className="row-actions">
+                        <IconButton icon="qr" label={`Подключить · ${u.name}`} onClick={()=>{if(u.devices_managed){setSubscription(null);setSubscriptionUser(null);setDeviceUser(u);}else void showSubscription(u);}}/>
+                        <IconButton icon="edit" label={`Настроить · ${u.name}`} onClick={()=>{setDetailTab('edit');setDetailID(u.id)}}/>
+                        <SwitchButton checked={u.enabled} label={`${u.enabled?'Отключить':'Включить'} доступ · ${u.name}`} disabled={toggle.isPending} onClick={()=>{setError('');void toggle.mutateAsync(u).catch(error=>setError(explain(error)))}}/>
                       </div></td>
                     </tr>
                   ))}
@@ -190,11 +194,11 @@ export default function Users() {
       )}
 
       {deviceUser && <DevicesDialog id={deviceUser.id} name={deviceUser.name} onClose={()=>setDeviceUser(null)}/>}
-      {detailUser&&<UserDetails trafficNow={trafficTime} traffic={traffic.data?.detail} trafficPending={traffic.isPending} trafficFailed={traffic.isError} key={detailUser.id} user={detailUser} usage={usage.data} account={packages.get(detailUser.id)} onClose={()=>setDetailID(null)} onConnect={()=>{setDetailID(null);void showSubscription(detailUser);}} onToggle={()=>toggle.mutateAsync(detailUser)} onDelete={()=>remove.mutateAsync(detailUser)}/>}
+      {detailUser&&<UserDetails trafficNow={trafficTime} traffic={traffic.data?.detail} trafficPending={traffic.isPending} trafficFailed={traffic.isError} initialTab={detailTab} key={`${detailUser.id}:${detailTab}`} user={detailUser} usage={usage.data} account={packages.get(detailUser.id)} onClose={()=>setDetailID(null)} onConnect={()=>{setDetailID(null);void showSubscription(detailUser);}} onToggle={()=>toggle.mutateAsync(detailUser)} onDelete={()=>remove.mutateAsync(detailUser)}/>}
 
       {subscription && subscriptionUser && (
-        <Dialog title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>
-          <div className="panel-body">
+        <Dialog className="access-dialog" title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>
+          <div className="dialog-body">
             <DirectAccess preferredMode={subscriptionUser.preferences?.access_mode} preferredKind={subscriptionUser.preferences?.direct_kind} links={subscription.links} ids={subscription.link_ids} subscription={{title:subscription.title,url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
             <details className="profile-advanced"><summary>Дополнительные форматы</summary>
               <div className="profile-settings">

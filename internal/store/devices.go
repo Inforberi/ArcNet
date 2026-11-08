@@ -269,7 +269,7 @@ func replaceDevices(tx *db.Tx, incoming *devices.State, before devices.State, ol
 		return err
 	}
 	if len(next) > 0 {
-		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
+		unsupported, err := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') AND kind NOT LIKE 'vless-xhttp:%' AND kind NOT LIKE 'vless-reality:%' LIMIT 1")
 		if err != nil {
 			return err
 		}

@@ -1,9 +1,11 @@
+import {useConfirmation} from '../shared/Confirmation';
 import {useState, type FormEvent} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '../shared/api';
 import AccountSettings from '../features/users/AccountSettings';
-import UpdateSettings from '../features/settings/UpdateSettings';
-import {Button,Field,Loading,Notice,PageHeading,Panel} from '../shared/ui';
+import {Link} from 'react-router';
+import InterfaceSettings from '../features/settings/InterfaceSettings';
+import {Button,Field,Loading,Notice,PageHeading,Panel,SettingsLayout} from '../shared/ui';
 
 type LogSettings={budget_mb:number;used_bytes:number;scope:string;xray_journal_managed:boolean};
 type LogTail={text:string;available:boolean};
@@ -14,8 +16,9 @@ type FirewallState={available:boolean;writable?:boolean;active?:boolean;rules?:F
 type MFAStatus={enabled:boolean};
 type MFASetup={secret:string;uri:string;qr_svg_base64:string;expires_in:string};
 export default function Security(){
+ const confirm=useConfirmation();
  const queryClient=useQueryClient();
- const [section,setSection]=useState<'account'|'server'|'updates'>('account');
+ const [section,setSection]=useState<'account'|'server'|'interface'>('account');
  const query=useQuery({queryKey:['log-settings'],queryFn:()=>api<LogSettings>('/api/settings/logs'),enabled:section==='server'});
  const firewall=useQuery({queryKey:['firewall'],queryFn:()=>api<FirewallState>('/api/settings/firewall'),enabled:section==='server'});
  const firewallMutation=useMutation({mutationFn:(value:{port:number;transport:string;allow:boolean})=>api('/api/settings/firewall','POST',value),onSuccess:()=>queryClient.invalidateQueries({queryKey:['firewall']})});
@@ -32,12 +35,13 @@ export default function Security(){
  async function showTail(){setError('');try{const result=await api<LogTail>('/api/settings/logs/tail');setTail(result.text||'Журнал пуст')}catch(err){setError(err instanceof Error?err.message:'Ошибка чтения журнала')}}
  async function startMFA(e:FormEvent){e.preventDefault();setAuthBusy(true);setError('');setMessage('');try{setSetup(await api<MFASetup>('/api/security/mfa/setup','POST',{password}));setCode('')}catch(err){setError(err instanceof Error?err.message:'Ошибка настройки 2FA')}finally{setAuthBusy(false)}}
  async function finishMFA(e:FormEvent){e.preventDefault();setAuthBusy(true);setError('');try{await api('/api/security/mfa/confirm','POST',{password,code});setMessage('2FA включена. Сессии завершены. Для нового входа дождись следующего 30-секундного кода.');setPassword('');setCode('');setSetup(null);await queryClient.invalidateQueries({queryKey:['session']});await queryClient.invalidateQueries({queryKey:['mfa-status']})}catch(err){setError(err instanceof Error?err.message:'Неверный код 2FA')}finally{setAuthBusy(false)}}
- async function disableMFA(e:FormEvent){e.preventDefault();if(!window.confirm('Отключить второй фактор и завершить все административные сессии?'))return;setAuthBusy(true);setError('');try{await api('/api/security/mfa/disable','POST',{password,code});setPassword('');setCode('');await queryClient.invalidateQueries({queryKey:['session']})}catch(err){setError(err instanceof Error?err.message:'Не удалось отключить 2FA')}finally{setAuthBusy(false)}}
+ async function disableMFA(e:FormEvent){e.preventDefault();if(!(await confirm('Отключить второй фактор и завершить все административные сессии?')))return;setAuthBusy(true);setError('');try{await api('/api/security/mfa/disable','POST',{password,code});setPassword('');setCode('');await queryClient.invalidateQueries({queryKey:['session']})}catch(err){setError(err instanceof Error?err.message:'Не удалось отключить 2FA')}finally{setAuthBusy(false)}}
  return <>
-  <PageHeading title="Настройки" description="Авторизация администратора, HTTPS и журналы панели"/>
-  <nav className="settings-navigation" aria-label="Разделы настроек">
-   {([{id:'account',label:'Аккаунт'},{id:'server',label:'Сервер'},{id:'updates',label:'Обновления'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant={section===item.id?'primary':'default'} disabled={authBusy||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
-  </nav>
+  <PageHeading title="Настройки" description="Аккаунт, интерфейс и обслуживание сервера"/>
+  <SettingsLayout navigation={<nav className="settings-navigation" aria-label="Разделы настроек">
+   {([{id:'account',label:'Аккаунт'},{id:'interface',label:'Интерфейс'},{id:'server',label:'Сервер'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant="ghost" disabled={authBusy||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
+   <Link to="/versions" className="button ghost">Версии ArcNet</Link>
+  </nav>}>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
   <section aria-label="Аккаунт и безопасность" hidden={section!=='account'}>
@@ -79,7 +83,7 @@ export default function Security(){
     <div className="flex wrap">
      <Button variant="primary" disabled={update.isPending} onClick={async()=>{setError('');try{await update.mutateAsync(limit??query.data.budget_mb)}catch(e){setError(e instanceof Error?e.message:'Ошибка')}}}>Сохранить</Button>
      <Button onClick={()=>void showTail()}>Показать последние строки</Button>
-     <Button variant="danger" disabled={clear.isPending} onClick={async()=>{if(!window.confirm('Удалить файлы журналов панели?'))return;setError('');try{await clear.mutateAsync()}catch(e){setError(e instanceof Error?e.message:'Ошибка')}}}>Очистить</Button>
+     <Button variant="danger" disabled={clear.isPending} onClick={async()=>{if(!(await confirm('Удалить файлы журналов панели?')))return;setError('');try{await clear.mutateAsync()}catch(e){setError(e instanceof Error?e.message:'Ошибка')}}}>Очистить</Button>
     </div>
    </>}
    {tail!==null&&<pre className="log-view">{tail}</pre>}
@@ -112,7 +116,7 @@ export default function Security(){
        <span>{endpoint.kind} · {endpoint.port}/{endpoint.transport} · {endpoint.enabled?'Включён':'Отключён'}</span>
        {firewall.data.writable?<Button disabled={!firewall.data.available||!firewall.data.active||firewallMutation.isPending||(!open&&!endpoint.enabled)} variant={open?'danger':'primary'} onClick={async()=>{
         const action=open?'Закрыть':'Открыть';
-        if(!window.confirm(`${action} порт ${endpoint.port}/${endpoint.transport} в UFW?`))return;
+        if(!(await confirm(`${action} порт ${endpoint.port}/${endpoint.transport} в UFW?`)))return;
         setError('');
         try{await firewallMutation.mutateAsync({port:endpoint.port,transport:endpoint.transport,allow:!open})}
         catch(e){setError(e instanceof Error?e.message:'Ошибка UFW')}
@@ -122,8 +126,7 @@ export default function Security(){
    </>}
   </div></Panel>
   </section>
-  <section aria-label="Обновления ArcNet" hidden={section!=='updates'}>
-  <UpdateSettings active={section==='updates'}/>
-  </section>
+  <section aria-label="Настройки интерфейса" hidden={section!=='interface'}><InterfaceSettings/></section>
+  </SettingsLayout>
  </>;
 }

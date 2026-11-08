@@ -51,7 +51,7 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 	return a.editConnectionLocked(ctx, kind, revision, settings)
 }
 func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, settings ConnectionSettings) error {
-	if kind != "vless-reality" && kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
+	if store.ConnectionKind(kind) != "vless-reality" && store.ConnectionKind(kind) != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
 		return protocols.ErrInvalid
 	}
 	reality, err := a.Store.OptionalReality(ctx)
@@ -80,7 +80,7 @@ func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, s
 				return err
 			}
 		}
-		switch kind {
+		switch old.Kind {
 		case "vless-reality", protocols.XHTTP:
 			next.PrivateKey, next.PublicKey, next.ShortID, err = xray.GenerateKeys(ctx, a.Core.Binary)
 		case protocols.WireGuard:
@@ -98,7 +98,7 @@ func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, s
 	if settings.ServerOptions != nil && !old.ServerOptions.Equal(*settings.ServerOptions) {
 		next.ServerOptions = *settings.ServerOptions
 	}
-	if store.ValidateServerOptions(kind, next.ServerOptions) != nil {
+	if store.ValidateServerOptions(old.Kind, next.ServerOptions) != nil {
 		return protocols.ErrInvalid
 	}
 	if kind == protocols.Hysteria2 && next.ServerOptions.Salamander && next.ObfsKey == "" {
@@ -114,7 +114,7 @@ func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, s
 		return protocols.ErrInvalid
 	}
 	if settings.Path != nil {
-		if kind != protocols.XHTTP && *settings.Path != "" {
+		if old.Kind != protocols.XHTTP && *settings.Path != "" {
 			return protocols.ErrInvalid
 		}
 		next.Path = *settings.Path
@@ -194,6 +194,7 @@ func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, s
 func (a *App) validateConnectionEdit(ctx context.Context, p store.Protocol, reality store.Reality) error {
 	if p.Kind == "vless-reality" {
 		r := reality
+		r.Address = p.Address
 		r.Private, r.Public, r.ShortID = p.PrivateKey, p.PublicKey, p.ShortID
 		r.ServerOptions = p.ServerOptions
 		r.Fingerprint = p.Fingerprint
@@ -231,7 +232,7 @@ func (a *App) validateConnectionEdit(ctx context.Context, p store.Protocol, real
 		profiles = append(profiles, RealityProfile(reality))
 	}
 	for _, other := range profiles {
-		if !other.Enabled || other.Kind == p.Kind {
+		if !other.Enabled || other.ConnectionID() == p.ConnectionID() {
 			continue
 		}
 		otherTransport := "tcp"

@@ -1,6 +1,6 @@
 # ArcNet
 
-**Локальные исходники 8 ноября:** клиентские параметры XHTTP/WireGuard, sniffing и flow VLESS, таймауты/Salamander/полоса Brutal Hysteria2; отдельная подтверждаемая смена серверных ключей REALITY/WireGuard. Backup18 требует нового reader. В опубликованный релиз это ещё не включено. [Контракт](docs/features/first-connection.md#flow-смена-ключей-и-hysteria2--локально-8-ноября).
+**Локальные исходники 8 ноября:** клиентские параметры XHTTP/WireGuard, sniffing и flow VLESS, таймауты/Salamander/полоса Brutal Hysteria2; отдельная подтверждаемая смена серверных ключей REALITY/WireGuard. Расписания пакетов расширены выбором дня недели/числа месяца; существующие source Go checks пройдены, runtime приёмка открыта. Backup21 требует нового reader. В опубликованный релиз это ещё не включено. [Подключения](docs/features/first-connection.md#flow-смена-ключей-и-hysteria2--локально-8-ноября), [расписания](docs/features/user-preferences.md#расписание-пакета--локальная-реализация).
 
 Лёгкая VPN-панель с веб-интерфейсом: пользователи, подключения, пакеты трафика, отдельные доступы устройств и управление серверами. Backend — Go + SQLite, интерфейс — React/TypeScript. Redis, PostgreSQL и Docker для работы панели не требуются.
 

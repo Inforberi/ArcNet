@@ -139,7 +139,7 @@ func requireDeviceNode(tx *db.Tx, node string) error {
 	return nil
 }
 func checkDeviceCoverage(tx *db.Tx) error {
-	unsupported, e := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
+	unsupported, e := tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') AND kind NOT LIKE 'vless-xhttp:%' AND kind NOT LIKE 'vless-reality:%' LIMIT 1")
 	if e != nil {
 		return e
 	}

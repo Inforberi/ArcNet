@@ -141,30 +141,46 @@ func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.
 	}
 	inbounds := root["inbounds"].([]any)
 	for _, p := range profiles {
-		if p.Kind != "vless-xhttp" || !p.Enabled {
+		if (p.Kind != "vless-xhttp" && p.Kind != "vless-reality") || !p.Enabled {
 			continue
 		}
 		if err := store.ValidateServerOptions(p.Kind, p.ServerOptions); err != nil {
 			return nil, err
 		}
-		if p.Port <= 0 || p.Port > 65535 || !sniPattern.MatchString(p.SNI) || !sniPattern.MatchString(p.Target) || !keyPattern.MatchString(p.PrivateKey) || !hexID.MatchString(p.ShortID) || !strings.HasPrefix(p.Path, "/") {
+		if p.Port <= 0 || p.Port > 65535 || !sniPattern.MatchString(p.SNI) || !sniPattern.MatchString(p.Target) || !keyPattern.MatchString(p.PrivateKey) || !hexID.MatchString(p.ShortID) || (p.Kind == "vless-xhttp" && !strings.HasPrefix(p.Path, "/")) {
 			return nil, errors.New("invalid XHTTP profile")
 		}
 		clients := make([]map[string]any, 0, len(users))
 		for _, u := range users {
-			if u.Enabled && u.Allows("vless-xhttp") {
-				clients = append(clients, userClients(u, true, "")...)
+			if u.Enabled && u.Allows(p.ConnectionID()) {
+				flow := ""
+				if p.Kind == "vless-reality" {
+					flow = p.ServerOptions.VLESSFlow()
+				}
+				clients = append(clients, userClients(u, p.Kind == "vless-xhttp", flow)...)
 			}
 		}
+		xhttpSettings := map[string]any{"path": p.Path, "mode": "auto"}
+		if p.ServerOptions.XHTTPHost != "" {
+			xhttpSettings["host"] = p.ServerOptions.XHTTPHost
+		}
 		inbounds = append(inbounds, map[string]any{
-			"listen": "0.0.0.0", "port": p.Port, "protocol": "vless", "tag": "vless-xhttp-reality",
+			"listen": "0.0.0.0", "port": p.Port, "protocol": "vless", "tag": p.ConnectionID(),
 			"settings": map[string]any{"clients": clients, "decryption": "none"},
 			"streamSettings": map[string]any{"network": "xhttp", "security": "reality",
-				"xhttpSettings":   map[string]any{"path": p.Path, "mode": "auto"},
+				"xhttpSettings":   xhttpSettings,
 				"realitySettings": map[string]any{"show": false, "target": net.JoinHostPort(p.Target, "443"), "serverNames": []string{p.SNI}, "privateKey": p.PrivateKey, "shortIds": []string{p.ShortID}}},
 		})
-		if p.ServerOptions.Sniffing != nil {
-			inbounds[len(inbounds)-1].(map[string]any)["sniffing"] = map[string]any{"enabled": *p.ServerOptions.Sniffing, "destOverride": []string{"http", "tls"}, "routeOnly": true}
+		if p.ID == "" && p.Kind == "vless-xhttp" {
+			inbounds[len(inbounds)-1].(map[string]any)["tag"] = "vless-xhttp-reality"
+		}
+		if p.Kind == "vless-reality" {
+			stream := inbounds[len(inbounds)-1].(map[string]any)["streamSettings"].(map[string]any)
+			stream["network"] = "tcp"
+			delete(stream, "xhttpSettings")
+		}
+		if p.ServerOptions.Sniffing != nil || p.Kind == "vless-reality" {
+			inbounds[len(inbounds)-1].(map[string]any)["sniffing"] = map[string]any{"enabled": p.ServerOptions.SniffingEnabled(p.Kind), "destOverride": []string{"http", "tls"}, "routeOnly": true}
 		}
 	}
 	root["inbounds"] = inbounds

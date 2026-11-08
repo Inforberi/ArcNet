@@ -18,6 +18,7 @@ type ClientOptions struct {
 }
 
 func ValidateClientOptions(kind string, o ClientOptions) error {
+	kind = ConnectionKind(kind)
 	invalid := errors.New("invalid client export options")
 	switch kind {
 	case "vless-xhttp":
@@ -108,5 +109,5 @@ func saveClientOptions(tx *db.Tx, kind string, o ClientOptions) error {
 	return tx.Exec("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", "client_options:"+kind, string(value))
 }
 func clearProtocolClientOptions(tx *db.Tx) error {
-	return tx.Exec("DELETE FROM settings WHERE key IN ('client_options:vless-xhttp','client_options:wireguard','client_options:hysteria2','client_options:amneziawg')")
+	return tx.Exec("DELETE FROM settings WHERE key LIKE 'client_options:%' AND key != 'client_options:vless-reality'")
 }

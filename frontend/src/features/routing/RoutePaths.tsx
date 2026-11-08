@@ -1,3 +1,4 @@
+import {useConfirmation} from '../../shared/Confirmation';
 import {lazy, Suspense, useCallback, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {api, ApiError, type VPNConfig} from '../../shared/api';
@@ -14,6 +15,7 @@ const fieldTitles: Record<string, string> = {policy: 'Маршрут', name: 'Н
 const pathTitles: Record<string, string> = {direct: 'Прямой выход', cascade: 'Каскад', blocked: 'Заблокирован', fail_open: 'Прямой обход при отказе'};
 
 export default function RoutePaths() {
+ const confirm=useConfirmation();
   const cache = useQueryClient();
   const vpn = useQuery({queryKey: ['vpn'], queryFn: () => api<VPNConfig>('/api/vpn')});
   const routes = useQuery({queryKey: ['route-policies'], queryFn: () => api<RouteList>('/api/routes')});
@@ -97,7 +99,7 @@ export default function RoutePaths() {
   const actions = (policy: RoutePolicy) => <div className="flex route-actions">
     <Button type="button" disabled={busy} onClick={() => startEdit(policy)}>Редактировать</Button>
     <Button type="button" disabled={busy || simulate.isPending} onClick={() => simulate.mutate(policy)}>Симулировать отказ</Button>
-    <Button type="button" variant="danger" disabled={busy} onClick={() => {if (window.confirm(`Удалить черновик «${policy.name}»?`)) remove.mutate(policy);}}>Удалить черновик</Button>
+    <Button type="button" variant="danger" disabled={busy} onClick={async () => {if ((await confirm(`Удалить черновик «${policy.name}»?`))) remove.mutate(policy);}}>Удалить черновик</Button>
   </div>;
 
   return <>

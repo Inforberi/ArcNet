@@ -5,6 +5,7 @@ import {activityText,trafficFresh,trafficHistory,type TrafficDetail} from './tra
 
 export default function UserTrafficPanel({now,detail,pending,failed}:{now:number;detail?:TrafficDetail;pending:boolean;failed:boolean}){
  if(pending&&!detail)return <Loading/>;
+ if(!detail&&!pending)return <Notice>{failed?'Не удалось получить показатели. Повторите открытие карточки.':'Измерения ещё не получены. Трафик и график появятся после первых замеров.'}</Notice>;
  const item=detail?.current,fresh=!failed&&trafficFresh(item,now);
  return <section className="user-traffic-panel" aria-label="Трафик пользователя">
   <div className="section-heading"><h3>Скорость и активность</h3><small className="muted">{item?.at?`Замер ${new Date(item.at*1000).toLocaleTimeString('ru-RU')}`:'Счётчики ещё не получены'}</small></div>

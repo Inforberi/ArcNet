@@ -45,7 +45,7 @@ export function MonitoringControls() {
  const label = {connecting: 'Запускаем опрос сервера', live: 'Обновляется автоматически', reconnecting: 'Нет сети · опрос приостановлен', paused: 'Обновления приостановлены в скрытой вкладке'}[connection];
  return <div className="monitoring-controls">
   <p className="muted" role="status">{label} · каждые {seconds} с</p>
-  <details className="profile-advanced"><summary>Расширенные настройки мониторинга</summary><div className="profile-settings">
+  <details className="profile-advanced monitoring-options"><summary>Интервал обновления</summary><div className="profile-settings">
    <label className="field"><span>Интервал обновления</span><select aria-label="Интервал обновления" value={choice ?? seconds} disabled={save.isPending} onChange={event => setChoice(Number(event.target.value))}>{[5,10,15,30,60].map(n => <option key={n} value={n}>{n} секунд</option>)}</select></label>
    <small>Общий интервал панели и новых агентов. Агент получит изменение при следующем отчёте. История хранит последний снимок каждой минуты; heartbeat и VPN-пробы работают отдельно.</small>
    <Button type="button" disabled={save.isPending || choice === null || choice === seconds} onClick={() => save.mutate(choice ?? seconds)}>Сохранить интервал</Button>

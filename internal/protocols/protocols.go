@@ -37,6 +37,9 @@ var ErrInvalid = errors.New("invalid protocol configuration")
 
 func Kinds() []string { return []string{XHTTP, Hysteria2, WireGuard, AmneziaWG} }
 func IsSupported(kind string) bool {
+	if kind == "vless-reality" {
+		return true
+	}
 	for _, v := range Kinds() {
 		if v == kind {
 			return true
@@ -46,6 +49,8 @@ func IsSupported(kind string) bool {
 }
 func DefaultPort(kind string) int {
 	switch kind {
+	case "vless-reality":
+		return 443
 	case XHTTP:
 		return 2087
 	case Hysteria2:
@@ -70,13 +75,16 @@ func validateHostname(host string) bool {
 	return len(host) <= 253 && len(host) >= 3 && hostnameRE.MatchString(host) && !strings.Contains(host, "..") && strings.Contains(host, ".")
 }
 func Validate(p store.Protocol) error {
+	if p.ID != "" && (!store.IsAdditionalConnection(p.ID) || store.ConnectionKind(p.ID) != p.Kind) {
+		return ErrInvalid
+	}
 	if err := store.ValidateServerOptions(p.Kind, p.ServerOptions); err != nil {
 		return fmt.Errorf("%w: server options", ErrInvalid)
 	}
 	if err := store.ValidateClientOptions(p.Kind, p.ClientOptions); err != nil {
 		return fmt.Errorf("%w: client options", ErrInvalid)
 	}
-	if !xray.ValidFingerprint(p.Fingerprint) || (p.Kind != XHTTP && p.Fingerprint != "") {
+	if !xray.ValidFingerprint(p.Fingerprint) || (p.Kind != XHTTP && p.Kind != "vless-reality" && p.Fingerprint != "") {
 		return fmt.Errorf("%w: client TLS fingerprint", ErrInvalid)
 	}
 	if !IsSupported(p.Kind) || p.Port < 1 || p.Port > 65535 {
@@ -86,6 +94,8 @@ func Validate(p store.Protocol) error {
 		return fmt.Errorf("%w: address must be an IP", ErrInvalid)
 	}
 	switch p.Kind {
+	case "vless-reality":
+		return xray.Validate(store.Reality{ServerOptions: p.ServerOptions, Fingerprint: p.Fingerprint, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, Private: p.PrivateKey, Public: p.PublicKey, ShortID: p.ShortID, Enabled: p.Enabled})
 	case XHTTP:
 		if !validateHostname(p.SNI) || !validateHostname(p.Target) || !pathRE.MatchString(p.Path) || len(p.ShortID) != 16 {
 			return fmt.Errorf("%w: XHTTP target/SNI/path", ErrInvalid)
@@ -164,7 +174,7 @@ func New(ctx context.Context, kind, address string, port int, sni, target, xrayB
 		return p, ErrInvalid
 	}
 	switch kind {
-	case XHTTP:
+	case XHTTP, "vless-reality":
 		if p.Target == "" {
 			p.Target = p.SNI
 		}
@@ -179,7 +189,10 @@ func New(ctx context.Context, kind, address string, port int, sni, target, xrayB
 		if err != nil {
 			return p, err
 		}
-		p.PrivateKey, p.PublicKey, p.ShortID, p.Path = priv, pub, sid, "/"+path
+		p.PrivateKey, p.PublicKey, p.ShortID = priv, pub, sid
+		if kind == XHTTP {
+			p.Path = "/" + path
+		}
 	case Hysteria2:
 		if p.SNI == "" {
 			p.SNI = p.Address
@@ -221,8 +234,8 @@ func NewCredential(kind string, user store.User) (store.ProtocolCredential, erro
 	if user.ID <= 0 {
 		return c, ErrInvalid
 	}
-	switch kind {
-	case XHTTP:
+	switch store.ConnectionKind(kind) {
+	case XHTTP, "vless-reality":
 		c.Secret = user.UUID
 	case Hysteria2:
 		v, err := auth.Secret(32)
@@ -268,10 +281,14 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 	}
 	out := make([]Connection, 0, len(profiles)+1)
 	for _, p := range profiles {
-		if !p.Enabled || !user.Allows(p.Kind) {
+		if !p.Enabled || !user.Allows(p.ConnectionID()) {
 			continue
 		}
-		c, ok := creds[p.Kind]
+		c, ok := creds[p.ConnectionID()]
+		if !ok && p.ID != "" && (p.Kind == XHTTP || p.Kind == "vless-reality") {
+			c = store.ProtocolCredential{UserID: user.ID, Kind: p.ConnectionID(), Secret: user.UUID}
+			ok = true
+		}
 		if !ok {
 			continue
 		}
@@ -279,10 +296,24 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 			return nil, err
 		}
 		switch p.Kind {
+		case "vless-reality":
+			r := store.Reality{ServerOptions: p.ServerOptions, Fingerprint: p.Fingerprint, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, Private: p.PrivateKey, Public: p.PublicKey, ShortID: p.ShortID, Enabled: p.Enabled}
+			labelUser := user
+			labelUser.Name = fmt.Sprintf("%s · TCP %d", user.Name, p.Port)
+			out = append(out, Connection{Kind: p.ConnectionID(), Label: fmt.Sprintf("VLESS + Reality TCP · %d", p.Port), Format: "uri", Link: xray.Link(r, labelUser)})
 		case XHTTP:
 			q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {p.SNI}, "fp": {xray.ClientFingerprint(p.Fingerprint)}, "pbk": {p.PublicKey}, "sid": {p.ShortID}, "type": {"xhttp"}, "path": {p.Path}, "mode": {p.ClientOptions.Mode()}}
-			link := fmt.Sprintf("vless://%s@%s?%s#%s", url.PathEscape(c.Secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(user.Name+" XHTTP"))
-			out = append(out, Connection{Kind: p.Kind, Label: "VLESS + XHTTP + Reality", Format: "uri", Link: link})
+			if p.ServerOptions.XHTTPHost != "" {
+				q.Set("host", p.ServerOptions.XHTTPHost)
+			}
+			name := user.Name + " XHTTP"
+			label := "VLESS + XHTTP + Reality"
+			if p.ID != "" {
+				name = fmt.Sprintf("%s · XHTTP %d", user.Name, p.Port)
+				label = fmt.Sprintf("%s · %d", label, p.Port)
+			}
+			link := fmt.Sprintf("vless://%s@%s?%s#%s", url.PathEscape(c.Secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(name))
+			out = append(out, Connection{Kind: p.ConnectionID(), Label: label, Format: "uri", Link: link})
 		case Hysteria2:
 			link := HysteriaLink(p, user.Name, fmt.Sprintf("u%d", user.ID), c.Secret)
 			out = append(out, Connection{Kind: p.Kind, Label: "Hysteria2", Format: "uri", Link: link})

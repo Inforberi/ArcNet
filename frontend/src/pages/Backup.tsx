@@ -1,7 +1,8 @@
+import {useConfirmation} from '../shared/Confirmation';
 import {useState,type FormEvent,type ChangeEvent} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {api} from '../shared/api';
-import {Button,Field,Notice,PageHeading,Panel} from '../shared/ui';
+import {Button,Field,Notice,PageHeading,Panel,Properties,SettingsSection} from '../shared/ui';
 
 type ExportReply={filename:string;content:string};
 type Preview={devices_included:boolean;usage_included:boolean;version:number;created_at:number;users:number;current_users:number;protocols:number;current_protocols:number;nodes:number;current_nodes:number;routes:number;current_routes:number;routes_replaced:boolean;routing_profiles:number;current_routing_profiles:number;routing_profiles_replaced:boolean;log_budget_mb?:number;vpn_configured:boolean;vpn_address?:string;vpn_port?:number};
@@ -13,6 +14,7 @@ function download(content:string,filename:string):void{
  window.setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 export default function Backup(){
+ const confirm=useConfirmation();
  const queryClient=useQueryClient();
  const[exportPassword,setExportPassword]=useState('');const[exportConfirmation,setExportConfirmation]=useState('');const[exportBusy,setExportBusy]=useState(false);
  const[newAddress,setNewAddress]=useState('');const[importPassword,setImportPassword]=useState('');const[archive,setArchive]=useState('');const[preview,setPreview]=useState<Preview|null>(null);
@@ -31,12 +33,12 @@ export default function Backup(){
   catch(e){setError(e instanceof Error?e.message:'Ошибка проверки архива')}finally{setImportBusy(false)}
  }
  async function restore(){if(!preview || !preview.vpn_configured)return;
-  if(!window.confirm(`Заменить ${preview.current_protocols} протоколов и ${preview.current_users} пользователей данными из архива (${preview.protocols} протоколов, ${preview.users} пользователей)? ${preview.routes_replaced ? `Черновики маршрутов: ${preview.current_routes} → ${preview.routes}. Профили правил: ${preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются"}.` : "Существующие черновики маршрутов сохраняются; несовместимые ссылки на ноды заблокируют импорт."}`))return;
+  if(!(await confirm(`Заменить ${preview.current_protocols} протоколов и ${preview.current_users} пользователей данными из архива (${preview.protocols} протоколов, ${preview.users} пользователей)? ${preview.routes_replaced ? `Черновики маршрутов: ${preview.current_routes} → ${preview.routes}. Профили правил: ${preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются"}.` : "Существующие черновики маршрутов сохраняются; несовместимые ссылки на ноды заблокируют импорт."}`)))return;
   setImportBusy(true);setError('');try{await api('/api/backup/import','POST',{archive,password:importPassword,new_address:newAddress.trim(),confirm:'REPLACE_ARCVPN_STATE'});await queryClient.invalidateQueries();setMessage('Восстановление завершено. Данные всех разделов обновлены.');setArchive('');setImportPassword('');setPreview(null)}
   catch(e){setError(e instanceof Error?e.message:'Ошибка восстановления')}finally{setImportBusy(false)}
  }
  return <>
-  <PageHeading title="Импорт и экспорт" description="Перенос пользователей и настроек между экземплярами ArcNet"/>
+  <PageHeading title="Резервные копии" description="Перенос пользователей и настроек между экземплярами ArcNet"/>
   <Notice>Архив содержит приватные ключи VPN, токены подписок и хеши ключей нод. Храни его отдельно от VPS. При переносе на другой IP нужно обновить адрес подписки у клиентов: старая IP-ссылка не переносится автоматически. Агентам нод при смене адреса контроллера потребуется обновить endpoint.</Notice>
   {error&&<p className="error" role="alert">{error}</p>}{message&&<div className="notice" role="status">{message}</div>}
   <Panel title="Экспорт настроек и пользователей"><form className="panel-body" onSubmit={exportState}>
@@ -52,7 +54,16 @@ export default function Backup(){
    <Field label="Пароль архива" type="password" autoComplete="off" maxLength={1024} value={importPassword} onChange={e=>{setImportPassword(e.target.value);setPreview(null)}}/>
    <div className="flex wrap"><Button onClick={()=>void previewImport()} disabled={importBusy||!archive||!importPassword}>Проверить архив</Button>
     <Button variant="danger" onClick={()=>void restore()} disabled={importBusy||!preview?.vpn_configured}>Заменить VPN и пользователей</Button></div>
-   {preview&&<div className="notice" role="status">Архив: {preview.users} пользователей, {preview.protocols} дополнительных протоколов, {preview.nodes??0} нод, IP {preview.vpn_address??'не указан'}, порт {preview.vpn_port??'—'}. Сейчас: {preview.current_users} пользователей, {preview.current_nodes??0} нод. Архив v{preview.version}: {preview.routes_replaced ? `черновики маршрутов заменяются (${preview.current_routes} → ${preview.routes})` : `текущие черновики (${preview.current_routes}) сохраняются; отсутствующие ноды вызовут отказ импорта`}. Профили правил: {preview.routing_profiles_replaced ? `${preview.current_routing_profiles} → ${preview.routing_profiles}` : "сохраняются (архив до v5)"}. Пакеты и расход: {preview.usage_included ? "переносятся; уже известный расход того же пользователя не уменьшается" : "сохраняются у пользователей с теми же UUID (архив без учёта)"}. Устройства: {preview.devices_included ? "переносятся; местные отзывы доступа сохраняются" : "сохраняются у пользователей с теми же UUID"}. В v3–v11 ноды и настройки заменяются; v1/v2 сохраняют текущие ноды. Внешняя проверка VPN после переноса обязательна.</div>}
+   {preview&&<SettingsSection title="План восстановления" description="Архив проверен. Изменения ещё не применены."><Properties items={[
+    {label:'Пользователи',value:`${preview.current_users} → ${preview.users}`},
+    {label:'Дополнительные подключения',value:`${preview.current_protocols} → ${preview.protocols}`},
+    {label:'Ноды',value:preview.version<=2?'Текущие сохраняются':`${preview.current_nodes??0} → ${preview.nodes??0}`},
+    {label:'VPN-адрес',value:preview.vpn_address??'Не указан'},
+    {label:'Черновики маршрутов',value:preview.routes_replaced?`${preview.current_routes} → ${preview.routes}`:'Текущие сохраняются'},
+    {label:'Профили правил',value:preview.routing_profiles_replaced?`${preview.current_routing_profiles} → ${preview.routing_profiles}`:'Текущие сохраняются'},
+    {label:'Пакеты и расход',value:preview.usage_included?'Переносятся; известный расход не уменьшается':'Сохраняются для пользователей с тем же UUID'},
+    {label:'Выданные доступы',value:preview.devices_included?'Переносятся; местные отзывы сохраняются':'Сохраняются для пользователей с тем же UUID'}
+   ]}/><Notice>Текущее состояние будет заменено. Несовместимые ссылки на отсутствующие ноды блокируют импорт. После восстановления нужно проверить VPN-подключение с устройства.</Notice></SettingsSection>}
   </div></Panel>
  </>;
 }

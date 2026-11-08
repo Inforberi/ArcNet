@@ -1,3 +1,5 @@
+import {useConfirmation} from '../shared/Confirmation';
+import Dialog,{DialogClose} from '../shared/Dialog';
 import TargetPicker from '../features/targets/TargetPicker';
 import {useEffect,useState} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
@@ -44,6 +46,7 @@ function revState(node:Node){
 function errorMessage(e:unknown){return e instanceof Error?e.message:'Операция завершилась с ошибкой';}
 
 function NodeUpgradeWizard({node,onClose}:{node:Node;onClose:()=>void}) {
+ const confirm=useConfirmation();
   const cache=useQueryClient();
   const [sshPort,setSSHPort]=useState('22');
   const [user,setUser]=useState('root');
@@ -84,7 +87,7 @@ function NodeUpgradeWizard({node,onClose}:{node:Node;onClose:()=>void}) {
     {verified&&<><label className="field"><span>Приватный SSH-ключ (не сохраняется)</span><textarea className="node-key" rows={5} value={privateKey} onChange={event=>{setPrivateKey(event.target.value);setPlan(null);}} autoComplete="off" spellCheck={false}/></label>
       <Button disabled={check.isPending||privateKey.length<100} onClick={()=>check.mutate()}>2. Проверить обновление</Button></>}
     {plan&&<div className="node-preflight"><h3>План обновления</h3><p><strong>{plan.current_version} → {plan.target_version}</strong></p><p>ID исходной установки: <code>{plan.installation_id}</code></p><ol>{plan.changes.map(line=><li key={line}>{line}</li>)}</ol>
-      <Button variant="danger" disabled={upgrade.isPending||privateKey.length<100} onClick={()=>{if(window.prompt('Введите точно: ОБНОВИТЬ НОДУ')==='ОБНОВИТЬ НОДУ')upgrade.mutate();}}>{upgrade.isPending?'Запуск…':'3. Подтвердить обновление'}</Button>
+      <Button variant="danger" disabled={upgrade.isPending||privateKey.length<100} onClick={async ()=>{if((await confirm('Введите точно: ОБНОВИТЬ НОДУ', {phrase:'ОБНОВИТЬ НОДУ',action:'Подтвердить операцию'})))upgrade.mutate();}}>{upgrade.isPending?'Запуск…':'3. Подтвердить обновление'}</Button>
     </div>}
     {queued&&<p role="status">Обновление поставлено в очередь. Операция: <code>{queued}</code>. Статус проверяйте в журнале SSH.</p>}
     <Button onClick={()=>{setPrivateKey('');onClose();}}>Закрыть</Button>
@@ -92,6 +95,8 @@ function NodeUpgradeWizard({node,onClose}:{node:Node;onClose:()=>void}) {
 }
 
 export default function Nodes(){
+ const confirm=useConfirmation();
+  const [installOpen,setInstallOpen]=useState(false);
   const cache=useQueryClient();
   const nodes=useQuery({queryKey:['nodes'],queryFn:()=>api<NodeList>('/api/nodes')});
   const operations=useQuery({queryKey:['node-bootstraps'],queryFn:()=>api<{items:Bootstrap[]}>('/api/nodes/ssh/operations')});
@@ -186,10 +191,10 @@ export default function Nodes(){
       {state==='failed'&&<Button disabled={busy} onClick={()=>retry.mutate(node.id)}>Повторить</Button>}
       {state==='queued'&&<Button disabled={busy} onClick={()=>cancel.mutate(node.id)}>Отменить</Button>}
       {state==='applied'&&!node.control.draining&&<Button onClick={()=>{setLinkNode(node.id);setProbeGrant(null);}}>Тестовые ссылки</Button>}
-      <Button disabled={busy||(!node.control.draining&&state==='queued')} onClick={()=>{const next=!node.control.draining;if(window.confirm(next?'Прекратить выдачу новых диагностических ссылок? Уже сохранённые VPN-ссылки и соединения останутся действительными.':'Возобновить выдачу диагностических ссылок? Это не публикует ноду в подписках и не доказывает VPN-доступность.'))drain.mutate({id:node.id,draining:next});}}>{node.control.draining?'Возобновить выдачу':'Drain: скрыть ссылки'}</Button>
+      <Button disabled={busy||(!node.control.draining&&state==='queued')} onClick={async ()=>{const next=!node.control.draining;if((await confirm(next?'Прекратить выдачу новых диагностических ссылок? Уже сохранённые VPN-ссылки и соединения останутся действительными.':'Возобновить выдачу диагностических ссылок? Это не публикует ноду в подписках и не доказывает VPN-доступность.')))drain.mutate({id:node.id,draining:next});}}>{node.control.draining?'Возобновить выдачу':'Drain: скрыть ссылки'}</Button>
       <Button disabled={busy} onClick={()=>{setUpgradeNode(node.id);setRemovalNode('');}}>Обновить Xray/агент</Button>
       <Button disabled={busy} onClick={()=>{setRemovalNode(node.id);setUpgradeNode('');setRemovalSSHPort('22');setRemovalUser('root');setRemovalPrivateKey('');resetRemoval();}}>Удалить с VPS</Button>
-      <Button variant="danger" disabled={busy} onClick={()=>{if(window.confirm(`Отозвать идентификатор ${node.name}? Работу VPN на VPS это не остановит.`))revoke.mutate(node.id);}}>Только отозвать</Button>
+      <Button variant="danger" disabled={busy} onClick={async ()=>{if((await confirm(`Отозвать идентификатор ${node.name}? Работу VPN на VPS это не остановит.`)))revoke.mutate(node.id);}}>Только отозвать</Button>
     </div>;
   }
   function summary(node:Node){
@@ -208,7 +213,7 @@ export default function Nodes(){
   }
 
   return <>
-    <PageHeading title="Серверы" description="Подключение и управление удалёнными Xray-нодами" actions={<Button onClick={()=>{void cache.invalidateQueries({queryKey:['nodes']});void cache.invalidateQueries({queryKey:['node-bootstraps']});}}>Обновить</Button>}/>
+    <PageHeading title="Серверы" description="Подключение и управление удалёнными Xray-нодами" actions={<><Button variant="primary" onClick={()=>setInstallOpen(true)}>Добавить сервер</Button><Button onClick={()=>{void cache.invalidateQueries({queryKey:['nodes']});void cache.invalidateQueries({queryKey:['node-bootstraps']});}}>Обновить</Button></>}/>
     {error&&<p className="error" role="alert">{error}</p>}
     <Panel title="Удалённые ноды" actions={<div className="node-view-switch"><Button variant={view==='table'?'primary':'default'} onClick={()=>setView('table')}>Таблица</Button><Button variant={view==='diagram'?'primary':'default'} onClick={()=>setView('diagram')}>Схема</Button></div>}>
       <div className="panel-body node-filter-bar">
@@ -259,11 +264,13 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
       {removalVerified&&<><label className="field"><span>Приватный SSH-ключ (не сохраняется)</span><textarea className="node-key" rows={5} value={removalPrivateKey} onChange={event=>{setRemovalPrivateKey(event.target.value);setRemovalPlan(null);}} autoComplete="off" spellCheck={false}/></label>
         <Button disabled={checkRemoval.isPending||removalPrivateKey.length<100} onClick={()=>checkRemoval.mutate()}>2. Проверить план удаления</Button></>}
       {removalPlan&&<div className="node-preflight"><h3>План удаления</h3><p>ID исходной установки: <code>{removalPlan.installation_id}</code></p><ol>{removalPlan.changes.map(step=><li key={step}>{step}</li>)}</ol>
-        <Button variant="danger" disabled={removeNode.isPending||removalPrivateKey.length<100} onClick={()=>{const confirmation=removalMode==='purge'?'ПОДТВЕРЖДАЮ УДАЛЕНИЕ':'ПОДТВЕРЖДАЮ ОТКЛЮЧЕНИЕ';if(window.prompt(`Введите точно: ${confirmation}`)===confirmation)removeNode.mutate();}}>{removeNode.isPending?'Выполнение…':'3. Подтвердить операцию на VPS'}</Button>
+        <Button variant="danger" disabled={removeNode.isPending||removalPrivateKey.length<100} onClick={async ()=>{const confirmation=removalMode==='purge'?'ПОДТВЕРЖДАЮ УДАЛЕНИЕ':'ПОДТВЕРЖДАЮ ОТКЛЮЧЕНИЕ';if((await confirm(`Введите точно: ${confirmation}`, {phrase:confirmation,action:'Подтвердить операцию'})))removeNode.mutate();}}>{removeNode.isPending?'Выполнение…':'3. Подтвердить операцию на VPS'}</Button>
       </div>}
       <Button onClick={()=>{setRemovalNode('');setRemovalPrivateKey('');resetRemoval();}}>Закрыть без изменений</Button>
     </div></Panel>}
-    <Panel title="Установка на новый VPS через SSH"><div className="panel-body node-wizard">
+    <section className="server-add-prompt"><div><h2>Добавьте сервер</h2><p className="muted">Подключите новый VPS через SSH с проверкой ключа и планом изменений.</p></div><Button onClick={()=>setInstallOpen(true)}>Подключить сервер</Button></section>
+    {installOpen&&<Dialog title="Добавить сервер" onClose={()=>{setInstallOpen(false);setPrivateKey('');setPreflight(null);}} busy={inspect.isPending||check.isPending||install.isPending} dirty={!!privateKey}><div className="dialog-body node-wizard">
+      {error&&<Notice>{error}</Notice>}
       <p className="muted">Только публичный VPS с Debian/Ubuntu, Linux amd64, systemd и SSH-ключом. Для установки нужен заранее подписанный пакет агента и Xray на контроллере. SSH-пароль не используется; приватный ключ не сохраняется в базе.</p>
       <div className="node-form-grid">
         <Field label="Название" value={name} onChange={event=>{setName(event.target.value);setPreflight(null);}} maxLength={64} placeholder="nl-1" required />
@@ -283,10 +290,10 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
         {preflight.blockers.map(blocker=><p role="alert" className="error" key={blocker}>{blocker}</p>)}
         {preflight.warnings.map(warning=><p className="muted" key={warning}>{warning}</p>)}
         <h3>План изменений</h3><ol>{preflight.plan.map(line=><li key={line}>{line}</li>)}</ol>
-        <Button variant="primary" disabled={install.isPending||preflight.blockers.length>0||!name.trim()} onClick={()=>{if(window.confirm('Подтвердить установку подписанных бинарников, systemd-служб и регистрацию агента на этом VPS?'))install.mutate();}}>{install.isPending?'Запуск…':'3. Подтвердить и установить'}</Button>
+        <Button variant="primary" disabled={install.isPending||preflight.blockers.length>0||!name.trim()} onClick={async ()=>{if((await confirm('Подтвердить установку подписанных бинарников, systemd-служб и регистрацию агента на этом VPS?')))install.mutate();}}>{install.isPending?'Запуск…':'3. Подтвердить и установить'}</Button>
       </div>}
       {latestOperation&&<p role="status">Установка запущена. ID операции: <code>{latestOperation}</code>. Закрытие вкладки не отменяет серверную операцию.</p>}
-    </div></Panel>
+    </div><div className="dialog-footer"><DialogClose disabled={inspect.isPending||check.isPending||install.isPending}>Закрыть</DialogClose></div></Dialog>}
     <Panel title="Операции SSH-установки"><div className="panel-body">
       {operations.isPending?<Loading/>:operations.isError?<Notice>Журнал установок сейчас недоступен.</Notice>:<div className="table-scroll"><table><thead><tr><th>ID / нода</th><th>Шаг</th><th>Статус</th><th>Последнее обновление</th></tr></thead><tbody>
         {(operations.data?.items??[]).map(op=><tr key={op.id}><td>{op.name}<small className="node-secondary">{op.operation_type==='remove'?`Удаление (${op.removal_mode})`:op.operation_type==='upgrade'?`Обновление → ${op.target_version??'?'}`:'Установка'} · <code>{op.id}</code></small></td><td>{op.step}</td><td>{op.status}{op.error&&<small className="error node-secondary">{op.error}</small>}</td><td>{readableTime(op.updated_at)}</td></tr>)}

@@ -3,11 +3,13 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/arcvpn/arcvpn/internal/db"
 )
 
 type ServerOptions struct {
+	XHTTPHost       string `json:"xhttp_host,omitempty"`
 	Flow            string `json:"flow,omitempty"`
 	Salamander      bool   `json:"salamander,omitempty"`
 	UpMbps          int    `json:"up_mbps,omitempty"`
@@ -18,10 +20,26 @@ type ServerOptions struct {
 }
 
 func (o ServerOptions) Equal(other ServerOptions) bool {
-	return o.Flow == other.Flow && o.Salamander == other.Salamander && o.UpMbps == other.UpMbps && o.DownMbps == other.DownMbps && o.UDPIdleSeconds == other.UDPIdleSeconds && o.QUICIdleSeconds == other.QUICIdleSeconds && ((o.Sniffing == nil && other.Sniffing == nil) || (o.Sniffing != nil && other.Sniffing != nil && *o.Sniffing == *other.Sniffing))
+	return o.XHTTPHost == other.XHTTPHost && o.Flow == other.Flow && o.Salamander == other.Salamander && o.UpMbps == other.UpMbps && o.DownMbps == other.DownMbps && o.UDPIdleSeconds == other.UDPIdleSeconds && o.QUICIdleSeconds == other.QUICIdleSeconds && ((o.Sniffing == nil && other.Sniffing == nil) || (o.Sniffing != nil && other.Sniffing != nil && *o.Sniffing == *other.Sniffing))
 }
 
 func ValidateServerOptions(kind string, o ServerOptions) error {
+	kind = ConnectionKind(kind)
+	if o.XHTTPHost != "" {
+		if kind != "vless-xhttp" || len(o.XHTTPHost) > 253 || !strings.Contains(o.XHTTPHost, ".") {
+			return errors.New("invalid XHTTP host")
+		}
+		for _, label := range strings.Split(o.XHTTPHost, ".") {
+			if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+				return errors.New("invalid XHTTP host")
+			}
+			for _, char := range label {
+				if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '-') {
+					return errors.New("invalid XHTTP host")
+				}
+			}
+		}
+	}
 	valid := false
 	switch kind {
 	case "vless-reality", "vless-xhttp":
@@ -73,5 +91,5 @@ func saveServerOptions(tx *db.Tx, kind string, o ServerOptions) error {
 	return tx.Exec("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", "server_options:"+kind, string(value))
 }
 func clearProtocolServerOptions(tx *db.Tx) error {
-	return tx.Exec("DELETE FROM settings WHERE key IN ('server_options:vless-xhttp','server_options:hysteria2','server_options:wireguard','server_options:amneziawg')")
+	return tx.Exec("DELETE FROM settings WHERE key LIKE 'server_options:%' AND key != 'server_options:vless-reality'")
 }

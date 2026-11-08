@@ -275,3 +275,14 @@ store/client_options.go — typed export-only options в settings; API/app conne
 store/server_options.go — typed runtime options в settings; Reality/Protocol store и backup17 — перенос. xray.Generate/GenerateWithProfiles — sniffing, protocols.renderHysteria — UDP/QUIC idle; ConnectionEditor/Details — form/diff и SNI draft workflow v7.
 
 Продолжение: server_options — TCP flow, Hysteria Salamander/Brutal bandwidth; backup18. app/key_rotation.go + httpapi/key_rotation.go — preview/CAS/rotation; httpapi/stable_exports.go + App.PublicationVersion — bounded finite-response publication guard. KeyRotationDialog.tsx — подтверждение и affected users. [Контракт](../features/first-connection.md#flow-смена-ключей-и-hysteria2--локально-8-ноября).
+`shared/InterfacePreferences.tsx`, `shared/interface-mode.ts`, `features/settings/InterfaceSettings.tsx` — простой/расширенный UI v7, browser persistence; `shared/ui.tsx Advanced` — единое раскрытие. UserEditor/DirectAccess — базовые формы и выдача v7. [Контракт UI](../design/v6-local-implementation.md#v7-режимы-и-основные-формы--8-ноября).
+
+PackageScheduleFields.tsx / ConnectionChoiceList.tsx — календарные поля и общий выбор назначений v7; usage.ResetSchedule — weekday/day, backup19. [Контракт](../features/user-preferences.md#расписание-пакета--локальная-реализация). Go verification blocked approval review, не PASS.
+
+XHTTPFields.tsx + ServerOptions.XHTTPHost — Host UI/validation/renderer/URI/backup20; client/server Host синхронны. ALPN/listen не расширялись.
+
+store/connection_identity.go — typed additional VLESS ID/legacy aliases; Protocol.ConnectionID, backup21, UserPreferences key membership, GenerateWithProfiles extra TCP/XHTTP. VPN/ConnectionTable/KeyRotationDialog/UserEditor/BulkEditUsers используют ID. См. features/connection-identities.md.
+
+## 2026-11-09: общие подтверждения и пользовательская рабочая область
+
+`frontend/src/shared/Confirmation.tsx` — Layout-scoped async confirm с ограничением одного запроса и typed phrase; `shared/Dialog.tsx` — dirty/busy dismissal и motion; `shared/ui.tsx` — Field description/error, локальный Advanced. `features/users/UserDetails.tsx` содержит стабильную оболочку UserEditor/activity; редактор больше не открывает собственный Dialog. Подробности: [UX/UI исправления](../design/v6-local-implementation.md#исправления-после-общего-аудита--9-ноября-2026).

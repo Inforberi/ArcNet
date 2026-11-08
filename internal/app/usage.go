@@ -53,7 +53,7 @@ func (a *App) collectUsageLocked(ctx context.Context) error {
 	}
 	xrayEnabled := r.Enabled
 	for _, p := range profiles {
-		if p.Kind == protocols.XHTTP && p.Enabled {
+		if (p.Kind == protocols.XHTTP || p.Kind == "vless-reality") && p.Enabled {
 			xrayEnabled = true
 		}
 	}

@@ -552,20 +552,20 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 		if err := clearProtocolClientOptions(tx); err != nil {
 			return err
 		}
-		if err := saveFingerprint(tx, "vless-xhttp", ""); err != nil {
+		if err := tx.Exec("DELETE FROM settings WHERE key LIKE 'client_fingerprint:vless-xhttp%' OR key LIKE 'client_fingerprint:vless-reality:%'"); err != nil {
 			return err
 		}
 		for _, p := range profiles {
-			if err := saveServerOptions(tx, p.Kind, p.ServerOptions); err != nil {
+			if err := saveServerOptions(tx, p.ConnectionID(), p.ServerOptions); err != nil {
 				return err
 			}
-			if err := saveClientOptions(tx, p.Kind, p.ClientOptions); err != nil {
+			if err := saveClientOptions(tx, p.ConnectionID(), p.ClientOptions); err != nil {
 				return err
 			}
-			if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
+			if err := saveFingerprint(tx, p.ConnectionID(), p.Fingerprint); err != nil {
 				return err
 			}
-			if err := tx.Exec("INSERT INTO protocols(kind,address,port,sni,target,private_key,public_key,short_id,path,tls_cert,tls_key,obfs_key,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", p.Kind, p.Address, strconv.Itoa(p.Port), p.SNI, p.Target, p.PrivateKey, p.PublicKey, p.ShortID, p.Path, p.TLSCert, p.TLSKey, p.ObfsKey, boolean(p.Enabled)); err != nil {
+			if err := tx.Exec("INSERT INTO protocols(kind,address,port,sni,target,private_key,public_key,short_id,path,tls_cert,tls_key,obfs_key,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", p.ConnectionID(), p.Address, strconv.Itoa(p.Port), p.SNI, p.Target, p.PrivateKey, p.PublicKey, p.ShortID, p.Path, p.TLSCert, p.TLSKey, p.ObfsKey, boolean(p.Enabled)); err != nil {
 				return err
 			}
 		}

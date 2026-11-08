@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	Version         = 18
+	Version         = 21
 	KDFIterations   = 210000
 	MaxArchiveBytes = 64 << 20
 	MaxUsers        = 10000
@@ -67,6 +67,7 @@ type User struct {
 // Protocol carries key material inside the authenticated encrypted payload.
 // It is not the public API representation of a store.Protocol.
 type Protocol struct {
+	ID            string              `json:"id,omitempty"`
 	ServerOptions store.ServerOptions `json:"server_options"`
 	ClientOptions store.ClientOptions `json:"client_options"`
 	Fingerprint   string              `json:"fingerprint,omitempty"`
@@ -133,7 +134,7 @@ func (s Snapshot) ToStore() (*store.Reality, []store.User) {
 func (s Snapshot) WithProtocols(profiles []store.Protocol, credentials []store.ProtocolCredential) Snapshot {
 	s.Protocols = make([]Protocol, 0, len(profiles))
 	for _, p := range profiles {
-		s.Protocols = append(s.Protocols, Protocol{ServerOptions: p.ServerOptions, ClientOptions: p.ClientOptions, Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
+		s.Protocols = append(s.Protocols, Protocol{ID: p.ID, ServerOptions: p.ServerOptions, ClientOptions: p.ClientOptions, Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
 	}
 	s.Credentials = append([]store.ProtocolCredential(nil), credentials...)
 	return s
@@ -146,7 +147,7 @@ func (s Snapshot) WithManagement(nodes []store.NodeIdentity, budget int) Snapsho
 func (s Snapshot) ToProtocols() ([]store.Protocol, []store.ProtocolCredential) {
 	profiles := make([]store.Protocol, 0, len(s.Protocols))
 	for _, p := range s.Protocols {
-		profiles = append(profiles, store.Protocol{ServerOptions: p.ServerOptions, ClientOptions: p.ClientOptions, Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
+		profiles = append(profiles, store.Protocol{ID: p.ID, ServerOptions: p.ServerOptions, ClientOptions: p.ClientOptions, Fingerprint: p.Fingerprint, Kind: p.Kind, Address: p.Address, Port: p.Port, SNI: p.SNI, Target: p.Target, PrivateKey: p.PrivateKey, PublicKey: p.PublicKey, ShortID: p.ShortID, Path: p.Path, TLSCert: p.TLSCert, TLSKey: p.TLSKey, ObfsKey: p.ObfsKey, Enabled: p.Enabled})
 	}
 	return profiles, append([]store.ProtocolCredential(nil), s.Credentials...)
 }
@@ -200,7 +201,7 @@ func (s Snapshot) Validate() error {
 				return ErrInvalid
 			}
 			for _, p := range s.Protocols {
-				if p.Enabled && p.Kind != protocols.XHTTP && (p.Kind != protocols.Hysteria2 || s.Version < 8) && (p.Kind != protocols.WireGuard || s.Version < 9) {
+				if p.Enabled && p.Kind != protocols.XHTTP && p.Kind != "vless-reality" && (p.Kind != protocols.Hysteria2 || s.Version < 8) && (p.Kind != protocols.WireGuard || s.Version < 9) {
 					return ErrInvalid
 				}
 			}
@@ -209,11 +210,14 @@ func (s Snapshot) Validate() error {
 	if s.Usage != nil {
 		for _, p := range s.Usage.Packages {
 			if p.ResetSchedule != nil {
+				if s.Version < 19 && (p.ResetSchedule.Weekday != nil || p.ResetSchedule.Day != 0) {
+					return ErrInvalid
+				}
 				if s.Version < 15 || len(s.Nodes) > 0 {
 					return ErrInvalid
 				}
 				for _, profile := range s.Protocols {
-					if profile.Enabled && profile.Kind != protocols.XHTTP && profile.Kind != protocols.Hysteria2 && profile.Kind != protocols.WireGuard {
+					if profile.Enabled && profile.Kind != protocols.XHTTP && profile.Kind != "vless-reality" && profile.Kind != protocols.Hysteria2 && profile.Kind != protocols.WireGuard {
 						return ErrInvalid
 					}
 				}
@@ -251,7 +255,7 @@ func (s Snapshot) Validate() error {
 			return ErrInvalid
 		}
 	}
-	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0) && (s.Version < 10 || (len(s.Protocols) == 0 && (s.Version < 11 || len(s.Nodes) == 0)))) || len(s.Protocols) > len(protocols.Kinds()) || len(s.Credentials) > MaxUsers*len(protocols.Kinds()) || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
+	if !supportedVersion(s.Version) || s.CreatedAt <= 0 || len(s.Users) > MaxUsers || (s.VPN == nil && (len(s.Users) > 0 || len(s.Protocols) > 0 || len(s.Credentials) > 0) && (s.Version < 10 || (len(s.Protocols) == 0 && (s.Version < 11 || len(s.Nodes) == 0)))) || len(s.Protocols) > store.MaxLocalConnections || len(s.Credentials) > MaxUsers*store.MaxLocalConnections || (s.Version == 1 && (len(s.Protocols) > 0 || len(s.Credentials) > 0)) || ((s.Version == 1 || s.Version == 2) && (len(s.Nodes) > 0 || s.LogBudgetMB != nil)) || len(s.Nodes) > 256 || (s.Version < 4 && len(s.Routes) != 0) {
 		return ErrInvalid
 	}
 	if (s.Version < 5 && len(s.RoutingProfiles) > 0) || len(s.RoutingProfiles) > routingprofile.MaxProfiles {
@@ -301,6 +305,9 @@ func (s Snapshot) Validate() error {
 	}
 	if s.VPN != nil {
 		r, _ := s.ToStore()
+		if s.Version < 20 && r.ServerOptions.XHTTPHost != "" {
+			return ErrInvalid
+		}
 		if s.Version < 18 && (r.ServerOptions.Flow != "" || r.ServerOptions.Salamander || r.ServerOptions.UpMbps != 0 || r.ServerOptions.DownMbps != 0) {
 			return ErrInvalid
 		}
@@ -346,6 +353,9 @@ func (s Snapshot) Validate() error {
 		address = s.VPN.Address
 	}
 	for _, p := range profiles {
+		if s.Version < 20 && p.ServerOptions.XHTTPHost != "" {
+			return ErrInvalid
+		}
 		if s.Version < 18 && (p.ServerOptions.Flow != "" || p.ServerOptions.Salamander || p.ServerOptions.UpMbps != 0 || p.ServerOptions.DownMbps != 0 || (p.Kind == protocols.Hysteria2 && p.ObfsKey != "")) {
 			return ErrInvalid
 		}
@@ -361,7 +371,7 @@ func (s Snapshot) Validate() error {
 		if s.VPN == nil && p.Kind == protocols.AmneziaWG {
 			return ErrInvalid
 		}
-		if types[p.Kind] || protocols.Validate(p) != nil {
+		if (s.Version < 21 && p.ID != "") || (p.Kind == "vless-reality" && p.ID == "") || types[p.ConnectionID()] || protocols.Validate(p) != nil {
 			return fmt.Errorf("%w: invalid or duplicate protocol", ErrInvalid)
 		}
 		// The listener address is the local server's public IP, not an
@@ -375,7 +385,7 @@ func (s Snapshot) Validate() error {
 		if (p.Kind == protocols.WireGuard || p.Kind == protocols.AmneziaWG) && !validTunnelKeypair(p.PrivateKey, p.PublicKey) {
 			return ErrInvalid
 		}
-		types[p.Kind] = true
+		types[p.ConnectionID()] = true
 		endpoint := fmt.Sprintf("%s/%s/%d", protocols.Transport(p.Kind), p.Address, p.Port)
 		if endpoints[endpoint] {
 			return fmt.Errorf("%w: port conflict", ErrInvalid)
@@ -383,6 +393,13 @@ func (s Snapshot) Validate() error {
 		endpoints[endpoint] = true
 	}
 	pairs := map[string]bool{}
+	for _, user := range s.Users {
+		for _, key := range append(append([]string{}, user.Preferences.AllowedKinds...), user.Preferences.DirectKind) {
+			if store.IsAdditionalConnection(key) && (s.Version < 21 || !types[key]) {
+				return ErrInvalid
+			}
+		}
+	}
 	tunnelAddresses := map[string]bool{}
 	wireGuardPublics := map[string]bool{}
 	for _, c := range creds {
@@ -391,8 +408,8 @@ func (s Snapshot) Validate() error {
 			return fmt.Errorf("%w: invalid credential reference", ErrInvalid)
 		}
 		pairs[key] = true
-		switch c.Kind {
-		case protocols.XHTTP:
+		switch store.ConnectionKind(c.Kind) {
+		case protocols.XHTTP, "vless-reality":
 			// The Xray inbound authenticates the VPN user's UUID directly.
 			// A different credential in the exported URI could never connect.
 			if c.Secret != userUUID[c.UserID] {

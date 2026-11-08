@@ -64,7 +64,7 @@ func (s *Server) protocolCreate(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) protocolPatch(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	if !protocols.IsSupported(kind) {
+	if !protocols.IsSupported(store.ConnectionKind(kind)) {
 		fail(w, 400, "Неизвестный протокол")
 		return
 	}
@@ -86,7 +86,7 @@ func (s *Server) protocolPatch(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) protocolDelete(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	if !protocols.IsSupported(kind) {
+	if !protocols.IsSupported(store.ConnectionKind(kind)) {
 		fail(w, 400, "Неизвестный протокол")
 		return
 	}
@@ -146,7 +146,7 @@ func (s *Server) userConnectionExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind := r.PathValue("kind")
-	if kind == "" || len(kind) > 40 {
+	if kind == "" || len(kind) > 80 {
 		fail(w, 400, "Неверный протокол")
 		return
 	}

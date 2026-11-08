@@ -1,11 +1,19 @@
 import type {VPNUser} from '../../shared/api';
 export type UserPackage = {
- reset_schedule?:{frequency:string;timezone:string;next_at:number};
+ reset_schedule?:{frequency:string;timezone:string;next_at:number;weekday?:number;day?:number};
  user_id: number; quota_bytes: number; upload_bytes: number; download_bytes: number;
  expires_at: number; period: number; period_started_at: number; version: number; observed_at: number; block_reason: string; incomplete: boolean; needs_review: boolean;
 };
 export type UsageReply = {items: UserPackage[]; sampled_at: number; source_fresh: boolean; source_last_success: number; complete_coverage: boolean; runtime_state: string};
 export type Debit = {at: number; period: number; upload_bytes: number; download_bytes: number};
+export const resetWeekdays=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+export function resetScheduleLabel(schedule?:{frequency:string;weekday?:number;day?:number}){
+ if(!schedule||schedule.frequency==='none')return 'Без автосброса';
+ if(schedule.frequency==='daily')return 'Каждый день';
+ if(schedule.frequency==='weekly')return `Каждую неделю · ${resetWeekdays[schedule.weekday??1]??'день не получен'}`;
+ if(schedule.frequency==='monthly')return `Каждый месяц · ${schedule.day||1}-го числа`;
+ return 'Расписание не получено';
+}
 export const usageGB = (bytes: number) => `${(bytes / 1e9).toLocaleString('ru', {maximumFractionDigits: 3})} ГБ`;
 export function quotaBytes(value: string): number | undefined {
  if (!/^\d+(?:[.,]\d{1,3})?$/.test(value.trim())) return;

@@ -19,15 +19,16 @@ export interface VPNConfig {
 }
 
 export type ProtocolKind = 'vless-xhttp' | 'hysteria2' | 'wireguard' | 'amneziawg';
-export type ServerOptions={flow?:string;salamander?:boolean;up_mbps?:number;down_mbps?:number;sniffing?:boolean;udp_idle_seconds?:number;quic_idle_seconds?:number};
+export type ServerOptions={xhttp_host?:string;flow?:string;salamander?:boolean;up_mbps?:number;down_mbps?:number;sniffing?:boolean;udp_idle_seconds?:number;quic_idle_seconds?:number};
 export type ClientOptions={xhttp_mode?:string;mtu?:number;dns?:string;keepalive?:number};
 
 export interface ProtocolProfile {
+ id?:string;
  server_options?:ServerOptions;
 	client_options?:ClientOptions;
  fingerprint?: string;
   revision?: string;
-  kind: ProtocolKind;
+  kind: ProtocolKind|'vless-reality';
   address: string;
   port: number;
   sni?: string;

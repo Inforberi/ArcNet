@@ -4,6 +4,7 @@ import {Advanced,Button,Field,SettingsSection,Properties} from '../../shared/ui'
 import {connectionLabel,type ConnectionItem} from './ConnectionTable';
 import TargetPicker from '../targets/TargetPicker';
 import FingerprintField from './FingerprintField';
+import XHTTPFields from './XHTTPFields';
 import {serverOptionChanges,clientOptionChanges} from './presentation';
 
 export type ConnectionSettings=Pick<ConnectionItem,'port'|'sni'|'target'|'enabled'|'fingerprint'|'path'|'client_options'|'server_options'>;
@@ -28,8 +29,7 @@ export default function ConnectionEditor({item,busy,error,onClose,onSubmit,initi
    {reality?<><Field label="Домен SNI" required maxLength={253} disabled={busy} value={draft.sni} onChange={e=>{const sni=e.target.value;setDraft(d=>({...d,sni,target:d.target===d.sni?sni:d.target}));}}/>
     <Advanced title="Дополнительные настройки протокола" open={initialPickingTarget||pickingTarget}>
  <FingerprintField value={draft.fingerprint} disabled={busy} onChange={fingerprint=>setDraft(d=>({...d,fingerprint}))}/>
-     {item.kind==='vless-xhttp'&&<Field label="Путь XHTTP" required maxLength={128} disabled={busy} value={draft.path} onChange={event=>setDraft(d=>({...d,path:event.target.value}))} description="Путь HTTP-запросов. Создаётся автоматически; после изменения обновите подписку клиента."/>}
-     {item.kind==='vless-xhttp'&&<label className="field"><span>Режим XHTTP клиента</span><select disabled={busy} value={draft.client_options?.xhttp_mode==='auto'?'':draft.client_options?.xhttp_mode??''} onChange={e=>setDraft(d=>({...d,client_options:{xhttp_mode:e.target.value}}))}><option value="">Автоматически</option><option value="packet-up">packet-up</option><option value="stream-up">stream-up</option><option value="stream-one">stream-one</option></select><small>Передаётся в подписке. Сервер принимает режим автоматически; поддержка зависит от версии VPN-приложения.</small></label>}
+     {item.kind==='vless-xhttp'&&<XHTTPFields value={{path:draft.path??'',host:draft.server_options?.xhttp_host??'',mode:draft.client_options?.xhttp_mode||'auto'}} disabled={busy} onChange={patch=>setDraft(d=>({...d,path:patch.path??d.path,server_options:{...d.server_options,...(patch.host!==undefined?{xhttp_host:patch.host}:{})},client_options:{...d.client_options,...(patch.mode!==undefined?{xhttp_mode:patch.mode}:{})}}))}/>}
      <label className="connection-choice"><input type="checkbox" disabled={busy} checked={draft.server_options?.sniffing??(item.kind==='vless-reality')} onChange={e=>setDraft(d=>({...d,server_options:{...d.server_options,sniffing:e.target.checked}}))}/><span>Определять домен для маршрутизации (sniffing)<small>HTTP/TLS, только для выбора маршрута. Адрес назначения сохраняется.</small></span></label>
      {item.kind==='vless-reality'&&<label className="field"><span>Flow VLESS TCP</span><select disabled={busy} value={draft.server_options?.flow==='none'?'none':''} onChange={e=>setDraft(d=>({...d,server_options:{...d.server_options,flow:e.target.value}}))}><option value="">XTLS Vision — по умолчанию</option><option value="none">Без XTLS flow</option></select><small>Меняется на сервере и в подписке всех назначенных пользователей. Защита REALITY сохраняется.</small></label>}
      <Properties items={[{label:'Flow',value:item.kind==='vless-reality'?(draft.server_options?.flow==='none'?'Без flow':'xtls-rprx-vision'):'Без flow (XHTTP)'},{label:'ALPN',value:'Определяется REALITY и fingerprint клиента'}]}/>

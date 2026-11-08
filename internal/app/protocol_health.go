@@ -46,9 +46,10 @@ func (a *App) LocalProtocolHealth(ctx context.Context) ([]ProtocolHealth, error)
 		items = append(items, ProtocolHealth{Kind: "vless-reality", Enabled: vpn.Enabled, State: "unknown", Evidence: "service-only"})
 	}
 	for _, p := range profiles {
-		items = append(items, ProtocolHealth{Kind: p.Kind, Enabled: p.Enabled, State: "unknown", Evidence: "service-only"})
+		items = append(items, ProtocolHealth{Kind: p.ConnectionID(), Enabled: p.Enabled, State: "unknown", Evidence: "service-only"})
 	}
 	services := map[string]string{"vless-reality": "arcvpn-xray.service", "vless-xhttp": "arcvpn-xray.service", "hysteria2": "arcvpn-hysteria.service", "wireguard": "arcvpn-wireguard.service", "amneziawg": "arcvpn-amneziawg.service"}
+	states := map[string]string{}
 	for i := range items {
 		item := &items[i]
 		if !item.Enabled {
@@ -61,7 +62,13 @@ func (a *App) LocalProtocolHealth(ctx context.Context) ([]ProtocolHealth, error)
 			item.Evidence = "test-mode"
 			continue
 		}
-		item.State = systemdState(ctx, services[item.Kind])
+		unit := services[store.ConnectionKind(item.Kind)]
+		state, ok := states[unit]
+		if !ok {
+			state = systemdState(ctx, unit)
+			states[unit] = state
+		}
+		item.State = state
 	}
 	return items, nil
 }

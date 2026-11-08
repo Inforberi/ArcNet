@@ -1,3 +1,4 @@
+import {useConfirmation} from '../../shared/Confirmation';
 import {useRef, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {api, ApiError} from '../../shared/api';
@@ -14,6 +15,7 @@ const download = (body: unknown) => {
 };
 
 export default function RoutingProfiles() {
+ const confirm=useConfirmation();
   const cache = useQueryClient();
   const profiles = useQuery({queryKey: ['routing-profiles'], queryFn: () => api<{items: RoutingProfile[]; server_application_enabled: boolean}>('/api/routing-profiles')});
   const [open, setOpen] = useState(false);
@@ -35,8 +37,8 @@ export default function RoutingProfiles() {
   checkFingerprint.current = JSON.stringify({profile: candidate(), address: address.trim()});
   const dirty = JSON.stringify(candidate()) !== initial && initial !== '';
   const change = (value: Partial<RoutingProfile>) => {setDraft(current => ({...current, ...value})); setDecision(null); setError('');};
-  const edit = (profile: RoutingProfile) => {
-    if (dirty && !window.confirm('Заменить несохранённые правки другим профилем?')) return;
+  const edit = async (profile: RoutingProfile) => {
+    if (dirty && !(await confirm('Заменить несохранённые правки другим профилем?'))) return;
     setDraft(profile); setTexts({proxy: profile.proxy.join('\n'), direct: profile.direct.join('\n'), block: profile.block.join('\n')});
     setInitial(JSON.stringify(profile)); setConflict(false); setDecision(null); setError(''); setMessage(''); setGroup('direct'); setOpen(true);
   };
@@ -99,7 +101,7 @@ export default function RoutingProfiles() {
         <details className="profile-actions"><summary>Другие действия</summary><div className="flex wrap">
           <Button onClick={() => edit({...withoutMetadata(profile), name: `${profile.name.slice(0, 65)} — копия`})}>Создать копию</Button>
           <Button onClick={async () => {try {download(await api(`/api/routing-profiles/${encodeURIComponent(profile.id)}/export`));} catch (error) {setError(explainError(error));}}}>Скачать профиль ArcNet</Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => {if (window.confirm(`Удалить профиль «${profile.name}» из панели?`)) remove.mutate(profile);}}>Удалить</Button>
+          <Button variant="danger" disabled={remove.isPending} onClick={async () => {if ((await confirm(`Удалить профиль «${profile.name}» из панели?`))) remove.mutate(profile);}}>Удалить</Button>
         </div></details>
       </article>)}</div>}
     </>}

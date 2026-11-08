@@ -15,7 +15,7 @@ import (
 
 var ErrInvalidUserPreferences = errors.New("invalid user preferences")
 
-// Nil AllowedKinds preserves legacy access; an explicit empty list denies every local protocol.
+// AllowedKinds holds connection keys (legacy aliases or IDs); nil inherits all, [] denies all.
 type UserPreferences struct {
 	Version      int64    `json:"version"`
 	Group        string   `json:"group"`
@@ -45,17 +45,17 @@ func (p UserPreferences) Valid() bool {
 		return false
 	}
 	valid := []string{"vless-reality", "vless-xhttp", "hysteria2", "wireguard"}
-	if len(p.AllowedKinds) > len(valid) {
+	if len(p.AllowedKinds) > MaxLocalConnections+len(valid) {
 		return false
 	}
 	seen := map[string]bool{}
 	for _, kind := range p.AllowedKinds {
-		if !slices.Contains(valid, kind) || seen[kind] {
+		if (!slices.Contains(valid, kind) && !IsAdditionalConnection(kind)) || seen[kind] {
 			return false
 		}
 		seen[kind] = true
 	}
-	if p.DirectKind != "" && (!slices.Contains(valid, p.DirectKind) || (p.AllowedKinds != nil && !slices.Contains(p.AllowedKinds, p.DirectKind))) {
+	if p.DirectKind != "" && ((!slices.Contains(valid, p.DirectKind) && !IsAdditionalConnection(p.DirectKind)) || (p.AllowedKinds != nil && !slices.Contains(p.AllowedKinds, p.DirectKind))) {
 		return false
 	}
 	return p.AccessMode != "direct" || p.DirectKind != ""
@@ -100,6 +100,17 @@ func saveUserPreferences(tx *db.Tx, id int64, name string, p UserPreferences, ex
 		return ErrConflict
 	}
 	if p.AllowedKinds != nil {
+		for _, key := range p.AllowedKinds {
+			if IsAdditionalConnection(key) {
+				rows, e := tx.Query("SELECT kind FROM protocols WHERE kind=?", key)
+				if e != nil {
+					return e
+				}
+				if len(rows) != 1 {
+					return ErrInvalidUserPreferences
+				}
+			}
+		}
 		for _, table := range []string{"managed_nodes", "node_enrollments"} {
 			rows, e := tx.Query("SELECT COUNT(*) AS n FROM " + table)
 			if e != nil {
@@ -111,6 +122,15 @@ func saveUserPreferences(tx *db.Tx, id int64, name string, p UserPreferences, ex
 		}
 	}
 	p.Version = expected + 1
+	if IsAdditionalConnection(p.DirectKind) {
+		rows, e := tx.Query("SELECT kind FROM protocols WHERE kind=?", p.DirectKind)
+		if e != nil {
+			return e
+		}
+		if len(rows) != 1 {
+			return ErrInvalidUserPreferences
+		}
+	}
 	if !p.Valid() {
 		return ErrInvalidUserPreferences
 	}

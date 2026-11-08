@@ -1,6 +1,15 @@
-# ArcNet v6: функциональная сверка перед редизайном
+# ArcNet v6/v7: перенос интерфейса и функциональности
 
 Дата: 8 ноября 2026. Источник дизайна: пользовательский ArcNet_VPN_Admin_v6.zip. Сверка — исходники текущего рабочего дерева; не аудит установленной VPS-версии. Документы/API из архива — предложения, не существующие контракты ArcNet.
+
+## Актуализация v7 — 8 ноября
+
+Источник визуала и поведения: пользовательский ArcNet_VPN_Admin_v7.zip, включая source/arcnet_v7.js и README v7.1. Демонстрационные storage/API/ключи не являются реализацией сервера. Ниже исходная матрица gap сохранена как исторический baseline; текущий статус — здесь и в [current-task](../ai/current-task.md).
+
+- Локально реализованы: DS тёмной темы, общие диалоги/QR, пользовательские metadata/назначения, единый editor/bulk/CSV, расписания и трафик из существующего сбора; текущая source-проверка не означает VPS acceptance.
+- Перенесены настройки v7 «Простой / Расширенный»: выбор в браузере, раскрытие общих дополнительных настроек, основные пакет/срок/автосброс пользователя на виду; секретная ссылка раскрывается отдельно.
+- Typed настройки TCP flow/sniffing, XHTTP mode/path/fingerprint, WG client MTU/DNS/keepalive, Hysteria timeout/Salamander/Brutal и rotation REALITY/WG проведены до runtime/export/backup18. Это не все поля демо.
+- Остаются: дополнительные typed listen/Host/ALPN и другие поддерживаемые поля, несколько подключений одного вида с миграцией, полноценный proposal параметров, source/enforcement IP-сессий, firewall/WG реальная приёмка, единая защита/логи нод, full updater, прочие внутренние экраны и визуальная/mobile проверка. Дополнительные протоколы демо не входят в замороженный scope. Каскады после базового сценария.
 
 ## Матрица
 
@@ -64,3 +73,11 @@
 
 ### Пользовательская телеметрия — локальный блок
 Скорость, график, наблюдаемый рост счётчиков и one-batch polling реализованы для поддерживаемых локальных движков. RAM history bounded/эфемерна, online не выводится из трафика и пока unknown. Наблюдаемые сессии/IP и remote telemetry ещё не реализованы. [Контракт](../features/user-traffic.md).
+
+## Продолжение v7: календарь и назначения
+
+Выбор дня недели/числа месяца, shared PackageScheduleFields/ConnectionChoiceList и backup19 реализованы в исходниках. Frontend build PASS; Go/server verification BLOCKED автоматической проверкой разрешения (workspace out of credits), без новых тестов по запросу пользователя. До перезапуска backend локальный fixture не подтверждает новые поля. Массовая смена расписания этим блоком не добавлялась; выбор подключений в bulk использует прежний атомарный API.
+
+Продолжение XHTTP: Host/path/client mode объединены в общий DS-блок; Host сохраняется в runtime/URI/backup20, виден в diff/details. Frontend build PASS, Go/runtime/backend preview ещё не проверены. Generic ALPN REALITY не поддерживается проверенным контрактом; listen/network требует отдельного VM rollback gate.
+
+Несколько VLESS TCP/XHTTP реализованы в исходниках через дополнительные ID и backup21; старые aliases/ключи сохраняются. Existing Go/frontend checks PASS, новые tests не писались. Реальный многопрофильный VPN/backup/runtime/browser сценарий NOT RUN. Несколько Hysteria/WG ещё не реализованы: нужна отдельная поддержка служб/helpers. Контракт: ../features/connection-identities.md.

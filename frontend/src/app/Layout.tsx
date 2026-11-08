@@ -1,7 +1,8 @@
+import {ConfirmationProvider} from '../shared/Confirmation';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { applyTheme, readTheme } from '../shared/theme';
+import {InterfacePreferences} from '../shared/InterfacePreferences';
 import { api, setCSRF } from '../shared/api';
 import {MonitoringProvider} from '../features/dashboard/Monitoring';
 import { Button } from '../shared/ui';
@@ -26,14 +27,16 @@ function Brand(){return <div className="brand"><span className="brand-mark">A</s
 function MenuLinks({items,onNavigate}:{items:NavItem[];onNavigate?:()=>void}){
  return <>{items.map(({url,label,icon})=><NavLink key={url} to={url} end={url==='/'} onClick={onNavigate} className={({isActive})=>isActive?'active':''}><Icon name={icon}/><span>{label}</span></NavLink>)}</>;
 }
-function SessionActions({theme,busy,onTheme,onLogout}:{theme:string;busy:boolean;onTheme:()=>void;onLogout:()=>void}){
- return <div className="session-actions"><Button variant="ghost" onClick={onTheme}><Icon name={theme==='dark'?'sun':'moon'}/>{theme==='dark'?'Светлая тема':'Тёмная тема'}</Button><Button variant="ghost" onClick={onLogout} disabled={busy}><Icon name="logout"/>{busy?'Выходим…':'Выйти'}</Button></div>;
+function SessionActions({busy,onLogout}:{busy:boolean;onLogout:()=>void}){
+ return <div className="session-actions"><Button variant="ghost" onClick={onLogout} disabled={busy}><Icon name="logout"/>{busy?'Выходим…':'Выйти'}</Button></div>;
 }
 
 export default function Layout() {
+ return <InterfacePreferences><ConfirmationProvider><WorkspaceLayout/></ConfirmationProvider></InterfacePreferences>;
+}
+function WorkspaceLayout() {
   const queryClient = useQueryClient();
   const location = useLocation();
-  const [theme, setTheme] = useState(readTheme);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
@@ -66,12 +69,6 @@ export default function Layout() {
     desktop.addEventListener('change',closeOnDesktop);
     return ()=>desktop.removeEventListener('change',closeOnDesktop);
   },[]);
-
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    setTheme(next);
-  }
 
   async function logout() {
     setLogoutError('');
@@ -108,7 +105,7 @@ export default function Layout() {
         <nav id="mobile-navigation" className="drawer-navigation" aria-label="Мобильная навигация">
           <div className="nav drawer-workspace"><MenuLinks items={workspace} onNavigate={()=>setMenuOpen(false)}/></div>
           <div className="nav drawer-system"><MenuLinks items={system} onNavigate={()=>setMenuOpen(false)}/></div>
-          <SessionActions theme={theme} busy={signingOut} onTheme={toggleTheme} onLogout={()=>void logout()}/>
+          <SessionActions busy={signingOut} onLogout={()=>void logout()}/>
         </nav>
         </Dialog>
       )}
@@ -118,7 +115,7 @@ export default function Layout() {
           <nav className="nav" aria-label="Основная навигация"><MenuLinks items={workspace}/></nav>
           <div className="sidebar-footer">
             <nav className="nav" aria-label="Система"><MenuLinks items={system}/></nav>
-            <SessionActions theme={theme} busy={signingOut} onTheme={toggleTheme} onLogout={()=>void logout()}/>
+            <SessionActions busy={signingOut} onLogout={()=>void logout()}/>
           </div>
         </aside>
         <main className="main" id="main-content" tabIndex={-1}>

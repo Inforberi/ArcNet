@@ -1,3 +1,4 @@
+import {useConfirmation} from '../../shared/Confirmation';
 import {useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import Dialog from '../../shared/Dialog';
@@ -17,6 +18,7 @@ const supported = (p: RoutePolicy) => p.mode === 'cascade' && p.entry_node !== '
 const message = (e: unknown) => e instanceof Error ? e.message : 'Операция не выполнена';
 
 export default function CascadeDeployment({policies, nodes}: {policies: RoutePolicy[]; nodes: ManagedNode[]}) {
+ const confirm=useConfirmation();
   const cache = useQueryClient();
   const journals = useQuery({queryKey: ['cascade-deployments'], queryFn: () => api<{items: Deployment[]}>('/api/cascade-deployments'), refetchInterval: query => query.state.data?.items.some(item => pending(item.state)) ? 2000 : query.state.data?.items.some(item => item.probe_grant_expires_at * 1000 > Date.now()) ? 10000 : false, refetchIntervalInBackground: false});
   const [selected, setSelected] = useState<RoutePolicy | null>(null);
@@ -64,11 +66,11 @@ export default function CascadeDeployment({policies, nodes}: {policies: RoutePol
             {item.state === 'attention' && <Notice>Результат одного из шагов неизвестен или произошла ошибка. Не удаляйте данные нод. Откат сначала восстановит вход A, затем выход B.</Notice>}
             <ol className="cascade-steps">{item.steps.filter(step => step.state !== 'not_queued').map(step => <li key={step.step}>{steps[step.step] ?? step.step}: {stepStates[step.state] ?? step.state}{step.revision > 0 ? ` · r${step.revision}` : ''}</li>)}</ol>
             <div className="flex route-actions">
-              {['awaiting_probe', 'probe_failed', 'verified', 'published'].includes(item.state) && <Button disabled={busy} onClick={() => {if (window.confirm('Скачать одноразовый доступ для независимой проверки? Предыдущий отчёт и публикация будут сняты до новой проверки.')) probe.mutate(item);}}>Внешняя проверка</Button>}
-              {item.state === 'verified' && item.proof?.current && <Button variant="primary" disabled={busy} onClick={() => {if (window.confirm('Опубликовать подтверждённый вход в подписках? Клиентские адрес, порт и ключи сохранятся.')) action.mutate({item, verb: 'publish'});}}>Опубликовать маршрут</Button>}
-              {item.state === 'prepared' && item.binding && <Button disabled={busy} onClick={() => {if (window.confirm('Применить подготовленный каскад для всех пользователей TCP/REALITY входной ноды?')) action.mutate({item, verb: 'start'});}}>Продолжить применение</Button>}
-              {!['prepared', 'rolled_back', 'rollback_entry', 'rollback_exit'].includes(item.state) && <Button variant="danger" disabled={busy} onClick={() => {if (window.confirm('Восстановить прежние настройки: сначала вход A, затем выход B? Текущие соединения могут прерваться.')) action.mutate({item, verb: 'rollback'});}}>Откатить каскад</Button>}
-              {['prepared', 'rolled_back'].includes(item.state) && <Button disabled={busy} onClick={() => {if (window.confirm(item.state === 'prepared' ? 'Отменить подготовку и освободить ноды?' : 'Удалить завершённый журнал и разрешить редактирование маршрута?')) action.mutate({item, verb: 'delete'});}}>{item.state === 'prepared' ? 'Отменить подготовку' : 'Удалить завершённый журнал'}</Button>}
+              {['awaiting_probe', 'probe_failed', 'verified', 'published'].includes(item.state) && <Button disabled={busy} onClick={async () => {if ((await confirm('Скачать одноразовый доступ для независимой проверки? Предыдущий отчёт и публикация будут сняты до новой проверки.'))) probe.mutate(item);}}>Внешняя проверка</Button>}
+              {item.state === 'verified' && item.proof?.current && <Button variant="primary" disabled={busy} onClick={async () => {if ((await confirm('Опубликовать подтверждённый вход в подписках? Клиентские адрес, порт и ключи сохранятся.'))) action.mutate({item, verb: 'publish'});}}>Опубликовать маршрут</Button>}
+              {item.state === 'prepared' && item.binding && <Button disabled={busy} onClick={async () => {if ((await confirm('Применить подготовленный каскад для всех пользователей TCP/REALITY входной ноды?'))) action.mutate({item, verb: 'start'});}}>Продолжить применение</Button>}
+              {!['prepared', 'rolled_back', 'rollback_entry', 'rollback_exit'].includes(item.state) && <Button variant="danger" disabled={busy} onClick={async () => {if ((await confirm('Восстановить прежние настройки: сначала вход A, затем выход B? Текущие соединения могут прерваться.'))) action.mutate({item, verb: 'rollback'});}}>Откатить каскад</Button>}
+              {['prepared', 'rolled_back'].includes(item.state) && <Button disabled={busy} onClick={async () => {if ((await confirm(item.state === 'prepared' ? 'Отменить подготовку и освободить ноды?' : 'Удалить завершённый журнал и разрешить редактирование маршрута?'))) action.mutate({item, verb: 'delete'});}}>{item.state === 'prepared' ? 'Отменить подготовку' : 'Удалить завершённый журнал'}</Button>}
             </div>
           </article>)}
         </>}

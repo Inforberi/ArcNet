@@ -20,7 +20,7 @@ const debitsSchema = `CREATE TABLE IF NOT EXISTS traffic_debits(user_id INTEGER 
 // Hysteria observation fresh, and disabling Hysteria removes only its freshness gate.
 const accountingLastSQL = `SELECT min(last) FROM (
  SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='xray_accounting_last_success'),'0') AS INTEGER) AS last
- WHERE EXISTS(SELECT 1 FROM config WHERE enabled=1) OR EXISTS(SELECT 1 FROM protocols WHERE kind='vless-xhttp' AND enabled=1)
+ WHERE EXISTS(SELECT 1 FROM config WHERE enabled=1) OR EXISTS(SELECT 1 FROM protocols WHERE (kind='vless-xhttp' OR kind LIKE 'vless-xhttp:%' OR kind LIKE 'vless-reality:%') AND enabled=1)
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='hysteria_accounting_last_success'),'0') AS INTEGER)
  WHERE EXISTS(SELECT 1 FROM protocols WHERE kind='hysteria2' AND enabled=1)
  UNION ALL SELECT CAST(COALESCE((SELECT value FROM settings WHERE key='wireguard_accounting_last_success'),'0') AS INTEGER)
@@ -380,7 +380,7 @@ func checkPackageCoverage(tx *db.Tx, quota, expires int64) error {
 		return ErrUsageUnsupported
 	}
 	if quota > 0 {
-		rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') LIMIT 1")
+		rows, err = tx.Query("SELECT kind FROM protocols WHERE enabled=1 AND kind NOT IN('vless-xhttp','hysteria2','wireguard') AND kind NOT LIKE 'vless-xhttp:%' AND kind NOT LIKE 'vless-reality:%' LIMIT 1")
 		if err != nil {
 			return err
 		}

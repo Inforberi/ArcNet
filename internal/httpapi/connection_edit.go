@@ -21,7 +21,7 @@ func connectionEditFailure(w http.ResponseWriter, err error) {
 	case errors.Is(err, app.ErrConnectionChanged):
 		fail(w, 409, "Настройки уже изменились. Закройте форму и откройте её заново.")
 	case errors.Is(err, protocols.ErrInvalid):
-		fail(w, 422, "Проверьте порт, SNI, путь и дополнительные настройки выбранного протокола. Значения должны укладываться в указанные диапазоны, а порт — быть свободным для этого протокола.")
+		fail(w, 422, "Проверьте порт, SNI, путь, HTTP Host и дополнительные настройки выбранного протокола. Значения должны укладываться в указанные диапазоны, а порт — быть свободным для этого протокола.")
 	case errors.Is(err, store.ErrLocalServerInUse):
 		fail(w, 409, "Это последний локальный протокол для существующих пользователей. Оставьте его отключённым или сначала добавьте другой.")
 	case errors.Is(err, store.ErrConflict), strings.Contains(err.Error(), "disable protocol"):

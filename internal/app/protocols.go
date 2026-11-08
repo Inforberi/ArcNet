@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/arcvpn/arcvpn/internal/auth"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	// Refuse an unmanageable auxiliary listener before modifying Xray.
 	if a.Engines == nil {
 		for _, p := range profiles {
-			if p.Kind != protocols.XHTTP && p.Enabled {
+			if p.Kind != protocols.XHTTP && p.Kind != "vless-reality" && p.Enabled {
 				return errors.New("auxiliary engine controller not configured")
 			}
 		}
@@ -69,7 +70,7 @@ func (a *App) applyXray(ctx context.Context, reality store.Reality, users []stor
 	}
 	xrayNeeded := reality.Enabled
 	for _, p := range profiles {
-		if p.Kind == protocols.XHTTP && p.Enabled {
+		if (p.Kind == protocols.XHTTP || p.Kind == "vless-reality") && p.Enabled {
 			xrayNeeded = true
 		}
 	}
@@ -150,12 +151,14 @@ func (a *App) AddProtocol(ctx context.Context, kind, address string, port int, s
 }
 
 func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address string, port int, sni, target, fingerprint string) (store.Protocol, error) {
-	if !xray.ValidFingerprint(fingerprint) || (kind != protocols.XHTTP && fingerprint != "") {
+	if !xray.ValidFingerprint(fingerprint) || (kind != protocols.XHTTP && kind != "vless-reality" && fingerprint != "") {
 		return store.Protocol{}, protocols.ErrInvalid
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
+	a.publication.Add(1)
+	defer a.publication.Add(1)
+	if kind != protocols.XHTTP && kind != "vless-reality" && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return store.Protocol{}, err
@@ -167,8 +170,16 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 	if !protocols.IsSupported(kind) {
 		return store.Protocol{}, protocols.ErrInvalid
 	}
-	if _, err := a.Store.GetProtocol(ctx, kind); err == nil {
-		return store.Protocol{}, store.ErrConflict
+	key := kind
+	if _, err := a.Store.GetProtocol(ctx, kind); err == nil || kind == "vless-reality" {
+		if kind != protocols.XHTTP && kind != "vless-reality" {
+			return store.Protocol{}, store.ErrConflict
+		}
+		id, e := auth.UUID()
+		if e != nil {
+			return store.Protocol{}, e
+		}
+		key = kind + ":" + id
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return store.Protocol{}, err
 	}
@@ -187,7 +198,7 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 		return store.Protocol{}, errors.New("protocol address must match local VPN address")
 	}
 	// Reuse the already selected, explicitly configured Reality target.
-	if kind == protocols.XHTTP {
+	if kind == protocols.XHTTP || kind == "vless-reality" {
 		if strings.TrimSpace(target) == "" {
 			target = reality.Target
 		}
@@ -204,15 +215,18 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 	if err != nil {
 		return store.Protocol{}, err
 	}
-	// Only one listener per protocol currently. Reject port collisions across
+	if len(profiles) >= store.MaxLocalConnections {
+		return store.Protocol{}, store.ErrConflict
+	}
+	// Reject port collisions across
 	// engines of the same transport and against the existing Xray TCP inbound.
 	if port == 0 {
 		port = protocols.DefaultPort(kind)
 	}
-	if a.Engines == nil && kind != protocols.XHTTP {
+	if a.Engines == nil && kind != protocols.XHTTP && kind != "vless-reality" {
 		return store.Protocol{}, errors.New("auxiliary engine controller not configured")
 	}
-	if kind == protocols.XHTTP && ((reality.Enabled && port == reality.Port) || port == 80 || port == a.ReservedTCPPort) {
+	if (kind == protocols.XHTTP || kind == "vless-reality") && ((reality.Enabled && port == reality.Port) || port == 80 || port == a.ReservedTCPPort) {
 		return store.Protocol{}, errors.New("TCP port already reserved by Reality, HTTPS panel or ACME")
 	}
 	if kind == protocols.Hysteria2 {
@@ -225,7 +239,7 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 			}
 		}
 	}
-	if kind == protocols.XHTTP && port == engines.HysteriaStatsPort {
+	if (kind == protocols.XHTTP || kind == "vless-reality") && port == engines.HysteriaStatsPort {
 		for _, p := range profiles {
 			if p.Kind == protocols.Hysteria2 && p.Enabled {
 				return store.Protocol{}, errors.New("TCP port reserved for private Hysteria statistics")
@@ -242,13 +256,16 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 		return store.Protocol{}, err
 	}
 	p.Fingerprint = fingerprint
+	if key != kind {
+		p.ID = key
+	}
 	users, err := a.Store.ListUsers(ctx)
 	if err != nil {
 		return store.Protocol{}, err
 	}
 	creds := make([]store.ProtocolCredential, 0, len(users))
 	for _, u := range users {
-		c, e := protocols.NewCredential(kind, u)
+		c, e := protocols.NewCredential(key, u)
 		if e != nil {
 			return store.Protocol{}, e
 		}
@@ -258,13 +275,13 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 		return store.Protocol{}, err
 	}
 	if err := a.Store.SaveCredentials(ctx, creds); err != nil {
-		_ = a.Store.DeleteProtocol(context.Background(), kind)
+		_ = a.Store.DeleteProtocol(context.Background(), key)
 		return store.Protocol{}, err
 	}
 	// This stage can validate and activate XHTTP with the existing Xray engine.
 	// Separate daemon activation has an explicit externally verified gate.
 	if err := a.applyAll(ctx, reality, users); err != nil {
-		_ = a.Store.DeleteProtocol(context.Background(), kind)
+		_ = a.Store.DeleteProtocol(context.Background(), key)
 		_ = a.applyAll(context.Background(), reality, users)
 		return store.Protocol{}, fmt.Errorf("protocol activation failed: %w", err)
 	}
@@ -275,6 +292,8 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.publication.Add(1)
+	defer a.publication.Add(1)
 	p, err := a.Store.GetProtocol(ctx, kind)
 	if err != nil {
 		return err
@@ -292,7 +311,7 @@ func (a *App) SetProtocolEnabled(ctx context.Context, kind string, enabled bool)
 	if err != nil {
 		return err
 	}
-	if enabled && kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
+	if enabled && p.Kind != protocols.XHTTP && p.Kind != "vless-reality" && p.Kind != protocols.Hysteria2 && p.Kind != protocols.WireGuard {
 		limited, err := a.Store.HasRestrictedPackages(ctx, true)
 		if err != nil {
 			return err
@@ -326,6 +345,8 @@ func (a *App) DeleteProtocolRevision(ctx context.Context, kind, revision string)
 func (a *App) deleteProtocol(ctx context.Context, kind, revision string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.publication.Add(1)
+	defer a.publication.Add(1)
 	p, err := a.Store.GetProtocol(ctx, kind)
 	if err != nil {
 		return err
@@ -356,7 +377,7 @@ func (a *App) deleteProtocol(ctx context.Context, kind, revision string) error {
 	if err := a.Store.DeleteProtocol(ctx, kind); err != nil {
 		return err
 	}
-	if a.Engines != nil {
+	if a.Engines != nil && p.Kind != protocols.XHTTP && p.Kind != "vless-reality" {
 		if err := a.Engines.RemoveDisabled(kind); err != nil {
 			return fmt.Errorf("protocol deleted but stale config cleanup failed: %w", err)
 		}
@@ -374,7 +395,7 @@ func (a *App) ensureCredentials(ctx context.Context, u store.User) error {
 	}
 	items := make([]store.ProtocolCredential, 0, len(profiles))
 	for _, p := range profiles {
-		c, err := protocols.NewCredential(p.Kind, u)
+		c, err := protocols.NewCredential(p.ConnectionID(), u)
 		if err != nil {
 			return err
 		}
