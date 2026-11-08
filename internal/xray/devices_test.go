@@ -13,7 +13,7 @@ func TestDeviceRenderingAndAggregatedCounters(t *testing.T) {
 	d := devices.Device{ID: "22222222-2222-4222-8222-222222222222", UUID: "33333333-3333-4333-8333-333333333333"}
 	retired := devices.Device{ID: "44444444-4444-4444-8444-444444444444", UUID: "55555555-5555-4555-8555-555555555555", RevokedAt: 200}
 	u := store.User{ID: 1, UUID: "11111111-1111-4111-8111-111111111111", Enabled: true, DeviceAccess: &devices.Record{Devices: []devices.Device{d, retired}}}
-	clients := userClients(u, false)
+	clients := userClients(u, false, "xtls-rprx-vision")
 	blob, _ := json.Marshal(clients)
 	if len(clients) != 1 || !strings.Contains(string(blob), d.UUID) || strings.Contains(string(blob), u.UUID) || strings.Contains(string(blob), retired.UUID) {
 		t.Fatal("credential allowlist", string(blob))

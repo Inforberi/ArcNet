@@ -12,20 +12,22 @@ import (
 // Protocol is a logical, local listener. Secret fields are deliberately hidden from API serialization.
 // Each protocol has its own listener and cryptographic material.
 type Protocol struct {
-	Fingerprint string `json:"fingerprint,omitempty"`
-	Kind        string `json:"kind"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	SNI         string `json:"sni,omitempty"`
-	Target      string `json:"target,omitempty"`
-	PrivateKey  string `json:"-"`
-	PublicKey   string `json:"public_key,omitempty"`
-	ShortID     string `json:"short_id,omitempty"`
-	Path        string `json:"path,omitempty"`
-	TLSCert     string `json:"tls_cert,omitempty"`
-	TLSKey      string `json:"-"`
-	ObfsKey     string `json:"-"`
-	Enabled     bool   `json:"enabled"`
+	ServerOptions ServerOptions `json:"server_options"`
+	ClientOptions ClientOptions `json:"client_options"`
+	Fingerprint   string        `json:"fingerprint,omitempty"`
+	Kind          string        `json:"kind"`
+	Address       string        `json:"address"`
+	Port          int           `json:"port"`
+	SNI           string        `json:"sni,omitempty"`
+	Target        string        `json:"target,omitempty"`
+	PrivateKey    string        `json:"-"`
+	PublicKey     string        `json:"public_key,omitempty"`
+	ShortID       string        `json:"short_id,omitempty"`
+	Path          string        `json:"path,omitempty"`
+	TLSCert       string        `json:"tls_cert,omitempty"`
+	TLSKey        string        `json:"-"`
+	ObfsKey       string        `json:"-"`
+	Enabled       bool          `json:"enabled"`
 }
 
 // ProtocolCredential is per-user access data; the backend never serializes it
@@ -83,6 +85,14 @@ func (s *Store) ListProtocols(ctx context.Context) ([]Protocol, error) {
 			if err != nil {
 				return err
 			}
+			p.ServerOptions, err = readServerOptions(tx, p.Kind)
+			if err != nil {
+				return err
+			}
+			p.ClientOptions, err = readClientOptions(tx, p.Kind)
+			if err != nil {
+				return err
+			}
 			result = append(result, p)
 		}
 		return nil
@@ -101,12 +111,26 @@ func (s *Store) GetProtocol(ctx context.Context, kind string) (Protocol, error) 
 		}
 		p = rowProtocol(rows[0])
 		p.Fingerprint, err = readFingerprint(tx, kind)
+		if err != nil {
+			return err
+		}
+		p.ServerOptions, err = readServerOptions(tx, kind)
+		if err != nil {
+			return err
+		}
+		p.ClientOptions, err = readClientOptions(tx, kind)
 		return err
 	})
 	return p, err
 }
 func (s *Store) UpsertProtocol(ctx context.Context, p Protocol) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveServerOptions(tx, p.Kind, p.ServerOptions); err != nil {
+			return err
+		}
+		if err := saveClientOptions(tx, p.Kind, p.ClientOptions); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
 			return err
 		}
@@ -119,6 +143,12 @@ func (s *Store) UpsertProtocol(ctx context.Context, p Protocol) error {
 }
 func (s *Store) DeleteProtocol(ctx context.Context, kind string) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveServerOptions(tx, kind, ServerOptions{}); err != nil {
+			return err
+		}
+		if err := saveClientOptions(tx, kind, ClientOptions{}); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, kind, ""); err != nil {
 			return err
 		}
@@ -200,6 +230,12 @@ func saveCredentials(tx *db.Tx, items []ProtocolCredential) error {
 }
 func (s *Store) ReplaceProtocols(ctx context.Context, profiles []Protocol, creds []ProtocolCredential) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := clearProtocolServerOptions(tx); err != nil {
+			return err
+		}
+		if err := clearProtocolClientOptions(tx); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, "vless-xhttp", ""); err != nil {
 			return err
 		}
@@ -210,6 +246,12 @@ func (s *Store) ReplaceProtocols(ctx context.Context, profiles []Protocol, creds
 			return err
 		}
 		for _, p := range profiles {
+			if err := saveServerOptions(tx, p.Kind, p.ServerOptions); err != nil {
+				return err
+			}
+			if err := saveClientOptions(tx, p.Kind, p.ClientOptions); err != nil {
+				return err
+			}
 			if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
 				return err
 			}

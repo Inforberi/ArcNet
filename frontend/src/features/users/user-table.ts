@@ -2,6 +2,11 @@ import type {VPNUser} from '../../shared/api';
 import type {UserPackage} from './usage';
 
 export type UserSort = 'id'|'name'|'created'|'traffic'|'expires';
+export function matchesUserSearch(user:VPNUser,query:string){
+ const p=user.preferences;
+ const text=[user.name,user.id,p?.group,p?.title,p?.comment,...(p?.allowed_kinds??[])].join(' ').toLocaleLowerCase('ru');
+ return query.trim().toLocaleLowerCase('ru').split(/\s+/).every(word=>text.includes(word));
+}
 export function sortUsers(users:VPNUser[],packages:Map<number,UserPackage>,sort:UserSort,descending=false) {
  const value=(u:VPNUser):number|string|null=>{
   const p=packages.get(u.id);

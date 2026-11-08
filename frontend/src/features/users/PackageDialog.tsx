@@ -1,6 +1,6 @@
 import {useState, type FormEvent, type ReactNode} from 'react';
 import {useMutation, useQueryClient} from '@tanstack/react-query';
-import Dialog, {canDismiss} from '../../shared/Dialog';
+import Dialog, {canDismiss,DialogClose} from '../../shared/Dialog';
 import {Advanced, Button, Field, Notice} from '../../shared/ui';
 import {api, ApiError} from '../../shared/api';
 import {quotaBytes, usageGB, usageAmount, type UsageReply, type UserPackage} from './usage';
@@ -78,7 +78,7 @@ export default function PackageDialog({name, initial: initialValue, status, onCl
    {error && <p className="error" role="alert">{error}</p>}
    {conflict && <div><Button type="button" onClick={() => {setInitial(initialValue); setConflict(false); setError('');}}>Обновить версию</Button><p className="muted">Ваши поля сохранятся. Проверьте новый план перед сохранением.</p></div>}
    {message && <Notice>{message}</Notice>}
-   <div className="form-actions"><Button type="button" disabled={save.isPending} onClick={()=>{if(canDismiss(changed && !message,save.isPending))onClose();}}>Закрыть</Button><Button type="submit" variant="primary" disabled={save.isPending || unavailable || !!message}>Сохранить пакет</Button></div>
+   <div className="form-actions"><DialogClose disabled={save.isPending}>Закрыть</DialogClose><Button type="submit" variant="primary" disabled={save.isPending || unavailable || !!message}>Сохранить пакет</Button></div>
   </form>
  </Dialog>;
 }

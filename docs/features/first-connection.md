@@ -63,3 +63,41 @@ Backup13 переносит TCP/XHTTP preference и сохраняет при Re
 ### Уточнение диагностики и транспорта 2026-11-07
 
 Таблица разделяет VLESS/REALITY и транспорт TCP / RAW либо XHTTP. Уже созданные виды видны в выборе с пометкой и редактируются в таблице: несколько профилей одного вида текущая модель не поддерживает. История списаний удалена из PackageDialog; серверный учёт для исполнения лимитов сохраняется. Engine-ошибки возвращают безопасные коды `engine_<kind>_<stage>`; вывод wg-quick не попадает в текст ошибок. Новые сетевые правила этим блоком не применяются.
+
+
+## Клиентские параметры — локальные исходники 8 ноября
+
+В редакторе XHTTP поддерживаются auto (по умолчанию), packet-up, stream-up, stream-one. Значение передаётся в mode ссылки/подписки; сервер продолжает принимать auto. Для WireGuard доступны клиентские MTU1280–1500 (default1280), до4 IPv4 DNS (default1.1.1.1) и keepalive0–65535 (default25;0 выключает). Это настройки экспортируемого .conf, не изменение серверного интерфейса, NAT или firewall. После сохранения требуется обновить подписку / повторно импортировать файл. Поддержка XHTTP mode конкретным Happ/Streisand и сетевой результат требуют внешней приёмки.
+
+client_options — типизированный объект API PUT /api/connections/{kind}; поле отсутствует — сохранить прежние настройки, {} — вернуть defaults. Некорректные и чужие протоколу поля отклоняются, DNS не принимает hostname/перевод строки/IPv6. Настройки живут в существующей settings под client_options:{kind}, сохраняются/удаляются и восстанавливаются в одной транзакции с профилем. Оpaque revision учитывает options; CSRF/session/paused gates сохранены. Изменение только fingerprint/options не перезапускает движок и не читает весь список пользователей. Совмещённое server edit использует прежний apply/rollback, включая возврат старых options. Приватные ключи API не принимает и не раскрывает.
+
+Backup16 переносит options; reader принимает1–15 с прежними defaults, ненулевые новые настройки под legacy version отклоняются. Старые сборки не читают16: сохраняйте старый backup для возврата. DDL/units/helpers не меняются.
+
+ALPN не добавлен фиктивным полем для REALITY: [официальный RealityObject](https://xtls.github.io/config/transports/reality.html) описывает fingerprint/serverName, без отдельного alpn. Flow TCP пока фиксирован xtls-rprx-vision, XHTTP без flow; его переключение требует согласованного изменения сервера/клиента. Hysteria2 показывает существующие TLS/SNI и обязательную проверку сертификата; QUIC/masquerade/bandwidth не реализованы этим блоком. XHTTP режимы сверены с [upstream XTLS](https://github.com/XTLS/Xray-core/discussions/4113), WireGuard поля с [wg-quick upstream](https://github.com/WireGuard/wireguard-tools/blob/master/src/man/wg-quick.8) и [keepalive](https://www.wireguard.com/quickstart/).
+
+Остаются: server-side advanced fields, ротация ключей отдельной операцией, автоматическое предложение SNI/fingerprint с diff, несколько независимых подключений одного вида, firewall/full updater и реальная диагностика WG. IPv6-трафик/защита от обхода IPv4-only WG на клиенте не решены этими client options; не заявлять отсутствие утечек или production acceptance.
+
+
+## Серверные параметры и v7 — локальные исходники 8 ноября
+
+server_options в PUT /api/connections/{kind} поддерживает sniffing для VLESS TCP/REALITY и XHTTP (HTTP/TLS, routeOnly=true), udp_idle_seconds2–600 и quic_idle_seconds4–120 для Hysteria2. Отсутствующий объект сохраняет прежние overrides, {} возвращает defaults: TCP sniffing=true, XHTTP без sniffing, Hysteria UDP60с/QUIC30с. Параметры другого протокола отклоняются. Значения хранятся в settings серверной части и входят в revision; обновление выполняется под existing mutation lock, validate/apply/rollback. При отказе возвращаются старые options, credentials и runtime. Equal сравнивает значения nullable boolean, а не адреса указателей: неизменённый sniffing не превращает client-only update в restart.
+
+Backup17 переносит TCP и protocol server_options, читает1–16 с defaults; ненулевые server_options под старой версией запрещены. Для обновления/возврата сохраняйте предыдущий backup: старые сборки17 не читают. DDL, root helpers, SSH/UFW и systemd units этим блоком не меняются.
+
+Интерфейс использует действующие тёмные токены/компоненты v7, SettingsSection/Properties/Advanced/Dialog. Hysteria2 показывает только свои настройки; VLESS — свои. Перед применением виден diff с различением server restart и client export. Карточка показывает текущие серверные overrides. Кнопка «Обновить параметры» открывает существующий проверяемый подбор SNI и прокручивает форму к нему, учитывая reduced-motion. Выбранный результат меняет лишь черновик SNI/target, не keys/fingerprint/port; фактическое применение требует отдельной кнопки. Автоматический подбор fingerprint из сети пользователя не реализован и не имитируется.
+
+Диапазоны Hysteria сверены с [app/v2.6.3 upstream config](https://raw.githubusercontent.com/apernet/hysteria/app/v2.6.3/core/server/config.go); значения JSON — udpIdleTimeout и quic.maxIdleTimeout, [документация](https://v2.hysteria.network/docs/advanced/Full-Server-Config/). Поддержка sniffing/routeOnly — [Xray inbound](https://xtls.github.io/en/config/inbound.html). На реальном установленном движке и изолированной VM с rollback не проверено: этот gate обязателен до приёмки/релиза.
+
+Остаток этого блока уточнён ниже; полный advanced редактор и визуальная приёмка v7 не объявляются завершёнными.
+
+## Flow, смена ключей и Hysteria2 — локально 8 ноября
+
+TCP VLESS: Vision по умолчанию либо без flow; серверные shared/device clients и URI меняются согласованно, REALITY остаётся включённым. У XHTTP flow не задаётся. [Контракт Xray](https://xtls.github.io/en/config/inbounds/vless.html). Каскадные профили этим редактором не меняются.
+
+REALITY TCP/XHTTP и WireGuard: отдельное «Сменить ключи» → план с количеством/первыми20 затронутыми пользователями → подтверждение. Учитываются и отключённые пользователи. CAS проверяет ревизию профиля и полный состав назначений. Обычное сохранение не меняет ключи; смена сохраняет UUID, токены подписок, пакеты и сроки. Старые профили нужно обновить. При ошибке применяется существующая компенсация metadata/runtime. Это не гарантирует восстановление после отказа самой компенсации; такая ошибка требует диагностики. Hysteria user passwords этой операцией не меняются.
+
+На время редактирования/смены ключей конечные HTTP-ответы с подключениями буферизуются до4МиБ и проверяют версию публикации до/после чтения. При изменении возвращается503 без промежуточных ключей, Retry-After1. SSE не буферизуется. Backup export уже использует mutation lock. Это защита этих операций, не универсальная транзакция всех старых сценариев приложения.
+
+Hysteria2: Salamander с автоматически созданным32-byte URL-safe секретом; секрет скрыт из публичного JSON, но нужен в bearer-подписке и зашифрованном backup. Повторное сохранение сохраняет секрет. Полоса0 означает auto, иначе1–100000Мбит/с; server up — получение клиентом, down — отправка. Это переговорный лимит каждого соединения Brutal, не гарантированное ограничение BBR/Reno или суммарной скорости пользователя. [Серверная конфигурация](https://v2.hysteria.network/docs/advanced/Full-Server-Config/), [URI](https://v2.hysteria.network/docs/developers/URI-Scheme/), [pinned app/v2.6.3](https://raw.githubusercontent.com/apernet/hysteria/app/v2.6.3/app/cmd/server.go).
+
+Все поля сохраняются в существующих settings/ObfsKey без DDL и переносятся backup18; старые1–17 читаются, несовместимые новые поля под старой версией отвергаются. Произвольный masquerade proxy URL не добавлялся из-за отдельной SSRF-границы. Открыты: auto fingerprint, дополнительные поддерживаемые поля, duplicate inbounds, автоматический firewall/full updater, IP/device enforcement и серверная приёмка. [Проверки](../testing/local-results/rotation-hysteria-2026-11-08.md).

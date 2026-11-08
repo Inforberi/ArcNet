@@ -33,15 +33,16 @@ type User struct {
 	Subscription   string          `json:"-"`
 }
 type Reality struct {
-	Fingerprint string `json:"fingerprint,omitempty"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	Target      string `json:"target"`
-	SNI         string `json:"sni"`
-	Private     string `json:"-"`
-	Public      string `json:"public_key"`
-	ShortID     string `json:"short_id"`
-	Enabled     bool   `json:"enabled"`
+	ServerOptions ServerOptions `json:"server_options"`
+	Fingerprint   string        `json:"fingerprint,omitempty"`
+	Address       string        `json:"address"`
+	Port          int           `json:"port"`
+	Target        string        `json:"target"`
+	SNI           string        `json:"sni"`
+	Private       string        `json:"-"`
+	Public        string        `json:"public_key"`
+	ShortID       string        `json:"short_id"`
+	Enabled       bool          `json:"enabled"`
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
@@ -354,12 +355,19 @@ func (s *Store) ReadReality(ctx context.Context) (Reality, error) {
 		r.ShortID = row["short_id"]
 		r.Enabled = row["enabled"] == "1"
 		r.Fingerprint, err = readFingerprint(tx, "vless-reality")
+		if err != nil {
+			return err
+		}
+		r.ServerOptions, err = readServerOptions(tx, "vless-reality")
 		return err
 	})
 	return r, err
 }
 func (s *Store) SaveReality(ctx context.Context, r Reality) error {
 	return s.DB.WithTx(ctx, func(tx *db.Tx) error {
+		if err := saveServerOptions(tx, "vless-reality", r.ServerOptions); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
 			return err
 		}
@@ -416,11 +424,17 @@ func (s *Store) ReplaceState(ctx context.Context, reality *Reality, users []User
 		if err := tx.Exec("DELETE FROM config"); err != nil {
 			return err
 		}
+		if err := saveServerOptions(tx, "vless-reality", ServerOptions{}); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, "vless-reality", ""); err != nil {
 			return err
 		}
 		if reality != nil {
 			r := reality
+			if err := saveServerOptions(tx, "vless-reality", r.ServerOptions); err != nil {
+				return err
+			}
 			if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
 				return err
 			}
@@ -509,11 +523,17 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 				return err
 			}
 		}
+		if err := saveServerOptions(tx, "vless-reality", ServerOptions{}); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, "vless-reality", ""); err != nil {
 			return err
 		}
 		if reality != nil {
 			r := reality
+			if err := saveServerOptions(tx, "vless-reality", r.ServerOptions); err != nil {
+				return err
+			}
 			if err := saveFingerprint(tx, "vless-reality", r.Fingerprint); err != nil {
 				return err
 			}
@@ -526,10 +546,22 @@ func (s *Store) replaceFullStateWithDevices(ctx context.Context, reality *Realit
 				return err
 			}
 		}
+		if err := clearProtocolServerOptions(tx); err != nil {
+			return err
+		}
+		if err := clearProtocolClientOptions(tx); err != nil {
+			return err
+		}
 		if err := saveFingerprint(tx, "vless-xhttp", ""); err != nil {
 			return err
 		}
 		for _, p := range profiles {
+			if err := saveServerOptions(tx, p.Kind, p.ServerOptions); err != nil {
+				return err
+			}
+			if err := saveClientOptions(tx, p.Kind, p.ClientOptions); err != nil {
+				return err
+			}
 			if err := saveFingerprint(tx, p.Kind, p.Fingerprint); err != nil {
 				return err
 			}

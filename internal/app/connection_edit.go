@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/arcvpn/arcvpn/internal/auth"
 	"github.com/arcvpn/arcvpn/internal/engines"
 	"github.com/arcvpn/arcvpn/internal/protocols"
 	"github.com/arcvpn/arcvpn/internal/store"
@@ -26,22 +27,30 @@ func ConnectionRevision(p store.Protocol) string {
 }
 
 func RealityProfile(r store.Reality) store.Protocol {
-	return store.Protocol{Fingerprint: r.Fingerprint, Kind: "vless-reality", Address: r.Address, Port: r.Port, Target: r.Target, SNI: r.SNI, PrivateKey: r.Private, PublicKey: r.Public, ShortID: r.ShortID, Enabled: r.Enabled}
+	return store.Protocol{ServerOptions: r.ServerOptions, Fingerprint: r.Fingerprint, Kind: "vless-reality", Address: r.Address, Port: r.Port, Target: r.Target, SNI: r.SNI, PrivateKey: r.Private, PublicKey: r.Public, ShortID: r.ShortID, Enabled: r.Enabled}
 }
 
 type ConnectionSettings struct {
-	Path        *string `json:"path,omitempty"`
-	Fingerprint *string `json:"fingerprint,omitempty"`
-	Port        int     `json:"port"`
-	Target      string  `json:"target"`
-	SNI         string  `json:"sni"`
-	Enabled     bool    `json:"enabled"`
+	RotateKeys    bool                 `json:"-"`
+	ServerOptions *store.ServerOptions `json:"server_options,omitempty"`
+	ClientOptions *store.ClientOptions `json:"client_options,omitempty"`
+	Path          *string              `json:"path,omitempty"`
+	Fingerprint   *string              `json:"fingerprint,omitempty"`
+	Port          int                  `json:"port"`
+	Target        string               `json:"target"`
+	SNI           string               `json:"sni"`
+	Enabled       bool                 `json:"enabled"`
 }
 
 // EditConnection preserves identity and credentials. Runtime and persistence recover together on failure.
 func (a *App) EditConnection(ctx context.Context, kind, revision string, settings ConnectionSettings) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.publication.Add(1)
+	defer a.publication.Add(1)
+	return a.editConnectionLocked(ctx, kind, revision, settings)
+}
+func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, settings ConnectionSettings) error {
 	if kind != "vless-reality" && kind != protocols.XHTTP && kind != protocols.Hysteria2 && kind != protocols.WireGuard {
 		return protocols.ErrInvalid
 	}
@@ -65,6 +74,45 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 		return ErrConnectionChanged
 	}
 	next := old
+	if settings.RotateKeys {
+		if a.RuntimeCheck != nil {
+			if err = a.RuntimeCheck(); err != nil {
+				return err
+			}
+		}
+		switch kind {
+		case "vless-reality", protocols.XHTTP:
+			next.PrivateKey, next.PublicKey, next.ShortID, err = xray.GenerateKeys(ctx, a.Core.Binary)
+		case protocols.WireGuard:
+			next.PrivateKey, next.PublicKey, err = protocols.WGKeys()
+		default:
+			return protocols.ErrInvalid
+		}
+		if err != nil {
+			return err
+		}
+		if next.PrivateKey == old.PrivateKey || next.PublicKey == old.PublicKey {
+			return &xray.OperationError{Stage: "keys", Err: errors.New("generated keys did not change")}
+		}
+	}
+	if settings.ServerOptions != nil && !old.ServerOptions.Equal(*settings.ServerOptions) {
+		next.ServerOptions = *settings.ServerOptions
+	}
+	if store.ValidateServerOptions(kind, next.ServerOptions) != nil {
+		return protocols.ErrInvalid
+	}
+	if kind == protocols.Hysteria2 && next.ServerOptions.Salamander && next.ObfsKey == "" {
+		next.ObfsKey, err = auth.Secret(32)
+		if err != nil {
+			return err
+		}
+	}
+	if settings.ClientOptions != nil {
+		next.ClientOptions = *settings.ClientOptions
+	}
+	if err = store.ValidateClientOptions(kind, next.ClientOptions); err != nil {
+		return protocols.ErrInvalid
+	}
 	if settings.Path != nil {
 		if kind != protocols.XHTTP && *settings.Path != "" {
 			return protocols.ErrInvalid
@@ -89,13 +137,22 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 			return err
 		}
 	}
-	users, err := a.Store.ListUsers(ctx)
-	if err != nil {
-		return err
+	runtimeFields := next
+	runtimeFields.Fingerprint = old.Fingerprint
+	runtimeFields.ClientOptions = old.ClientOptions
+	clientOnly := runtimeFields == old
+	var users []store.User
+	if !clientOnly {
+		users, err = a.Store.ListUsers(ctx)
+		if err != nil {
+			return err
+		}
 	}
 	candidate := reality
 	save := func(ctx context.Context, p store.Protocol) error { return a.Store.UpsertProtocol(ctx, p) }
 	if kind == "vless-reality" {
+		candidate.Private, candidate.Public, candidate.ShortID = next.PrivateKey, next.PublicKey, next.ShortID
+		candidate.ServerOptions = next.ServerOptions
 		candidate.Fingerprint = next.Fingerprint
 		candidate.Port = next.Port
 		candidate.Target = next.Target
@@ -103,6 +160,8 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 		candidate.Enabled = next.Enabled
 		save = func(ctx context.Context, p store.Protocol) error {
 			r := reality
+			r.Private, r.Public, r.ShortID = p.PrivateKey, p.PublicKey, p.ShortID
+			r.ServerOptions = p.ServerOptions
 			r.Fingerprint = p.Fingerprint
 			r.Port = p.Port
 			r.Target = p.Target
@@ -114,9 +173,7 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 	if err = save(ctx, next); err != nil {
 		return err
 	}
-	runtimeFields := next
-	runtimeFields.Fingerprint = old.Fingerprint
-	if runtimeFields == old {
+	if clientOnly {
 		a.Store.Event(ctx, "connection.client_options.updated", kind)
 		return nil
 	}
@@ -137,6 +194,8 @@ func (a *App) EditConnection(ctx context.Context, kind, revision string, setting
 func (a *App) validateConnectionEdit(ctx context.Context, p store.Protocol, reality store.Reality) error {
 	if p.Kind == "vless-reality" {
 		r := reality
+		r.Private, r.Public, r.ShortID = p.PrivateKey, p.PublicKey, p.ShortID
+		r.ServerOptions = p.ServerOptions
 		r.Fingerprint = p.Fingerprint
 		r.Port = p.Port
 		r.Target = p.Target

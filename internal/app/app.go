@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/auth"
@@ -16,6 +17,7 @@ import (
 )
 
 type App struct {
+	publication     atomic.Uint64
 	Store           *store.Store
 	Core            xray.Controller
 	Engines         *engines.Manager
@@ -25,6 +27,8 @@ type App struct {
 	usageApplied    string
 	UserTraffic     usage.TrafficTracker
 }
+
+func (a *App) PublicationVersion() uint64 { return a.publication.Load() }
 
 func (a *App) Setup(ctx context.Context, address, target string, port int) error {
 	return a.SetupWithFingerprint(ctx, address, target, port, "")

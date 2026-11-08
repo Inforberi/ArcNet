@@ -29,6 +29,9 @@ var hexID = regexp.MustCompile(`^[a-fA-F0-9]{16}$`)
 var keyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{32,64}$`)
 
 func Validate(r store.Reality) error {
+	if err := store.ValidateServerOptions("vless-reality", r.ServerOptions); err != nil {
+		return err
+	}
 	if !ValidFingerprint(r.Fingerprint) {
 		return errors.New("invalid client TLS fingerprint")
 	}
@@ -91,7 +94,7 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 		if !u.Enabled || !u.Allows("vless-reality") {
 			continue
 		}
-		clients = append(clients, userClients(u, false)...)
+		clients = append(clients, userClients(u, false, r.ServerOptions.VLESSFlow())...)
 	}
 	root := map[string]any{
 		"log": map[string]any{"loglevel": "warning"},
@@ -99,7 +102,7 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 			"listen": "0.0.0.0", "port": r.Port, "protocol": "vless", "tag": "vless-reality",
 			"settings":       map[string]any{"clients": clients, "decryption": "none"},
 			"streamSettings": map[string]any{"network": "tcp", "security": "reality", "realitySettings": map[string]any{"show": false, "target": net.JoinHostPort(r.Target, "443"), "serverNames": []string{r.SNI}, "privateKey": r.Private, "shortIds": []string{r.ShortID}}},
-			"sniffing":       map[string]any{"enabled": true, "destOverride": []string{"http", "tls"}, "routeOnly": true},
+			"sniffing":       map[string]any{"enabled": r.ServerOptions.SniffingEnabled("vless-reality"), "destOverride": []string{"http", "tls"}, "routeOnly": true},
 		}},
 		"outbounds": []any{map[string]any{"protocol": "freedom", "tag": "direct"}, map[string]any{"protocol": "blackhole", "tag": "block"}},
 	}
@@ -107,6 +110,11 @@ func Generate(r store.Reality, users []store.User) ([]byte, error) {
 }
 func Link(r store.Reality, u store.User) string {
 	q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {r.SNI}, "fp": {ClientFingerprint(r.Fingerprint)}, "pbk": {r.Public}, "sid": {r.ShortID}, "type": {"tcp"}, "flow": {"xtls-rprx-vision"}}
+	if flow := r.ServerOptions.VLESSFlow(); flow == "" {
+		q.Del("flow")
+	} else {
+		q.Set("flow", flow)
+	}
 	return fmt.Sprintf("vless://%s@%s?%s#%s", u.UUID, net.JoinHostPort(r.Address, strconv.Itoa(r.Port)), q.Encode(), url.QueryEscape(u.Name))
 }
 
@@ -136,13 +144,16 @@ func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.
 		if p.Kind != "vless-xhttp" || !p.Enabled {
 			continue
 		}
+		if err := store.ValidateServerOptions(p.Kind, p.ServerOptions); err != nil {
+			return nil, err
+		}
 		if p.Port <= 0 || p.Port > 65535 || !sniPattern.MatchString(p.SNI) || !sniPattern.MatchString(p.Target) || !keyPattern.MatchString(p.PrivateKey) || !hexID.MatchString(p.ShortID) || !strings.HasPrefix(p.Path, "/") {
 			return nil, errors.New("invalid XHTTP profile")
 		}
 		clients := make([]map[string]any, 0, len(users))
 		for _, u := range users {
 			if u.Enabled && u.Allows("vless-xhttp") {
-				clients = append(clients, userClients(u, true)...)
+				clients = append(clients, userClients(u, true, "")...)
 			}
 		}
 		inbounds = append(inbounds, map[string]any{
@@ -152,6 +163,9 @@ func GenerateWithProfiles(r store.Reality, users []store.User, profiles []store.
 				"xhttpSettings":   map[string]any{"path": p.Path, "mode": "auto"},
 				"realitySettings": map[string]any{"show": false, "target": net.JoinHostPort(p.Target, "443"), "serverNames": []string{p.SNI}, "privateKey": p.PrivateKey, "shortIds": []string{p.ShortID}}},
 		})
+		if p.ServerOptions.Sniffing != nil {
+			inbounds[len(inbounds)-1].(map[string]any)["sniffing"] = map[string]any{"enabled": *p.ServerOptions.Sniffing, "destOverride": []string{"http", "tls"}, "routeOnly": true}
+		}
 	}
 	root["inbounds"] = inbounds
 	return json.MarshalIndent(root, "", "  ")
@@ -169,15 +183,15 @@ func (c Controller) ApplyWithProfiles(ctx context.Context, r store.Reality, user
 	return c.apply(ctx, data)
 }
 
-func userClients(u store.User, xhttp bool) []map[string]any {
+func userClients(u store.User, xhttp bool, flow string) []map[string]any {
 	prefix := "user-"
 	if xhttp {
 		prefix = "xhttp-user-"
 	}
 	client := func(id, email string) map[string]any {
 		c := map[string]any{"id": id, "email": email}
-		if !xhttp {
-			c["flow"] = "xtls-rprx-vision"
+		if !xhttp && flow != "" {
+			c["flow"] = flow
 		}
 		return c
 	}

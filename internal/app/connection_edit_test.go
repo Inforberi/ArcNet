@@ -16,6 +16,48 @@ func settingsFor(p store.Protocol) ConnectionSettings {
 	return ConnectionSettings{Port: p.Port, Target: p.Target, SNI: p.SNI, Enabled: p.Enabled}
 }
 
+func TestClientOptionsRollbackWithServerEdit(t *testing.T) {
+	a := firstProtocolApp(t)
+	ctx := context.Background()
+	p, err := a.AddProtocol(ctx, protocols.XHTTP, "198.51.100.19", 2087, "www.example.com", "www.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	on, off := true, false
+	settings := settingsFor(p)
+	settings.ServerOptions = &store.ServerOptions{Sniffing: &on}
+	settings.ClientOptions = &store.ClientOptions{XHTTPMode: "packet-up"}
+	if err = a.EditConnection(ctx, p.Kind, ConnectionRevision(p), settings); err != nil {
+		t.Fatal(err)
+	}
+	old, err := a.Store.GetProtocol(ctx, p.Kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(a.Core.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nfor arg; do path=\"$arg\"; done\nif grep -q '\"port\": 9443' \"$path\"; then exit 1; fi\nexit 0\n"
+	if err = os.WriteFile(a.Core.Binary, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	settings.Port = 9443
+	settings.ServerOptions = &store.ServerOptions{Sniffing: &off}
+	settings.ClientOptions = &store.ClientOptions{XHTTPMode: "stream-one"}
+	if err = a.EditConnection(ctx, p.Kind, ConnectionRevision(old), settings); err == nil {
+		t.Fatal("failed runtime accepted")
+	}
+	got, err := a.Store.GetProtocol(ctx, p.Kind)
+	if err != nil || !got.ServerOptions.SniffingEnabled(p.Kind) || got.Port != old.Port || got.ClientOptions.Mode() != "packet-up" || got.PrivateKey != old.PrivateKey {
+		t.Fatal("rollback lost options or identity", err)
+	}
+	after, err := os.ReadFile(a.Core.Path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("runtime not restored", err)
+	}
+}
+
 func TestConnectionEditPreservesIdentityAndRejectsStaleForm(t *testing.T) {
 	a := firstProtocolApp(t)
 	ctx := context.Background()

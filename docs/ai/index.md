@@ -265,3 +265,13 @@ A2: `deploy/release.Dockerfile`, `scripts/build-installer-docker.sh`, `scripts/{
 `internal/usage/traffic.go`, `internal/app/user_traffic.go`, `internal/store/user_traffic.go`, `internal/httpapi/user_traffic.go` — bounded cached user telemetry. `frontend/src/features/users/UserTrafficPanel.tsx`, `traffic.ts`, `frontend/src/shared/TrafficChart.tsx`, `traffic-chart.ts` — graph/status composition; `Monitoring.tsx` — layout polling. [Контракт](../features/user-traffic.md).
 
 `frontend/src/features/users/UserToolbar.tsx`, `UserDataStatus.tsx` — компактный поиск/порядок и progressive disclosure статистики; `usage.ts` — presentation access/traffic units; shared DS controls — единая focus граница. [UI полировка](../design/v6-local-implementation.md#полировка-по-скриншоту-8-ноября-1458).
+
+Shared Dialog/ DialogClose, dialog-dismiss.ts и DS motion/checkbox/QR — общий UI слой v7. DirectAccess.tsx — компактная выдача, DevicesDialog.tsx — честное разделение наблюдений и credentials. [Изменения](../design/v6-local-implementation.md#v7-диалоги-и-выдача-доступа--8-ноября).
+
+ConnectionDetails.tsx и connections/presentation.ts — карточка/health presentation; shared/ui SettingsSection/Properties — композиция форм v7. user-table.ts matchesUserSearch — поиск metadata без credentials. [Детали](../design/v6-local-implementation.md#v7-рабочие-карточки-и-формы--8-ноября).
+
+store/client_options.go — typed export-only options в settings; API/app connection_edit.go — CAS/validation, protocols.go — XHTTP URI / WG .conf; backup16 — перенос. UI ConnectionEditor/Details + presentation diff. [Контракт](../features/first-connection.md#клиентские-параметры--локальные-исходники-8-ноября).
+
+store/server_options.go — typed runtime options в settings; Reality/Protocol store и backup17 — перенос. xray.Generate/GenerateWithProfiles — sniffing, protocols.renderHysteria — UDP/QUIC idle; ConnectionEditor/Details — form/diff и SNI draft workflow v7.
+
+Продолжение: server_options — TCP flow, Hysteria Salamander/Brutal bandwidth; backup18. app/key_rotation.go + httpapi/key_rotation.go — preview/CAS/rotation; httpapi/stable_exports.go + App.PublicationVersion — bounded finite-response publication guard. KeyRotationDialog.tsx — подтверждение и affected users. [Контракт](../features/first-connection.md#flow-смена-ключей-и-hysteria2--локально-8-ноября).

@@ -5,7 +5,7 @@ import {activityText,trafficFresh,trafficNow,type TrafficReply} from '../feature
 import {rateText} from '../shared/traffic-chart';
 import BulkCreateUsers from '../features/users/BulkCreateUsers';
 import BulkEditUsers from '../features/users/BulkEditUsers';
-import {sortUsers,usersCSV,type UserSort} from '../features/users/user-table';
+import {sortUsers,usersCSV,matchesUserSearch,type UserSort} from '../features/users/user-table';
 import BulkUserAccess from '../features/users/BulkUserAccess';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,7 +37,7 @@ export default function Users() {
   const [pageSize,setPageSize]=useState(50);
   const packages = new Map(usage.data?.items.map(item=>[item.user_id,item]));
   const groups=[...new Set((users.data?.items??[]).map(u=>u.preferences?.group??''))].sort((a,b)=>a.localeCompare(b,'ru'));
-  const visibleUsers=sortUsers(users.data?.items??[],packages,sort,descending).filter(user=>(`${user.name} ${user.id} ${user.preferences?.group??''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')))&& (groupFilter==='all'||groupFilter===`g:${user.preferences?.group??''}`)&& (filter==='all'||filter==='enabled'&&userAccess(user,packages.get(user.id)).allowed||filter==='disabled'&&!user.enabled||filter==='blocked'&&user.enabled&&(!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0)));
+  const visibleUsers=sortUsers(users.data?.items??[],packages,sort,descending).filter(user=>matchesUserSearch(user,search)&& (groupFilter==='all'||groupFilter===`g:${user.preferences?.group??''}`)&& (filter==='all'||filter==='enabled'&&userAccess(user,packages.get(user.id)).allowed||filter==='disabled'&&!user.enabled||filter==='blocked'&&user.enabled&&(!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0)));
   const pageIndex=Math.min(page,Math.max(0,Math.ceil(visibleUsers.length/pageSize)-1));
   const displayedUsers=visibleUsers.slice(pageIndex*pageSize,(pageIndex+1)*pageSize);
   const detailUser=users.data?.items.find(user=>user.id===detailID);

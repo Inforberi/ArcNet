@@ -5,6 +5,7 @@ export interface Session {
 }
 
 export interface VPNConfig {
+ server_options?:ServerOptions;
  fingerprint?: string;
   configured: boolean;
   enabled?: boolean;
@@ -18,8 +19,12 @@ export interface VPNConfig {
 }
 
 export type ProtocolKind = 'vless-xhttp' | 'hysteria2' | 'wireguard' | 'amneziawg';
+export type ServerOptions={flow?:string;salamander?:boolean;up_mbps?:number;down_mbps?:number;sniffing?:boolean;udp_idle_seconds?:number;quic_idle_seconds?:number};
+export type ClientOptions={xhttp_mode?:string;mtu?:number;dns?:string;keepalive?:number};
 
 export interface ProtocolProfile {
+ server_options?:ServerOptions;
+	client_options?:ClientOptions;
  fingerprint?: string;
   revision?: string;
   kind: ProtocolKind;

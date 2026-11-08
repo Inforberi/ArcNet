@@ -70,6 +70,12 @@ func validateHostname(host string) bool {
 	return len(host) <= 253 && len(host) >= 3 && hostnameRE.MatchString(host) && !strings.Contains(host, "..") && strings.Contains(host, ".")
 }
 func Validate(p store.Protocol) error {
+	if err := store.ValidateServerOptions(p.Kind, p.ServerOptions); err != nil {
+		return fmt.Errorf("%w: server options", ErrInvalid)
+	}
+	if err := store.ValidateClientOptions(p.Kind, p.ClientOptions); err != nil {
+		return fmt.Errorf("%w: client options", ErrInvalid)
+	}
 	if !xray.ValidFingerprint(p.Fingerprint) || (p.Kind != XHTTP && p.Fingerprint != "") {
 		return fmt.Errorf("%w: client TLS fingerprint", ErrInvalid)
 	}
@@ -93,6 +99,12 @@ func Validate(p store.Protocol) error {
 	case Hysteria2:
 		if p.SNI != p.Address {
 			return fmt.Errorf("%w: TLS IP certificate only covers configured public IP", ErrInvalid)
+		}
+		if p.ServerOptions.Salamander {
+			key, err := base64.RawURLEncoding.DecodeString(p.ObfsKey)
+			if err != nil || len(key) != 32 || base64.RawURLEncoding.EncodeToString(key) != p.ObfsKey {
+				return fmt.Errorf("%w: obfuscation key", ErrInvalid)
+			}
 		}
 		if !validateHostname(p.SNI) {
 			return fmt.Errorf("%w: Hysteria certificate name", ErrInvalid)
@@ -268,7 +280,7 @@ func Connections(user store.User, profiles []store.Protocol, credentials []store
 		}
 		switch p.Kind {
 		case XHTTP:
-			q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {p.SNI}, "fp": {xray.ClientFingerprint(p.Fingerprint)}, "pbk": {p.PublicKey}, "sid": {p.ShortID}, "type": {"xhttp"}, "path": {p.Path}, "mode": {"auto"}}
+			q := url.Values{"encryption": {"none"}, "security": {"reality"}, "sni": {p.SNI}, "fp": {xray.ClientFingerprint(p.Fingerprint)}, "pbk": {p.PublicKey}, "sid": {p.ShortID}, "type": {"xhttp"}, "path": {p.Path}, "mode": {p.ClientOptions.Mode()}}
 			link := fmt.Sprintf("vless://%s@%s?%s#%s", url.PathEscape(c.Secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(user.Name+" XHTTP"))
 			out = append(out, Connection{Kind: p.Kind, Label: "VLESS + XHTTP + Reality", Format: "uri", Link: link})
 		case Hysteria2:
@@ -313,7 +325,7 @@ func ClientTunnel(p store.Protocol, c store.ProtocolCredential) (string, error) 
 	if p.Kind == AmneziaWG {
 		extra = awgSettings(p.ObfsKey)
 	}
-	return fmt.Sprintf("[Interface]\nPrivateKey = %s\nAddress = %s/32\nDNS = 1.1.1.1\nMTU = 1280\n%s\n[Peer]\nPublicKey = %s\nEndpoint = %s\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25\n", c.PrivateKey, address, extra, p.PublicKey, net.JoinHostPort(p.Address, strconv.Itoa(p.Port))), nil
+	return fmt.Sprintf("[Interface]\nPrivateKey = %s\nAddress = %s/32\nDNS = %s\nMTU = %d\n%s\n[Peer]\nPublicKey = %s\nEndpoint = %s\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = %d\n", c.PrivateKey, address, p.ClientOptions.TunnelDNS(), p.ClientOptions.TunnelMTU(), extra, p.PublicKey, net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), p.ClientOptions.TunnelKeepalive()), nil
 }
 func awgSettings(key string) string {
 	return "Jc = 5\nJmin = 40\nJmax = 100\nS1 = 40\nS2 = 40\nS3 = 40\nS4 = 40\nH1 = 1\nH2 = 2\nH3 = 3\nH4 = 4\nHeaderProtectionKey = " + key + "\nContentPaddingAddition = 32-128\nRandomTrailers = off\nDisableCookies = off\n"

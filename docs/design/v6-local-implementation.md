@@ -50,3 +50,27 @@
 - Короткий список не показывает пустую пагинацию и disabled кнопки. При большем списке остаются25/50/100, выбор страниц и batch semantics. На mobile поля переносятся, touch targets и data-label представление сохраняются.
 
 Проверки: frontend21/21 tests (включая access/no-data и малый расход), TS/Vite, diff whitespace PASS; локальный `/users` HTTP200. Go/VM проверки не запускались: backend не менялся. Настройки Work по-прежнему запрещают browser control; фактическая визуальная/keyboard/mobile приёмка этого изменения NOT RUN. Impeccable context launcher не запустился из-за отсутствующего engine/cache permissions; использованы прочитанные polish/craft-floor и текущие инструкции проекта, новый engine не устанавливался.
+
+
+### v7: диалоги и выдача доступа — 8 ноября
+
+Референс владельца: ArcNet_Console_v7.html / ArcNet_VPN_Admin_v7.zip. Исходные файлы Downloads не изменялись и скрипты архива не запускались. Это текущая визуальная опора; демонстрационные сессии и расширенные поля не становятся реальным серверным контрактом автоматически.
+
+- Общий Dialog использует @radix-ui/react-dialog1.3.1 (единственная новая прямая зависимость). Root/Portal/Overlay/Content/Title отвечают за modal semantics, изоляцию фокуса и outside/Escape. CSS DS задаёт180/140ms и reduced-motion; фон/заголовок/обычные footer Close сохраняют окно до конца exit. Таймер220ms — fallback отсутствующего animationend. Прямое размонтирование родителем после успешного сохранения/смены вкладки пока завершает окно без exit; для этого нужен отдельный переход на уровне владельца состояния, не обещаем универсальную анимацию всех переходов.
+- Dismissal не доступен при busy, несохранённые изменения требуют подтверждения. DialogClose использован в редакторах пользователя/подключения, пакетах и bulk формах. Saved editor больше не спрашивает о потере уже сохранённого. Фокус возвращается открывшему элементу, fallback — main. Автофокус/drag outside/keyboard и screen reader требуют браузерной приёмки.
+- Shared checkbox сохраняет native form/keyboard/indeterminate semantics с единым оформлением и forced-colors fallback. Раскрытые настройки получили внутренние отступы; широкие редакторы сохраняют960px, короткие мобильные окна не наследуют min-height100dvh.
+- DirectAccess: QR224px без больших внешних полей, текст/копирование/раскрытие ссылки рядом на desktop, одна колонка до540px. Белое поле вокруг QR сохранено для сканирования. Секретные ссылки не записываются в логи.
+- Экран устройств разделяет недоступные наблюдения и ранее выданные credentials. IP/версия приложения не служат физической идентичностью. Обновление приложения не доказывает новое устройство; устойчивого client ID/сбора активных IP пока нет. Ограничение credentials не выдаётся за исполняемый лимит1 физического устройства. UI наблюдаемых устройств и IP enforcement остаются открытыми.
+
+Проверки: npm test —23/23, включая busy/dirty guards; npm run build — TypeScript/Vite PASS. Браузерная визуальная/mobile/keyboard проверка NOT RUN: browser control запрещён настройками Work. Backend/сеть не менялись, Go/VM/release проверки не запускались. Локальный mock preview18394 не подтверждает VPN/физические устройства.
+
+
+### v7: рабочие карточки и формы — 8 ноября
+
+Добавлена ConnectionDetails на существующих VPN/protocol/health queries: фактические значения, существующие публичные REALITY параметры, раздельные configured и service statuses. Название подключения — доступная кнопка деталей; Configure открывает прежний backend-backed editor, Check service повторяет только health GET. Подобрать SNI открывает существующий TargetPicker внутри раскрытого advanced editor: выбор меняет только черновик, diff и явное применение сохранены. Это не автоматический подбор fingerprint и не доказательство VPN handshake. При ошибке health старое cached состояние не показывается как текущее. Неподдерживаемые server fields из HTML не добавлены фиктивными controls.
+
+Общие SettingsSection (уникальный заголовок useId) и Properties (семантический dl) компонуют внутренние формы/карточки, используют DS токены и складываются на mobile. UserDetails: порядок Обзор → Настройки → Устройства и лимиты; title/group/comment/назначения/срок/трафик и явная кнопка настройки. UserEditor: имя/title/group/access, выдача и назначения, пакет/срок разделены; atomic PUT, CAS, dirty guard, schedule и pending handling сохранены.
+
+Поиск matchesUserSearch поддерживает несколько слов одновременно по имени/ID/группе/title/comment/явно назначенным kind. UUID и ссылки в поисковый индекс не включаются. Пользователю со всеми наследуемыми подключениями нельзя приписать конкретные назначения без списка server profiles — поиск по протоколу относится к явному allowed_kinds. CSV/выбор страниц и bulk semantics сохранены.
+
+Проверки: npm test26/26 (добавлены search/transport/IPv6/unknown-health cases), npm run build TypeScript/Vite PASS, git diff --check PASS. Backend не менялся, Go/VM не запускались. Browser visual/keyboard/mobile acceptance NOT RUN: Work settings запрещают управление браузером. Полный перенос v7 не завершён: расширенные runtime поля/несколько inbounds одного вида/наблюдаемые IP и enforcement/полный updater и firewall отдельно. Релиз/VPS не менялись.

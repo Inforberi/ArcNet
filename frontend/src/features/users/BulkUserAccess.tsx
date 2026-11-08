@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {api,type VPNUser} from '../../shared/api';
-import Dialog from '../../shared/Dialog';
+import Dialog,{DialogClose} from '../../shared/Dialog';
 import {Button,Notice} from '../../shared/ui';
 
 export default function BulkUserAccess({users,onDone,onCancel,onEdit}:{users:VPNUser[];onDone:()=>void;onCancel:()=>void;onEdit:()=>void}) {
@@ -19,6 +19,6 @@ export default function BulkUserAccess({users,onDone,onCancel,onEdit}:{users:VPN
  }
  return <>
   <div className="users-bulk-bar" role="region" aria-label="Массовые действия"><strong>Выбрано: {users.length}</strong><Button disabled={users.length>100} onClick={onEdit}>Изменить параметры</Button><Button disabled={!users.length||users.length>100} onClick={()=>{setSaved(false);setError('');setAction(true)}}>Включить доступ</Button><Button disabled={!users.length||users.length>100} onClick={()=>{setSaved(false);setError('');setAction(false)}}>Отключить доступ</Button><Button variant="ghost" onClick={onCancel}>Снять выбор</Button>{users.length>100&&<Notice>За один раз можно изменить до 100 пользователей.</Notice>}</div>
-  {action!==null&&<Dialog title={action?'Включить доступ':'Отключить доступ'} busy={busy} onClose={()=>{setAction(null);if(saved)onDone()}}><div className="dialog-body"><p>Пользователей: <strong>{users.length}</strong>. {action?'Пакеты, сроки и разрешённые подключения продолжат действовать.':'Активные соединения выбранных пользователей будут прерваны после применения.'}</p><p className="muted">{users.slice(0,10).map(u=>u.name).join(', ')}{users.length>10?'…':''}</p>{error&&<Notice>{error}</Notice>}</div><footer className="dialog-footer"><Button disabled={busy} onClick={()=>{setAction(null);if(saved)onDone()}}>{saved?'Закрыть':'Отмена'}</Button><Button variant={action?'primary':'danger'} disabled={busy||saved} onClick={()=>void apply()}>{busy?'Применяем…':'Подтвердить'}</Button></footer></Dialog>}
+  {action!==null&&<Dialog title={action?'Включить доступ':'Отключить доступ'} busy={busy} onClose={()=>{setAction(null);if(saved)onDone()}}><div className="dialog-body"><p>Пользователей: <strong>{users.length}</strong>. {action?'Пакеты, сроки и разрешённые подключения продолжат действовать.':'Активные соединения выбранных пользователей будут прерваны после применения.'}</p><p className="muted">{users.slice(0,10).map(u=>u.name).join(', ')}{users.length>10?'…':''}</p>{error&&<Notice>{error}</Notice>}</div><footer className="dialog-footer"><DialogClose disabled={busy}>{saved?'Закрыть':'Отмена'}</DialogClose><Button variant={action?'primary':'danger'} disabled={busy||saved} onClick={()=>void apply()}>{busy?'Применяем…':'Подтвердить'}</Button></footer></Dialog>}
  </>;
 }

@@ -1,7 +1,7 @@
 import {useEffect,useState,type ReactNode} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '../../shared/api';
-import Dialog,{canDismiss} from '../../shared/Dialog';
+import Dialog,{canDismiss,DialogClose} from '../../shared/Dialog';
 import DirectAccess from './DirectAccess';
 import {Advanced,Button,Field,Loading,Notice} from '../../shared/ui';
 
@@ -37,7 +37,7 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
  return <Dialog title={`Устройства · ${name}`} onClose={onClose} busy={busy} dirty={limitDirty}>
   {navigation&&<div onClickCapture={event=>{if((event.target as HTMLElement).closest('button[aria-pressed="false"]')&&!canDismiss(limitDirty,busy)){event.preventDefault();event.stopPropagation();}}}>{navigation}</div>}
   <div className="dialog-body">
-   <h3 className="section">Устройства и ограничения</h3><p className="muted">Наблюдения активных подключений пока недоступны. Обновление подписки не подтверждает, что устройство подключено к VPN.</p>
+   <section className="device-observation"><h3 className="section">Устройства и активные IP</h3><p className="muted">Наблюдения активных подключений пока недоступны. Обновление подписки не подтверждает, что устройство подключено к VPN.</p><details className="device-explanation"><summary>Как определяются устройства?</summary><p>IP может измениться при переключении сети, а несколько устройств могут использовать один IP. Название и версия приложения тоже не определяют устройство: обновление приложения не означает новое устройство.</p><p>Чтобы узнавать то же устройство после обновления, нужен устойчивый идентификатор от клиента. Сейчас такого источника нет, поэтому панель не показывает предполагаемые устройства как подтверждённые.</p></details></section>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}
    {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:data&&<>
     {!data.supported&&<Notice>Поддерживаются локальные Xray/Hysteria2/WireGuard и обновлённые прямые TCP/REALITY-ноды. Для удалённых нод нужны device-capability и отсутствие конечных пакетов или активного каскада.</Notice>}
@@ -60,5 +60,6 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
     </form></Advanced>}
    </>}
   </div>
+  <footer className="dialog-footer"><DialogClose disabled={busy}>Закрыть</DialogClose></footer>
  </Dialog>
 }

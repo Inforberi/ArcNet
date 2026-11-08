@@ -52,9 +52,26 @@ func renderHysteria(p store.Protocol, users []store.User, credentials []store.Pr
 	}
 	// JSON is a YAML-compatible document. The existing .yaml path remains stable,
 	// while canonical JSON permits exact private config/identity verification.
-	return json.MarshalIndent(map[string]any{"listen": fmt.Sprintf("0.0.0.0:%d", p.Port), "tls": map[string]string{"cert": p.TLSCert, "key": p.TLSKey, "sniGuard": "dns-san"}, "auth": map[string]any{"type": "userpass", "userpass": usersMap}}, "", "  ")
+	root := map[string]any{"listen": fmt.Sprintf("0.0.0.0:%d", p.Port), "tls": map[string]string{"cert": p.TLSCert, "key": p.TLSKey, "sniGuard": "dns-san"}, "auth": map[string]any{"type": "userpass", "userpass": usersMap}}
+	if p.ServerOptions.UDPIdleSeconds != 0 {
+		root["udpIdleTimeout"] = fmt.Sprintf("%ds", p.ServerOptions.UDPIdleSeconds)
+	}
+	if p.ServerOptions.QUICIdleSeconds != 0 {
+		root["quic"] = map[string]any{"maxIdleTimeout": fmt.Sprintf("%ds", p.ServerOptions.QUICIdleSeconds)}
+	}
+	if p.ServerOptions.Salamander {
+		root["obfs"] = map[string]any{"type": "salamander", "salamander": map[string]string{"password": p.ObfsKey}}
+	}
+	if p.ServerOptions.UpMbps != 0 || p.ServerOptions.DownMbps != 0 {
+		root["bandwidth"] = map[string]string{"up": fmt.Sprintf("%d mbps", p.ServerOptions.UpMbps), "down": fmt.Sprintf("%d mbps", p.ServerOptions.DownMbps)}
+	}
+	return json.MarshalIndent(root, "", "  ")
 }
 func HysteriaLink(p store.Protocol, name, authID, secret string) string {
 	q := url.Values{"sni": {p.SNI}, "insecure": {"0"}}
+	if p.ServerOptions.Salamander {
+		q.Set("obfs", "salamander")
+		q.Set("obfs-password", p.ObfsKey)
+	}
 	return fmt.Sprintf("hysteria2://%s@%s/?%s#%s", url.PathEscape(authID+":"+secret), net.JoinHostPort(p.Address, strconv.Itoa(p.Port)), q.Encode(), url.QueryEscape(name+" Hysteria2"))
 }

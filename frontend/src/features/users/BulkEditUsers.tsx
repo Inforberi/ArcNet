@@ -1,7 +1,7 @@
 import {useState,type FormEvent} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api,type VPNUser,type VPNConfig,type ProtocolProfile} from '../../shared/api';
-import Dialog from '../../shared/Dialog';
+import Dialog,{DialogClose} from '../../shared/Dialog';
 import {Button,Field,Notice,Loading} from '../../shared/ui';
 import {quotaBytes,type UserPackage} from './usage';
 
@@ -40,5 +40,5 @@ export default function BulkEditUsers({users,packages,onClose,onDone}:{users:VPN
  {connections==='choose'&&!kinds.length&&<Notice>Ни одного подключения не выбрано: доступ ко всем протоколам будет отозван.</Notice>}
  <label className="connection-choice"><input type="checkbox" checked={changeGroup} onChange={e=>setChangeGroup(e.target.checked)}/><span>Изменить группу</span></label>{changeGroup&&<Field label="Группа" value={group} maxLength={50} onChange={e=>setGroup(e.target.value)} description="Пустое поле удалит пользователей из группы."/>}
  {dirty&&<section className="notice"><strong>План: {users.length} пользователей</strong>{quotaMode!=='keep'&&<div>Пакет: {quotaMode==='unlimited'?'без лимита':`${quota} ГБ`}; расход не сбрасывается.</div>}{expiryMode!=='keep'&&<div>Срок: {expiryMode==='none'?'без срока':expiry||'укажите дату'}.</div>}{connections!=='keep'&&<div>Подключения: {connections==='all'?'все текущие и будущие':kinds.map(k=>labels[k]).join(', ')||'ни одного'}.</div>}{changeGroup&&<div>Группа: {group||'без группы'}.</div>}</section>}
- </fieldset>{error&&<Notice>{error}</Notice>}</div><footer className="dialog-footer"><Button type="button" disabled={busy} onClick={()=>{if(saved||!dirty||window.confirm('Закрыть без сохранения?'))close()}}>{saved?'Закрыть':'Отмена'}</Button><Button variant="primary" type="submit" disabled={busy||saved||!dirty||users.length>100||connections==='choose'&&(vpn.isPending||profiles.isPending||vpn.isError||profiles.isError)}>{busy?'Применяем…':'Применить изменения'}</Button></footer></form></Dialog>
+ </fieldset>{error&&<Notice>{error}</Notice>}</div><footer className="dialog-footer"><DialogClose disabled={busy}>{saved?'Закрыть':'Отмена'}</DialogClose><Button variant="primary" type="submit" disabled={busy||saved||!dirty||users.length>100||connections==='choose'&&(vpn.isPending||profiles.isPending||vpn.isError||profiles.isError)}>{busy?'Применяем…':'Применить изменения'}</Button></footer></form></Dialog>
 }
