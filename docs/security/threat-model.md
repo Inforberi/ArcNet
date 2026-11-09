@@ -1,3 +1,7 @@
+## Явная смена signer и GitHub выпуск — 2026-11-09
+
+Владелец разрешил заменить signer и загрузить новый private key в GitHub Environment Secret. Доверие переносится на GitHub/владельцев main: publish job только main, отдельный environment, без PR artifacts, build без secrets/write token, точная привязка receipt к source/manifest/binary. Приватный ключ только в publish job, удаляется в EXIT trap, в artifacts только подписанные публичные пакеты. Существующие панели не доверяют новому signer автоматически: root key меняется администратором с проверкой fingerprint и backup. Старый signer не принимается новыми каталогами; старые архивы сохранены. [Контракт](../ops/release-ci-and-trust-rotation.md). GitHub/main compromise остаётся publisher compromise; подпись не доказывает безопасность исходников или VPS apply.
+
 ## Онлайн-обновления — 2026-11-07
 
 Доверие — pinned Ed25519 signer; signed catalog с отдельным префиксом, fixed repository URLs и publicnet SSRF guard. Браузер не передаёт URL/команды/ключ. Root повторяет подпись ZIP/каталога, platform/min-version/hash/size и запрет downgrade. Подготовка и установка сериализованы; проверка фактической версии/monotonic start не позволяет выдать предыдущий результат за успех. Ограничены размер, concurrency и время загрузки. Publisher key compromise остаётся риском; полный rollback БД/units не заявляется. [Контракт](../features/online-updates.md).

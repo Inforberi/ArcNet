@@ -1,3 +1,7 @@
+## 2026-11-09: GitHub release и новый signer
+
+`.github/workflows/release.yml` — отдельные build/publish jobs; `scripts/release-update.sh --from-build` — exact source receipt; `deploy/update-public.hex` и оба каталога — новый signer, `deploy/trust/legacy-2026-11-09/` — старые публичные материалы; `internal/updater/trust_rotation_test.go` — взаимный отказ signers. `internal/lifecycle/manager{,_test}.go` — cgo-only DB manager, Guard остаётся pure Go для portable CLI. [Операции/границы](../ops/release-ci-and-trust-rotation.md).
+
 ## 2026-11-09: пароли и менеджер версий
 
 `internal/auth/policy.go` и `frontend/src/shared/password-policy.ts` —8 Unicode points/256 UTF-8 bytes; setup/change/CLI recovery используют одну политику, login прежний. `internal/releaseversion` — SemVer/legacy numeric ordering; `internal/updater/{catalog,history}.go` — v2/v1 trust и отдельная информационная история; `internal/httpapi/update.go` — additive history API. `UpdateSettings.tsx` — Settings, alias `/versions`, signed-only install, bounded persistent unknown. `cmd/arcvpn-release/update.go`, `scripts/release-update.sh`, `VERSION`, `docs/releases/` — trusted-host выпуск; [инструкция](../ops/release-update.md), [результат и остаток](../planning/passwords-and-version-manager-2026-11-09.md), `tests/version_manager_e2e.mjs`.
