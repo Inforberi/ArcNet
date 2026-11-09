@@ -43,7 +43,21 @@ func (s *Server) userTraffic(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now().Unix()
 	items, complete := s.App.UserTraffic.Snapshot(now, users)
+	presence, summary := s.App.UserPresence.Snapshot(users, now)
+	attach := func(item *usage.UserTraffic) {
+		p := presence[item.UserID]
+		item.Presence = &p
+		item.Online = nil
+		if p.State == "online" || p.State == "offline" {
+			online := p.State == "online"
+			item.Online = &online
+		}
+	}
+	for i := range items {
+		attach(&items[i])
+	}
 	result := map[string]any{"items": items, "sampled_at": now, "fresh_for": usage.FreshFor, "poll_seconds": 5, "source": "local-engine-counters", "complete_coverage": complete, "history_seconds": usage.TrafficHistorySeconds, "history_persistent": false}
+	result["presence_summary"] = summary
 	if raw := r.URL.Query().Get("history_id"); raw != "" {
 		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || owners[id] == "" {
@@ -51,6 +65,7 @@ func (s *Server) userTraffic(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		current, history, coverage := s.App.UserTraffic.Detail(id, owners[id], now)
+		attach(&current)
 		result["detail"] = map[string]any{"current": current, "history": history, "complete_coverage": coverage}
 	}
 	w.Header().Set("Cache-Control", "no-store")

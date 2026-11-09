@@ -40,12 +40,14 @@ type ApplyRequest struct {
 	Config          json.RawMessage `json:"config,omitempty"`
 }
 type ApplyResponse struct {
-	UsageProtocol   int               `json:"usage_protocol,omitempty"`
-	Usage           *usage.NodeReport `json:"usage,omitempty"`
-	CascadeProtocol int               `json:"cascade_protocol,omitempty"`
-	DeviceProtocol  int               `json:"device_protocol,omitempty"`
-	Status          string            `json:"status"`
-	Error           string            `json:"error,omitempty"`
+	PresenceProtocol int                       `json:"presence_protocol,omitempty"`
+	Presence         *usage.NodePresenceReport `json:"presence,omitempty"`
+	UsageProtocol    int                       `json:"usage_protocol,omitempty"`
+	Usage            *usage.NodeReport         `json:"usage,omitempty"`
+	CascadeProtocol  int                       `json:"cascade_protocol,omitempty"`
+	DeviceProtocol   int                       `json:"device_protocol,omitempty"`
+	Status           string                    `json:"status"`
+	Error            string                    `json:"error,omitempty"`
 }
 
 type Runner interface {
@@ -216,7 +218,7 @@ func stringValue(raw json.RawMessage) string {
 }
 
 func ValidateRequest(req ApplyRequest) error {
-	if req.Kind == "capabilities_v1" || req.Kind == "statistics_v1" {
+	if req.Kind == "capabilities_v1" || (req.Kind == "statistics_v1" || req.Kind == "presence_v1") {
 		if req.ProtocolVersion == 1 && req.OperationID == "" && req.Revision == 0 && req.SHA256 == "" && len(req.Config) == 0 {
 			return nil
 		}
@@ -321,7 +323,11 @@ func (raw Installer) Apply(ctx context.Context, request ApplyRequest) (ApplyResp
 		return ApplyResponse{Status: "failed"}, err
 	}
 	if request.Kind == "capabilities_v1" {
-		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1, DeviceProtocol: 1, UsageProtocol: 1}, nil
+		return ApplyResponse{Status: "capabilities", CascadeProtocol: 1, DeviceProtocol: 1, UsageProtocol: 1, PresenceProtocol: 1}, nil
+	}
+	if request.Kind == "presence_v1" {
+		report, err := i.Presence(ctx)
+		return ApplyResponse{Status: "presence", Presence: report}, err
 	}
 	if request.Kind == "statistics_v1" {
 		report, err := i.Statistics(ctx)
@@ -454,13 +460,19 @@ func CallHelper(ctx context.Context, socket string, req ApplyRequest) (ApplyResp
 	}
 	var response ApplyResponse
 	limit := int64(2048)
-	if req.Kind == "statistics_v1" {
+	if req.Kind == "statistics_v1" || req.Kind == "presence_v1" {
 		limit = MaxRequest
 	}
 	if err = json.NewDecoder(io.LimitReader(c, limit)).Decode(&response); err != nil {
 		return response, err
 	}
-	if req.Kind == "statistics_v1" {
+	if req.Kind == "statistics_v1" || req.Kind == "presence_v1" {
+		if req.Kind == "presence_v1" {
+			if response.Status != "presence" || response.Presence == nil {
+				return ApplyResponse{}, errors.New("node presence unavailable")
+			}
+			return response, nil
+		}
 		if response.Status != "statistics" || response.Usage == nil {
 			return ApplyResponse{}, errors.New("node statistics unavailable")
 		}

@@ -236,6 +236,18 @@ func (m Manager) HysteriaStatistics(ctx context.Context, users []store.User, cre
 }
 
 func (m Manager) hysteriaStatistics(ctx context.Context, users []store.User, credentials []store.ProtocolCredential, p hysteriaProcess) ([]usage.Counter, int64, error) {
+	data, at, err := m.hysteriaRead(ctx, users, credentials, p, "/traffic?clear=false")
+	if err != nil {
+		return nil, 0, err
+	}
+	counters, err := ParseHysteriaStatistics(data, users, credentials, p, at)
+	return counters, at, err
+}
+
+func (m Manager) hysteriaRead(ctx context.Context, users []store.User, credentials []store.ProtocolCredential, p hysteriaProcess, endpoint string) ([]byte, int64, error) {
+	if endpoint != "/traffic?clear=false" && endpoint != "/online" {
+		return nil, 0, usage.ErrInvalid
+	}
 	name := filepath.Join(m.Dir, "hysteria.yaml")
 	dir, err := os.Lstat(m.Dir)
 	if err != nil || !dir.IsDir() || dir.Mode().Perm()&0077 != 0 {
@@ -277,7 +289,7 @@ func (m Manager) hysteriaStatistics(ctx context.Context, users []store.User, cre
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("statistics redirects forbidden") }}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+hysteriaStatsAddress+"/traffic?clear=false", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+hysteriaStatsAddress+endpoint, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -298,7 +310,5 @@ func (m Manager) hysteriaStatistics(ctx context.Context, users []store.User, cre
 	if err != nil || !bytes.Equal(blob, after) {
 		return nil, 0, errors.New("Hysteria configuration changed during query")
 	}
-	now := time.Now().Unix()
-	counters, err := ParseHysteriaStatistics(data, users, credentials, p, now)
-	return counters, now, err
+	return data, time.Now().Unix(), nil
 }

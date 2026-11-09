@@ -173,6 +173,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/servers/{id}/telemetry", s.mustAuth(s.serverTelemetry, false))
 	mux.HandleFunc("POST /api/nodes/telemetry", s.nodeTelemetry)
 	mux.HandleFunc("POST /api/nodes/usage", s.nodeUsage)
+	mux.HandleFunc("POST /api/nodes/presence", s.nodePresence)
 	mux.HandleFunc("GET /api/monitoring/events", s.mustAuth(s.monitoringStream, false))
 	mux.HandleFunc("GET /api/settings/monitoring", s.mustAuth(s.monitoringSettings, false))
 	mux.HandleFunc("PUT /api/settings/monitoring", s.mustAuth(s.monitoringSave, true))

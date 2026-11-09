@@ -12,7 +12,7 @@ const NodeStatisticsSocket = "/run/arcvpn-node-xray/xray-stats.sock"
 
 // Device email labels carry their owner for accounting; access UUIDs and all
 // exported client profiles stay unchanged. Only a read-only API is exposed.
-func WithNodeStatistics(data []byte, users []store.User) ([]byte, error) {
+func WithNodeStatistics(data []byte, users []store.User, presence ...bool) ([]byte, error) {
 	var root map[string]any
 	if json.Unmarshal(data, &root) != nil {
 		return nil, usage.ErrInvalid
@@ -56,6 +56,9 @@ func WithNodeStatistics(data []byte, users []store.User) ([]byte, error) {
 	root["stats"] = map[string]any{}
 	root["api"] = map[string]any{"tag": "arcvpn-stats", "listen": NodeStatisticsSocket, "services": []string{"StatsService"}}
 	root["policy"] = map[string]any{"levels": map[string]any{"0": map[string]bool{"statsUserUplink": true, "statsUserDownlink": true}}}
+	if len(presence) > 0 && presence[0] {
+		root["policy"].(map[string]any)["levels"].(map[string]any)["0"].(map[string]bool)["statsUserOnline"] = true
+	}
 	out, e := json.Marshal(root)
 	if e != nil {
 		return nil, e

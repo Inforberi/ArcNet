@@ -183,6 +183,8 @@ func (a *App) editConnectionLocked(ctx context.Context, kind, revision string, s
 		restoreErr := save(recovery, old)
 		runtimeErr := a.applyAll(recovery, reality, users)
 		if restoreErr != nil || runtimeErr != nil {
+			a.runtimeUncertain = true
+			a.usageApplied = ""
 			return &xray.OperationError{Stage: "rollback", Err: fmt.Errorf("connection apply failed (%v); recovery: %w", err, errors.Join(restoreErr, runtimeErr))}
 		}
 		return err
@@ -249,6 +251,9 @@ func (a *App) validateConnectionEdit(ctx context.Context, p store.Protocol, real
 func (a *App) DeleteReality(ctx context.Context, revision string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.runtimeUncertain {
+		return &MutationError{Cause: errors.New("runtime recovery must be confirmed before deletion"), Recovered: false}
+	}
 	r, err := a.Store.ReadReality(ctx)
 	if err != nil {
 		return err

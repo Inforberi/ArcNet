@@ -33,9 +33,10 @@ type WireGuardReceipt struct {
 	ConfigSHA string `json:"config_sha"`
 }
 type WireGuardTransfer struct {
-	Public   string `json:"public_key"`
-	Upload   int64  `json:"upload"`
-	Download int64  `json:"download"`
+	LastHandshakeAt int64  `json:"last_handshake_at,omitempty"`
+	Public          string `json:"public_key"`
+	Upload          int64  `json:"upload"`
+	Download        int64  `json:"download"`
 }
 type WireGuardReport struct {
 	WireGuardReceipt
@@ -132,7 +133,7 @@ func ParseWireGuardTransfers(blob []byte) ([]WireGuardTransfer, error) {
 			return nil, usage.ErrInvalid
 		}
 		seen[fields[0]] = true
-		result = append(result, WireGuardTransfer{fields[0], up, down})
+		result = append(result, WireGuardTransfer{Public: fields[0], Upload: up, Download: down})
 	}
 	return result, nil
 }
@@ -195,7 +196,7 @@ func (b *wireGuardOutput) Write(blob []byte) (int, error) {
 	return b.Buffer.Write(blob)
 }
 func readWireGuardAttribute(ctx context.Context, attribute string) ([]byte, error) {
-	if attribute != "public-key" && attribute != "transfer" {
+	if attribute != "public-key" && attribute != "transfer" && attribute != "latest-handshakes" {
 		return nil, usage.ErrInvalid
 	}
 	cmd := exec.CommandContext(ctx, "/usr/bin/wg", "show", "arcwg", attribute)
@@ -249,6 +250,22 @@ func ReadWireGuardStats(ctx context.Context) (WireGuardReport, error) {
 	report, err := checkedWireGuardReport(receipt, config, public, transfer)
 	if err != nil {
 		return empty, err
+	}
+	// Optional presence must not turn a usable financial counter into a failure.
+	if raw, e := readWireGuardAttribute(call, "latest-handshakes"); e == nil {
+		if stamps, e := ParseWireGuardHandshakes(raw, time.Now().Unix()); e == nil && len(stamps) == len(report.Peers) {
+			complete := true
+			for _, peer := range report.Peers {
+				if _, ok := stamps[peer.Public]; !ok {
+					complete = false
+				}
+			}
+			if complete {
+				for i := range report.Peers {
+					report.Peers[i].LastHandshakeAt = stamps[report.Peers[i].Public]
+				}
+			}
+		}
 	}
 	after, err := rootWireGuardFile(path, 4096)
 	if err != nil || !bytes.Equal(blob, after) {
@@ -351,6 +368,9 @@ func wireGuardCounters(report WireGuardReport, users []store.User, credentials [
 		}
 		c.Upload += peer.Upload
 		c.Download += peer.Download
+		if peer.LastHandshakeAt >= 0 && peer.LastHandshakeAt <= at+5 && peer.LastHandshakeAt > c.LastHandshakeAt {
+			c.LastHandshakeAt = peer.LastHandshakeAt
+		}
 	}
 	for _, c := range result {
 		if c.Validate() != nil {

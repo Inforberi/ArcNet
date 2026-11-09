@@ -39,7 +39,15 @@ func ValidateStatisticsConfig(data []byte) error {
 	if e := ValidateConfig(plain); e != nil {
 		return e
 	}
-	expected, e := xray.WithNodeStatistics(plain, nil)
+	var policy struct {
+		Levels map[string]struct {
+			Online bool `json:"statsUserOnline"`
+		} `json:"levels"`
+	}
+	if json.Unmarshal(root["policy"], &policy) != nil {
+		return usage.ErrInvalid
+	}
+	expected, e := xray.WithNodeStatistics(plain, nil, policy.Levels["0"].Online)
 	if e != nil {
 		return e
 	}
@@ -113,14 +121,25 @@ func ParseNodeStatistics(data []byte, clients map[string]usage.NodeClient) ([]us
 // Both request and response omit all private keys and arbitrary process/path
 // arguments. Only the fixed socket of the root-managed Xray can be queried.
 func (raw Installer) Statistics(ctx context.Context) (*usage.NodeReport, error) {
+	report, _, err := raw.statistics(ctx, false)
+	return report, err
+}
+func (raw Installer) Presence(ctx context.Context) (*usage.NodePresenceReport, error) {
+	report, clients, err := raw.statistics(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	return &usage.NodePresenceReport{Version: 1, OperationID: report.OperationID, Revision: report.Revision, Digest: report.Digest, Epoch: report.Epoch, StartedAt: report.StartedAt, ObservedAt: report.ObservedAt, Clients: clients}, nil
+}
+func (raw Installer) statistics(ctx context.Context, online bool) (*usage.NodeReport, []usage.NamedPresence, error) {
 	i := raw.defaults()
 	config, e := readPrivilegedState(i.ConfigPath, MaxRequest)
 	if e != nil || ValidateStatisticsConfig(config) != nil {
-		return nil, errors.New("node statistics not configured")
+		return nil, nil, errors.New("node statistics not configured")
 	}
 	receipt, e := readPrivilegedState(i.ReceiptPath, 4096)
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 	var report usage.NodeReport
 	var applied struct {
@@ -129,19 +148,19 @@ func (raw Installer) Statistics(ctx context.Context) (*usage.NodeReport, error) 
 		SHA256   string `json:"sha256"`
 	}
 	if json.Unmarshal(receipt, &applied) != nil || !idPattern.MatchString(applied.ID) || applied.Revision < 1 {
-		return nil, usage.ErrInvalid
+		return nil, nil, usage.ErrInvalid
 	}
 	hash := sha256.Sum256(config)
 	if hex.EncodeToString(hash[:]) != applied.SHA256 {
-		return nil, usage.ErrInvalid
+		return nil, nil, usage.ErrInvalid
 	}
 	owner, e := user.Lookup("arcvpn-xray")
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 	uid, e := strconv.Atoi(owner.Uid)
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 	identity := func() (string, int64, error) {
 		dir, e := os.Lstat("/run/arcvpn-node-xray")
@@ -165,32 +184,57 @@ func (raw Installer) Statistics(ctx context.Context) (*usage.NodeReport, error) 
 	}
 	epoch, started, e := identity()
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
-	blob, e := xray.QueryStatistics(ctx, i.XrayBinary, xray.NodeStatisticsSocket)
+	var blob []byte
+	var names []string
+	if online {
+		if !usage.NodePresenceEnabled(config) {
+			return nil, nil, errors.New("node presence is not configured")
+		}
+		names, e = xray.QueryOnlineUsers(ctx, i.XrayBinary, xray.NodeStatisticsSocket)
+	} else {
+		blob, e = xray.QueryStatistics(ctx, i.XrayBinary, xray.NodeStatisticsSocket)
+	}
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 	after, _, e := identity()
 	if e != nil || after != epoch {
-		return nil, usage.ErrInvalid
+		return nil, nil, usage.ErrInvalid
 	}
 	afterConfig, e := readPrivilegedState(i.ConfigPath, MaxRequest)
 	if e != nil || !bytes.Equal(config, afterConfig) {
-		return nil, usage.ErrInvalid
+		return nil, nil, usage.ErrInvalid
 	}
 	afterReceipt, e := readPrivilegedState(i.ReceiptPath, 4096)
 	if e != nil || !bytes.Equal(receipt, afterReceipt) {
-		return nil, usage.ErrInvalid
+		return nil, nil, usage.ErrInvalid
 	}
 	clients, e := usage.NodeClients(config)
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
-	counters, e := ParseNodeStatistics(blob, clients)
-	if e != nil {
-		return nil, e
+	var counters []usage.NamedCounter
+	var presence []usage.NamedPresence
+	if online {
+		active := map[string]bool{}
+		for _, name := range names {
+			if _, ok := clients[name]; !ok {
+				return nil, nil, usage.ErrInvalid
+			}
+			active[name] = true
+		}
+		for name := range clients {
+			value := active[name]
+			presence = append(presence, usage.NamedPresence{Name: name, Online: &value})
+		}
+	} else {
+		counters, e = ParseNodeStatistics(blob, clients)
+		if e != nil {
+			return nil, nil, e
+		}
 	}
 	report = usage.NodeReport{Version: 1, OperationID: applied.ID, Revision: applied.Revision, Digest: applied.SHA256, Epoch: epoch, StartedAt: started, ObservedAt: time.Now().Unix(), Counters: counters}
-	return &report, nil
+	return &report, presence, nil
 }

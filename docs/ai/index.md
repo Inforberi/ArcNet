@@ -1,3 +1,7 @@
+## 2026-11-09: operations и presence checkpoint
+
+`internal/usage/presence.go` — bounded ephemeral snapshots/TTL/coverage; `internal/{xray,engines}/*presence*` — локальные адаптеры/реальные integration tests; `internal/{store,app,httpapi}/node_presence.go` — authenticated revision-bound node reports, `nodeagent/usage.go`/`noderuntime` — negotiated presence_v1, legacy compatibility. `frontend/features/users/{traffic,UserTrafficPanel}` — additive presence UI, `shared/ActionMenu`/Users/UserDetails/UserEditor — плоский UX. `internal/testfixture/vpn.go` — только реальные тестовые процессы, не runtime dependency. [Актуальный handoff и непроверенное](../planning/operations-presence-2026-11-09.md).
+
 ## 2026-11-09: GitHub release и новый signer
 
 `.github/workflows/release.yml` — отдельные build/publish jobs; `scripts/release-update.sh --from-build` — exact source receipt; `deploy/update-public.hex` и оба каталога — новый signer, `deploy/trust/legacy-2026-11-09/` — старые публичные материалы; `internal/updater/trust_rotation_test.go` — взаимный отказ signers. `internal/lifecycle/manager{,_test}.go` — cgo-only DB manager, Guard остаётся pure Go для portable CLI. [Операции/границы](../ops/release-ci-and-trust-rotation.md).

@@ -75,7 +75,11 @@ func (a *App) DeployNode(ctx context.Context, nodeID string) (store.NodeOperatio
 		return store.NodeOperation{}, e
 	}
 	if accounting {
-		payload, e = xray.WithNodeStatistics(payload, users)
+		presence, capabilityErr := a.Store.NodePresenceCapable(ctx, nodeID)
+		if capabilityErr != nil {
+			return store.NodeOperation{}, capabilityErr
+		}
+		payload, e = xray.WithNodeStatistics(payload, users, presence)
 		if e != nil {
 			return store.NodeOperation{}, e
 		}

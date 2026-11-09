@@ -18,7 +18,8 @@ type TrafficPoint struct {
 	Segment       int64    `json:"segment"`
 }
 type UserTraffic struct {
-	UserID int64 `json:"user_id"`
+	Presence *Presence `json:"presence,omitempty"`
+	UserID   int64     `json:"user_id"`
 	TrafficPoint
 	LastActivityAt int64  `json:"last_activity_at"`
 	Status         string `json:"status"`

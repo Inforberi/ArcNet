@@ -105,6 +105,7 @@ func (a *App) collectWireGuardUsage(ctx context.Context, users []store.User, pre
 	if err != nil {
 		return "", nil, err
 	}
+	a.cacheWireGuardPresence(counters)
 	if err := a.Store.RecordEngineUsage(ctx, "wireguard", counters, at, previousEpoch); err != nil {
 		return "", nil, err
 	}
@@ -190,6 +191,7 @@ func (a *App) reconcilePackagesLocked(ctx context.Context, force bool) error {
 	if err := a.Store.SetAccountingState(ctx, state); err != nil {
 		return err
 	}
+	a.runtimeUncertain = false
 	a.usageApplied = key
 	return nil
 }
@@ -201,6 +203,7 @@ func (a *App) RunUsage(ctx context.Context, report func(error)) {
 	for ctx.Err() == nil {
 		call, cancel := context.WithTimeout(ctx, 40*time.Second)
 		a.mu.Lock()
+		a.wireGuardPresence = nil
 		if !prepared {
 			err := a.reconcilePackagesLocked(call, true)
 			if err == nil {
@@ -219,6 +222,8 @@ func (a *App) RunUsage(ctx context.Context, report func(error)) {
 				report(err)
 			}
 		}
+		// Presence is independent of accounting readiness and adds no per-user poll.
+		a.collectPresenceLocked(call)
 		a.mu.Unlock()
 		cancel()
 		timer := time.NewTimer(5 * time.Second)

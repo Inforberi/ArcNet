@@ -14,6 +14,7 @@ import (
 
 func migrateNodeUsage(tx *db.Tx) error {
 	for _, q := range []string{
+		`CREATE TABLE IF NOT EXISTS node_presence_capabilities(node_id TEXT PRIMARY KEY REFERENCES managed_nodes(id) ON DELETE CASCADE,protocol INTEGER NOT NULL,checked_at INTEGER NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS traffic_checkpoints_stream_idx ON traffic_checkpoints(stream)`,
 		`CREATE TABLE IF NOT EXISTS node_usage_capabilities(node_id TEXT PRIMARY KEY REFERENCES managed_nodes(id) ON DELETE CASCADE,protocol INTEGER NOT NULL,checked_at INTEGER NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS node_usage_state(node_id TEXT PRIMARY KEY REFERENCES managed_nodes(id) ON DELETE CASCADE,epoch TEXT NOT NULL,started_at INTEGER NOT NULL,observed_at INTEGER NOT NULL)`,

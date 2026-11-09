@@ -73,7 +73,11 @@ func (a *App) ReconcileNodeCredentials(ctx context.Context, node string) error {
 		return e
 	}
 	if accounting {
-		payload, e = xray.WithNodeStatistics(payload, users)
+		presence, capabilityErr := a.Store.NodePresenceCapable(ctx, node)
+		if capabilityErr != nil {
+			return capabilityErr
+		}
+		payload, e = xray.WithNodeStatistics(payload, users, presence)
 		if e != nil {
 			return e
 		}

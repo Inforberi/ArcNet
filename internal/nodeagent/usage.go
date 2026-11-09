@@ -34,6 +34,14 @@ func reportNodeUsage(ctx context.Context, client *http.Client, c Configuration, 
 	if status != http.StatusNoContent {
 		return errors.New("node traffic report refused")
 	}
+	if caps.PresenceProtocol == 1 {
+		// Presence cannot suppress successful accounting or debit the package.
+		// Unavailable observations expire at the controller; no invented offline.
+		if presence, e := noderuntime.CallHelper(call, socket, noderuntime.ApplyRequest{ProtocolVersion: 1, Kind: "presence_v1"}); e == nil && presence.Presence != nil {
+			presence.Presence.NodeID = c.NodeID
+			_, _ = request(call, client, c, http.MethodPost, "/api/nodes/presence", presence.Presence, nil)
+		}
+	}
 	return nil
 }
 

@@ -3,7 +3,7 @@ import ActionMenu from '../shared/ActionMenu';
 import UserToolbar from '../features/users/UserToolbar';
 import UserDataStatus from '../features/users/UserDataStatus';
 import {Icon} from '../shared/Icon';
-import {activityText,trafficNow,type TrafficReply} from '../features/users/traffic';
+import {presenceText,trafficNow,type TrafficReply} from '../features/users/traffic';
 import BulkCreateUsers from '../features/users/BulkCreateUsers';
 import BulkEditUsers from '../features/users/BulkEditUsers';
 import {sortUsers,usersCSV,matchesUserSearch,type UserSort} from '../features/users/user-table';
@@ -148,7 +148,7 @@ export default function Users() {
         description="Выдавайте доступ, следите за трафиком и управляйте ограничениями."
         actions={<><Button onClick={()=>setBulkCreating(true)}><Icon name="plus"/>Массовое добавление</Button><Button variant="primary" onClick={() => {setError('');setCreationUnknown(false);setCreating(true)}}><Icon name="plus"/>Добавить пользователя</Button></>}
       />
-      {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
+      {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:traffic.data?.presence_summary&&traffic.data.presence_summary.known<traffic.data.presence_summary.total?'Онлайн · неполные данные':'Онлайн',value:!traffic.isError&&traffic.data?.presence_summary?.known&&trafficTime<=traffic.data.presence_summary.expires_at?traffic.data.presence_summary.online:'—'},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
       {error && !creating && <p className="error" role="alert">{error}</p>}
       {unknownUser!==null&&<p className="notice" role="status">Результат изменения пользователя ID {unknownUser} неизвестен. Повтор заблокирован. <Button className="small" onClick={()=>void refreshUsers()}>Сверить список</Button></p>}
       {refreshFailed&&<p role="status" className="notice">Изменение применено, список не обновлён. <Button className="small" onClick={()=>void refreshUsers()}>Обновить данные</Button></p>}
@@ -184,7 +184,7 @@ export default function Users() {
           <div className="table-scroll users-table responsive-data">
             {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
-                <thead><tr><th scope="col"><label className="user-select"><input type="checkbox" aria-label="Выбрать пользователей на странице" checked={allSelected} ref={el=>{if(el)el.indeterminate=displayedUsers.some(u=>selected.includes(u.id))&&!allSelected}} onChange={e=>selectVisible(e.target.checked)}/>Пользователь</label></th><th scope="col">Доступ</th><th scope="col">Трафик</th><th scope="col">Активность</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
+                <thead><tr><th scope="col"><label className="user-select"><input type="checkbox" aria-label="Выбрать пользователей на странице" checked={allSelected} ref={el=>{if(el)el.indeterminate=displayedUsers.some(u=>selected.includes(u.id))&&!allSelected}} onChange={e=>selectVisible(e.target.checked)}/>Пользователь</label></th><th scope="col">Доступ</th><th scope="col">Трафик</th><th scope="col">Онлайн / активность</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
                   {!visibleUsers.length&&<tr><td colSpan={6}><Empty>Ничего не найдено. Измените поиск или фильтр.</Empty></td></tr>}
                   {displayedUsers.map(u => (
@@ -192,7 +192,7 @@ export default function Users() {
                       <td data-label="Пользователь"><div className="user-identity"><input type="checkbox" aria-label={`Выбрать ${u.name}`} checked={selected.includes(u.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,u.id]:ids.filter(id=>id!==u.id))}/><Button className="user-name" variant="ghost" onClick={()=>{setDetailTab('overview');setDetailID(u.id)}}>{u.name}</Button><small className="muted">ID {u.id}{u.preferences?.group?` · ${u.preferences.group}`:''}</small></div></td>
                       <td data-label="Доступ"><Badge variant={userAccess(u,packages.get(u.id)).tone} title={userAccess(u,packages.get(u.id)).description}>{userAccess(u,packages.get(u.id)).label}</Badge></td>
                       <td data-label="Трафик"><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
-                      <td data-label="Активность"><span>{activityText(trafficItems.get(u.id),traffic.isError,trafficTime)}</span>{trafficItems.get(u.id)?.last_activity_at?<small className="muted user-activity-time">Трафик замечен {new Date(trafficItems.get(u.id)!.last_activity_at*1000).toLocaleString('ru-RU')}</small>:null}</td>
+                      <td data-label="Онлайн / активность"><span>{presenceText(trafficItems.get(u.id),traffic.isError,trafficTime)}</span>{trafficItems.get(u.id)?.last_activity_at?<small className="muted user-activity-time">Трафик замечен {new Date(trafficItems.get(u.id)!.last_activity_at*1000).toLocaleString('ru-RU')}</small>:null}</td>
                       <td data-label="Срок действия">{packages.has(u.id)?packages.get(u.id)!.expires_at?new Date(packages.get(u.id)!.expires_at*1000).toLocaleDateString('ru-RU'):'Без срока':'Нет данных'}</td>
                       <td data-label="Действия"><div className="row-actions">
                         <IconButton icon="qr" label={`Подключить · ${u.name}`} onClick={()=>{if(u.devices_managed){setSubscription(null);setSubscriptionUser(null);setDeviceUser(u);}else void showSubscription(u);}}/>

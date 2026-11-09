@@ -14,15 +14,16 @@ var ErrInvalid = errors.New("invalid traffic observation")
 var nodeSource = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 type Counter struct {
-	Source     string `json:"source,omitempty"`
-	UserID     int64  `json:"user_id"`
-	Identity   string `json:"identity"`
-	Stream     string `json:"stream"`
-	Epoch      string `json:"epoch"`
-	StartedAt  int64  `json:"started_at"`
-	ObservedAt int64  `json:"observed_at"`
-	Upload     int64  `json:"upload"`
-	Download   int64  `json:"download"`
+	LastHandshakeAt int64  `json:"-"` // Optional WG telemetry; never part of financial reports.
+	Source          string `json:"source,omitempty"`
+	UserID          int64  `json:"user_id"`
+	Identity        string `json:"identity"`
+	Stream          string `json:"stream"`
+	Epoch           string `json:"epoch"`
+	StartedAt       int64  `json:"started_at"`
+	ObservedAt      int64  `json:"observed_at"`
+	Upload          int64  `json:"upload"`
+	Download        int64  `json:"download"`
 }
 
 func (c Counter) Validate() error {

@@ -203,7 +203,8 @@ func heartbeat(ctx context.Context, client *http.Client, c Configuration) error 
 	capsCtx, capsCancel := context.WithTimeout(ctx, 2*time.Second)
 	caps, _ := noderuntime.CallHelper(capsCtx, "", noderuntime.ApplyRequest{ProtocolVersion: 1, Kind: "capabilities_v1"})
 	capsCancel()
-	b, err := json.Marshal(store.NodeHeartbeat{UsageProtocol: caps.UsageProtocol, CascadeProtocol: caps.CascadeProtocol, DeviceProtocol: caps.DeviceProtocol, Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds})
+	payload := store.NodeHeartbeat{PresenceProtocol: caps.PresenceProtocol, UsageProtocol: caps.UsageProtocol, CascadeProtocol: caps.CascadeProtocol, DeviceProtocol: caps.DeviceProtocol, Version: Version, ProtocolVersion: nodeprotocol.Current, XrayState: state, MemoryTotal: m.MemoryTotal, MemoryAvailable: m.MemoryAvailable, Load1: m.Load1, UptimeSeconds: m.UptimeSeconds}
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -218,6 +219,20 @@ func heartbeat(ctx context.Context, client *http.Client, c Configuration) error 
 		return err
 	}
 	defer res.Body.Close()
+	if res.StatusCode == 400 && payload.PresenceProtocol != 0 {
+		// A legacy controller may reject additive heartbeat fields. Retry only this
+		// idempotent observation, without advertising the unsupported extension.
+		res.Body.Close()
+		payload.PresenceProtocol = 0
+		status, e := request(ctx, client, c, http.MethodPost, "/api/nodes/heartbeat", payload, nil)
+		if e != nil {
+			return e
+		}
+		if status != 204 {
+			return fmt.Errorf("heartbeat rejected: HTTP %d", status)
+		}
+		return nil
+	}
 	if res.StatusCode != 204 {
 		return fmt.Errorf("heartbeat rejected: HTTP %d", res.StatusCode)
 	}

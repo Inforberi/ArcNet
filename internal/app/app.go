@@ -17,15 +17,18 @@ import (
 )
 
 type App struct {
-	publication     atomic.Uint64
-	Store           *store.Store
-	Core            xray.Controller
-	Engines         *engines.Manager
-	ReservedTCPPort int          // HTTPS administrative listener, never a VPN TCP listener
-	RuntimeCheck    func() error // injected local maintenance boundary
-	mu              sync.Mutex
-	usageApplied    string
-	UserTraffic     usage.TrafficTracker
+	publication       atomic.Uint64
+	Store             *store.Store
+	Core              xray.Controller
+	Engines           *engines.Manager
+	ReservedTCPPort   int          // HTTPS administrative listener, never a VPN TCP listener
+	RuntimeCheck      func() error // injected local maintenance boundary
+	mu                sync.Mutex
+	usageApplied      string
+	UserTraffic       usage.TrafficTracker
+	runtimeUncertain  bool
+	UserPresence      usage.PresenceTracker
+	wireGuardPresence []usage.PresenceObservation
 }
 
 func (a *App) PublicationVersion() uint64 { return a.publication.Load() }
@@ -86,7 +89,7 @@ func (a *App) SetupWithFingerprint(ctx context.Context, address, target string, 
 	if err = a.Store.SaveReality(ctx, candidate); err != nil {
 		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		return mutationFailure(err, a.applyAll(recovery, old, users))
+		return a.mutationFailure(err, a.applyAll(recovery, old, users))
 	}
 	a.Store.Event(ctx, "vpn.setup", fmt.Sprintf("port %d", port))
 	return nil
@@ -125,7 +128,7 @@ func (a *App) AddUser(ctx context.Context, name string) (store.User, error) {
 		return store.User{}, findErr
 	}
 	if err = a.ensureCredentials(ctx, newUser); err != nil {
-		return store.User{}, mutationFailure(err, a.Store.DeleteUser(context.Background(), newUser.ID))
+		return store.User{}, a.mutationFailure(err, a.Store.DeleteUser(context.Background(), newUser.ID))
 	}
 	users, err := a.Store.ListUsers(ctx)
 	if err == nil {
@@ -139,7 +142,7 @@ func (a *App) AddUser(ctx context.Context, name string) (store.User, error) {
 		if readErr == nil {
 			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		return store.User{}, mutationFailure(err, errors.Join(recoveryErr, readErr))
+		return store.User{}, a.mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	for _, one := range users {
 		if one.UUID == u.UUID {
@@ -179,7 +182,7 @@ func (a *App) ToggleUser(ctx context.Context, id int64, enabled bool) error {
 		if readErr == nil {
 			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		return mutationFailure(err, errors.Join(recoveryErr, readErr))
+		return a.mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	a.Store.Event(ctx, "user.status", fmt.Sprintf("ID %d enabled=%t", id, enabled))
 	return nil
@@ -222,8 +225,9 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 		if readErr == nil {
 			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		return mutationFailure(err, errors.Join(recoveryErr, readErr))
+		return a.mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	a.Store.Event(ctx, "user.deleted", fmt.Sprintf("ID %d", id))
+	a.UserPresence.Forget(id)
 	return nil
 }

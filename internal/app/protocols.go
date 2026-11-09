@@ -137,7 +137,11 @@ func (a *App) applyAll(ctx context.Context, reality store.Reality, users []store
 		}
 	}
 	a.usageApplied = ""
-	return a.applyXray(ctx, reality, users)
+	err := a.applyXray(ctx, reality, users)
+	if err == nil {
+		a.runtimeUncertain = false
+	}
+	return err
 }
 
 // ListProtocolProfiles returns independent protocol listeners. Key material is
@@ -277,7 +281,7 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 	if err := a.Store.SaveCredentials(ctx, creds); err != nil {
 		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		return store.Protocol{}, mutationFailure(err, a.Store.DeleteProtocol(recovery, key))
+		return store.Protocol{}, a.mutationFailure(err, a.Store.DeleteProtocol(recovery, key))
 	}
 	// This stage can validate and activate XHTTP with the existing Xray engine.
 	// Separate daemon activation has an explicit externally verified gate.
@@ -285,7 +289,7 @@ func (a *App) AddProtocolWithFingerprint(ctx context.Context, kind, address stri
 		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		restoreErr := a.Store.DeleteProtocol(recovery, key)
-		return store.Protocol{}, mutationFailure(err, errors.Join(restoreErr, a.applyAll(recovery, reality, users)))
+		return store.Protocol{}, a.mutationFailure(err, errors.Join(restoreErr, a.applyAll(recovery, reality, users)))
 	}
 	a.Store.Event(ctx, "protocol.created", kind)
 	return p, nil
@@ -347,6 +351,9 @@ func (a *App) DeleteProtocolRevision(ctx context.Context, kind, revision string)
 func (a *App) deleteProtocol(ctx context.Context, kind, revision string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.runtimeUncertain {
+		return &MutationError{Cause: errors.New("runtime recovery must be confirmed before deletion"), Recovered: false}
+	}
 	a.publication.Add(1)
 	defer a.publication.Add(1)
 	p, err := a.Store.GetProtocol(ctx, kind)

@@ -35,7 +35,7 @@ func (c Controller) withStatistics(data []byte) ([]byte, error) {
 	}
 	root["stats"] = map[string]any{}
 	root["api"] = map[string]any{"tag": "arcvpn-stats", "listen": c.StatisticsSocket(), "services": []string{"StatsService"}}
-	root["policy"] = map[string]any{"levels": map[string]any{"0": map[string]bool{"statsUserUplink": true, "statsUserDownlink": true}}}
+	root["policy"] = map[string]any{"levels": map[string]any{"0": map[string]bool{"statsUserUplink": true, "statsUserDownlink": true, "statsUserOnline": true}}}
 	return json.MarshalIndent(root, "", "  ")
 }
 

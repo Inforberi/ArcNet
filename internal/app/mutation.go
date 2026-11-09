@@ -11,6 +11,10 @@ type MutationError struct {
 
 func (e *MutationError) Error() string { return e.Cause.Error() }
 func (e *MutationError) Unwrap() error { return e.Cause }
-func mutationFailure(cause, recovery error) error {
+func (a *App) mutationFailure(cause, recovery error) error {
+	a.runtimeUncertain = recovery != nil
+	if recovery != nil {
+		a.usageApplied = ""
+	}
 	return &MutationError{Cause: errors.Join(cause, recovery), Recovered: recovery == nil}
 }

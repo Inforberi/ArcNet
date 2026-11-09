@@ -139,23 +139,24 @@ func (s *Store) RegisterNode(ctx context.Context, enrollmentToken string) (Node,
 }
 
 type NodeHeartbeat struct {
-	UsageProtocol   int     `json:"usage_protocol,omitempty"`
-	CascadeProtocol int     `json:"cascade_protocol,omitempty"`
-	DeviceProtocol  int     `json:"device_protocol,omitempty"`
-	Version         string  `json:"version"`
-	ProtocolVersion int     `json:"protocol_version"`
-	XrayState       string  `json:"xray_state"`
-	MemoryTotal     uint64  `json:"memory_total"`
-	MemoryAvailable uint64  `json:"memory_available"`
-	Load1           float64 `json:"load_1"`
-	UptimeSeconds   int64   `json:"uptime_seconds"`
+	PresenceProtocol int     `json:"presence_protocol,omitempty"`
+	UsageProtocol    int     `json:"usage_protocol,omitempty"`
+	CascadeProtocol  int     `json:"cascade_protocol,omitempty"`
+	DeviceProtocol   int     `json:"device_protocol,omitempty"`
+	Version          string  `json:"version"`
+	ProtocolVersion  int     `json:"protocol_version"`
+	XrayState        string  `json:"xray_state"`
+	MemoryTotal      uint64  `json:"memory_total"`
+	MemoryAvailable  uint64  `json:"memory_available"`
+	Load1            float64 `json:"load_1"`
+	UptimeSeconds    int64   `json:"uptime_seconds"`
 }
 
 func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) error {
 	if len(bearer) < 40 || len(bearer) > 128 {
 		return ErrNotFound
 	}
-	if h.UsageProtocol < 0 || h.UsageProtocol > 1 || h.DeviceProtocol < 0 || h.DeviceProtocol > 1 || h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
+	if h.PresenceProtocol < 0 || h.PresenceProtocol > 1 || h.UsageProtocol < 0 || h.UsageProtocol > 1 || h.DeviceProtocol < 0 || h.DeviceProtocol > 1 || h.CascadeProtocol < 0 || h.CascadeProtocol > 1 || h.ProtocolVersion < 0 || h.ProtocolVersion > nodeprotocol.Current || len(h.Version) > 100 || len(h.XrayState) > 32 || h.Load1 < 0 || h.Load1 > 10000 || h.MemoryAvailable > h.MemoryTotal || h.UptimeSeconds < 0 {
 		return errors.New("invalid heartbeat")
 	}
 	if h.XrayState != "active" && h.XrayState != "inactive" && h.XrayState != "unknown" {
@@ -176,6 +177,9 @@ func (s *Store) Heartbeat(ctx context.Context, bearer string, h NodeHeartbeat) e
 			return e
 		}
 		if e := tx.Exec("INSERT INTO node_usage_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.UsageProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
+			return e
+		}
+		if e := tx.Exec("INSERT INTO node_presence_capabilities(node_id,protocol,checked_at) VALUES(?,?,?) ON CONFLICT(node_id) DO UPDATE SET protocol=excluded.protocol,checked_at=excluded.checked_at", rows[0]["id"], strconv.Itoa(h.PresenceProtocol), strconv.FormatInt(time.Now().Unix(), 10)); e != nil {
 			return e
 		}
 		return tx.Exec("UPDATE managed_nodes SET last_seen=?,version=?,agent_protocol=?,xray_state=?,memory_total=?,memory_available=?,load_1=?,uptime_seconds=? WHERE id=?",
