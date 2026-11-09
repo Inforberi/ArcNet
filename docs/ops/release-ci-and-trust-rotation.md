@@ -26,26 +26,37 @@ Actions → Publish signed ArcNet update → Run workflow → main:
 
 Без этого старые панели правильно отклонят новый каталог. Приватный ключ серверу не нужен. Сначала backup/snapshot; не менять trust во время обновления. Подготовленный ZIP отменить в панели, не удалять вслепую.
 
-На сервере скачать публичный ключ и сверить известный SHA:
+На сервере выполнить один явный административный переход. Публичный файл скачивается в root-owned временный каталог и проверяется там до замены; прежний ключ сохраняется. Команда откажется при занятом lifecycle lock, подготовленном ZIP, активном update или существующей резервной копии:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fLsS --connect-timeout 10 --max-time 30 \
+sudo bash <<'BASH'
+set -Eeuo pipefail
+umask 077
+test -d /run/arcvpn-lifecycle
+test ! -L /run/arcvpn-lifecycle/lock
+exec 9>/run/arcvpn-lifecycle/lock
+flock -n 9
+case "$(systemctl show --value -p ActiveState arcvpn-update.service)" in
+  inactive|failed) ;; *) echo 'Update service is busy or unknown'; exit 1;;
+esac
+test ! -e /var/lib/arcvpn/update/staged.zip
+test -f /etc/arcvpn/update-public.hex
+test ! -L /etc/arcvpn/update-public.hex
+test ! -e /etc/arcvpn/update-public.before-20261109.hex
+work=$(mktemp -d /etc/arcvpn/.trust-rotate.XXXXXXXX)
+trap 'rm -rf -- "$work"' EXIT
+curl --proto '=https' --tlsv1.2 -fLsS --connect-timeout 10 --max-time 30 --max-filesize 65 \
   https://raw.githubusercontent.com/Inforberi/ArcNet/main/deploy/update-public.hex \
-  -o /tmp/arcnet-update-public-20261109.hex
-printf '%s\n' '16be6177a7cc2a739d1ff4dcb1e093660f4e9158a4398a955cda517e0b874d52  /tmp/arcnet-update-public-20261109.hex' | sha256sum -c -
+  -o "$work/key.hex"
+printf '%s  %s\n' '16be6177a7cc2a739d1ff4dcb1e093660f4e9158a4398a955cda517e0b874d52' "$work/key.hex" | sha256sum -c -
+cp -p -- /etc/arcvpn/update-public.hex /etc/arcvpn/update-public.before-20261109.hex
+install -o root -g root -m 0644 -- "$work/key.hex" "$work/installed.hex"
+mv -T -- "$work/installed.hex" /etc/arcvpn/update-public.hex
+sha256sum /etc/arcvpn/update-public.hex
+BASH
 ```
 
-Только после PASS установить ключ. Команды выполнять последовательно, при ошибке остановиться:
-
-```bash
-sudo test ! -L /etc/arcvpn/update-public.hex
-sudo test ! -e /etc/arcvpn/update-public.before-20261109.hex
-sudo cp -p -- /etc/arcvpn/update-public.hex /etc/arcvpn/update-public.before-20261109.hex
-sudo install -o root -g root -m 0644 -T -- /tmp/arcnet-update-public-20261109.hex /etc/arcvpn/update-public.hex
-sudo sha256sum /etc/arcvpn/update-public.hex
-```
-
-Итоговый SHA — `16be6177a7cc2a739d1ff4dcb1e093660f4e9158a4398a955cda517e0b874d52`. Это явная смена trust, не повторный installer. Здесь серверные команды не выполнялись; VPS-проверка остаётся владельцу.
+Итоговый SHA — `16be6177a7cc2a739d1ff4dcb1e093660f4e9158a4398a955cda517e0b874d52`. При отказе не отключать проверки: разберитесь с подготовленным пакетом/службой/путём установки. Команда использует стандартные пути; для нестандартного data dir их должен сверить администратор. Это явная смена trust, не повторный installer. Здесь серверные команды не выполнялись; VPS-проверка остаётся владельцу.
 
 После публикации A10: обновления (на A8/A9 «Версии») → проверить → скачать A10 → подтвердить. После перезапуска «Настройки → Обновления», затем0.7.1 после выпуска. A5/A6 требуют прежнего первоначального перехода.
 
@@ -56,3 +67,7 @@ sudo sha256sum /etc/arcvpn/update-public.hex
 Не перезапускать вслепую и не перезаписывать теги/ZIP. Artifact `signed-publication-receipts` содержит подписанные bytes для восстановления; [порядок](release-update.md#если-выпуск-прервался). Выпуск не доказывает systemd/VPS apply/rollback.
 
 Основания: [GitHub Secrets API](https://docs.github.com/en/rest/actions/secrets), [workflow dispatch](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+## Фактические проверки этого блока
+
+Environment/Secret настроены через GitHub API после отдельного явного согласия владельца; branch policy main подтверждена чтением. Native `CGO_ENABLED=0 go build` и `go test ./cmd/arcvpn-release` PASS. Обычные Linux CGO `go test ./internal/lifecycle ./internal/updater ./cmd/arcvpn-release` PASS; после добавления cross-signer regression полный updater повторён PASS. `bash -n` и actionlint1.7.12 PASS. CLI `release-update.sh --from-build` с заведомо другим source_commit отказал до подписания/публикации, exit1. Run первого A10: https://github.com/Inforberi/ArcNet/actions/runs/42601831575 — **SUCCESS**, build/publish прошли. Опубликован A10, ZIP4792793 bytes, SHA256 `270340ee80f1db268ddb1afc7ae7e29f88ede89072226629cdfa167309edc7d1`; Release не draft, prerelease. Автоматический catalog commit992673b получен локально fast-forward. Full release pipeline Go tests/vet/React/frontend-check/version и signed-package verification PASS; asset скачан с GitHub и сравнен до публикации. Исходный snapshot b53a3b8. 0.7.1 пока не опубликован: следующий stable dispatch после проверки A10 владельцем. Реальная смена root key/systemd/VPS apply NOT RUN.
