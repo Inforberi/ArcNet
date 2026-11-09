@@ -116,18 +116,19 @@ try {
   await page.getByLabel('Ошибок до переключения', {exact: true}).fill('4');
   assert.equal(await page.locator('.route-preview').count(), 0, 'preview is stale after changing thresholds');
 
-  // Export uses the real encrypted backup API and previews v4 route counts.
+  // Export uses the real encrypted backup API and previews current route counts.
   const exported = await api('POST', '/api/backup/export', {password: 'browser-test-backup-password'});
   assert.equal(exported.status(), 200);
   const archive = await exported.json();
   const preview = await api('POST', '/api/backup/preview', {password: 'browser-test-backup-password', archive: archive.content});
   assert.equal(preview.status(), 200);
   const summary = await preview.json();
-  assert.equal(summary.version, 9); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
+  assert.equal(summary.version, 21); assert.equal(summary.routes, 1); assert.equal(summary.routes_replaced, true);
 
-  const sections = [['/', 'Обзор'], ['/users', 'Пользователи'], ['/vpn', 'Подключения'], ['/nodes', 'Серверы'], ['/routing', 'Маршруты'], ['/security', 'Безопасность'], ['/events', 'Журнал'], ['/backup', 'Импорт и экспорт']];
-  for (const theme of ['dark', 'light']) {
-    await context.addCookies([{name: 'arcvpn_theme', value: theme, url: origin}]);
+  const sections = [['/', 'Обзор'], ['/users', 'Пользователи'], ['/vpn', 'Подключения'], ['/nodes', 'Серверы'], ['/routing', 'Маршруты'], ['/security', 'Настройки'], ['/events', 'Журнал'], ['/backup', 'Резервные копии']];
+  // The current product requires dark mode, including with a legacy light cookie.
+  await context.addCookies([{name: 'arcvpn_theme', value: 'light', url: origin}]);
+  for (const theme of ['dark']) {
     for (const width of [320, 390, 768, 1024, 1440]) {
       await page.setViewportSize({width, height: 1000});
       for (const [route, heading] of sections) {
@@ -153,11 +154,11 @@ try {
   listing = await (await api('GET', '/api/routes')).json(); saved = listing.items.find(item => item.id === saved.id);
   await page.goto(`${origin}/routing`);
   await page.getByRole('button', {name: 'Серверы и каскады', exact: true}).click();
-  page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', {name: 'Удалить черновик', exact: true}).click();
+  await page.getByRole('dialog', {name: 'Подтвердите действие', exact: true}).getByRole('button', {name: 'Подтвердить', exact: true}).click();
   await page.getByText('Черновик удалён.', {exact: true}).waitFor();
   assert.equal((await api('DELETE', `/api/nodes/${a.node_id}`)).status(), 200);
-  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v6 preview; 8 pages × 5 widths × 2 themes; no JS errors. VPN NOT TESTED.');
+  console.log('PASS: real React/Go API; pointer connection; backup ordering; form cleanup; cycles; CAS conflict; node dependency; encrypted v21 preview; 8 pages × 5 widths; enforced dark theme; no JS errors. VPN NOT TESTED.');
 } catch (error) {
   await page.screenshot({path: path.join(screenshots, "failure.png"), fullPage: true}).catch(() => {});
   console.error("Browser errors:", errors);
