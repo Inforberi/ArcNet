@@ -3,6 +3,9 @@ package engines
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -72,6 +75,21 @@ func (m Manager) withHysteriaStatistics(data []byte) ([]byte, error) {
 	var root map[string]any
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, err
+	}
+	var config hysteriaConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	// Hysteria rejects an empty userpass map. Keep the listener healthy with
+	// a private, unissued 256-bit credential when no real access is allowed.
+	// Domain separation keeps this credential distinct from the Stats API key;
+	// determinism avoids restarting the daemon on every accounting tick.
+	if config.Auth.Type == "userpass" && len(config.Auth.Users) == 0 {
+		mac := hmac.New(sha256.New, secret)
+		_, _ = mac.Write([]byte("arcnet:hysteria:empty-roster:v1"))
+		root["auth"] = map[string]any{"type": "userpass", "userpass": map[string]string{
+			"_arcnet_no_users": base64.RawURLEncoding.EncodeToString(mac.Sum(nil)),
+		}}
 	}
 	root["trafficStats"] = map[string]string{"listen": hysteriaStatsAddress, "secret": string(secret)}
 	return json.MarshalIndent(root, "", "  ")

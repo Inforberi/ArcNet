@@ -233,4 +233,20 @@ func TestRealHysteriaAccountingAndRevokedDevice(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Log("revoked credential denied after actual restart; control credential passed; no VPS/systemd acceptance")
+	// Regression: disabling/deleting the final user must keep the real daemon
+	// healthy while every previously issued credential is rejected.
+	stopServer()
+	users, creds = nil, nil
+	writeServer()
+	serverCmd = exec.Command(binary, "server", "-c", serverPath)
+	serverCmd.Stdout, serverCmd.Stderr = serverLog, serverLog
+	if err := serverCmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	process = hysteriaProcess{PID: serverCmd.Process.Pid, Epoch: "empty", StartedAt: time.Now().UnixNano()}
+	waitStats(process)
+	if transfer(makeClient("u2", strings.Repeat("b", 43))) == nil {
+		t.Fatal("previous credential accepted with empty roster")
+	}
+	t.Log("empty roster: real daemon and Stats API healthy; previously valid credential rejected")
 }

@@ -57,3 +57,7 @@ Schedules пока local-only без нод/pending enrollment/неподдер�
 Проверка этого продолжения: frontend TypeScript/Vite PASS. Новые тесты не писались по прямому указанию владельца. Существующий targeted Go запуск не выполнен: automatic approval review отказал из-за workspace out of credits; сетевой/OS/браузерной приёмки также нет. Это source implementation, не подтверждённая работа планировщика на сервере.
 
 Массовое удаление, телеметрия/online/IP-enforcement и несколько подключений одного kind остаются незавершёнными. Расписание не добавляет автоматическое продление срока.
+
+## Сверка неизвестной операции — 9 ноября, 0.7.2
+
+GET /api/users сохраняет items и добавляет runtime_confirmed. Список и ACK читаются под общим mutation lock; ACK требует текущего accounting applied, непустого usageApplied и отсутствия runtimeUncertain/SkipRestart. Кнопка сверки делает только GET, не повторяет создание/удаление/переключение. Неизвестный результат остаётся заблокированным при failed/unverified runtime. Hysteria с нулём активных identities получает приватный невыдаваемый credential, разделённый HMAC-доменом с Stats seed; пустая userpass map больше не передаётся запущенному движку.

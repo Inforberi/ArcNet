@@ -134,3 +134,13 @@ bash "$d/update.sh"
 [A8](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.0-stage5-a8) — update-only для A7: сохраните текущий backup/snapshot, откройте «Настройки → Обновления», проверьте версии, выберите A8, загрузите и явно подтвердите установку. После возвращения панели проверьте фактическую версию и сохранённые доступы; для смены TLS fingerprint — «Протоколы → Изменить → Расширенные настройки», затем обновить подписку клиента. Повторный installer не нужен.
 
 Нет DDL/engine/units/wrappers/SSH/firewall migration; preference хранится в существующей settings. Новые backup v13 сохраняют fingerprint, новая версия читает v1–v12; старые сборки v13 не читают. Бинарный rollback не заменяет восстановление данных. Подпись/размер/SHA/совместимость проверяются HTTP и root updater; реальный VPS apply/rollback A8 ещё не принят. ZIP SHA256 `340634f3df0bf8bc6bcab288b115b3f7e987b9dd7e6535ad9f1c3ca04fc383cb`, 4557919 bytes.
+
+## Hotfix0.7.2
+
+Установить0.7.2 через «Настройки → Обновления». Если Hysteria уже зациклена в activating с ошибкой auth.userpass empty:
+
+```bash
+sudo systemctl stop arcvpn-hysteria.service
+```
+
+Это временно останавливает только Hysteria, не удаляя данные. Рабочая панель с0.7.2 повторно применит исправленный config в своём фоне и запустит настроенную службу. Затем `sudo arcvpn status` и «Сверить состояние» в пользователях. Не повторять installer и не удалять SQLite. Реальное systemd/VPS-восстановление здесь не выполнялось.

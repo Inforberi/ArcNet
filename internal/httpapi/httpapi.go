@@ -591,7 +591,7 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]any{"system": sample, "users": total, "enabled_users": active, "xray": core, "nodes": len(fleet), "mode": mode, "servers": fleet, "sampled_at": time.Now().Unix()})
 }
 func (s *Server) users(w http.ResponseWriter, r *http.Request) {
-	users, err := s.App.Store.ListUsers(r.Context())
+	users, confirmed, err := s.App.UsersSnapshot(r.Context())
 	if err != nil {
 		fail(w, 500, "Internal error")
 		return
@@ -608,7 +608,7 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 	for i := range users {
 		users[i].DevicesManaged = managed[users[i].ID]
 	}
-	respond(w, 200, map[string]any{"items": users})
+	respond(w, 200, map[string]any{"items": users, "runtime_confirmed": confirmed})
 }
 func (s *Server) usersCreate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
@@ -623,7 +623,7 @@ func (s *Server) usersCreate(w http.ResponseWriter, r *http.Request) {
 			fail(w, 400, err.Error())
 			return
 		}
-		fail(w, 500, "Не удалось создать пользователя. Проверь состояние Xray и журнал панели")
+		handleErr(w, err)
 		return
 	}
 	respond(w, 201, u)

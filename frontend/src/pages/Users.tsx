@@ -27,7 +27,7 @@ export default function Users() {
   const feedback=useFeedback();
   const accessRequest=useRef(0);
   const cache = useQueryClient();
-  const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[] }>('/api/users') });
+  const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[]; runtime_confirmed?:boolean }>('/api/users') });
   const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
   const [deviceUser,setDeviceUser] = useState<VPNUser | null>(null);
   const [detailID,setDetailID] = useState<number|null>(null);
@@ -83,6 +83,15 @@ export default function Users() {
   const [refreshFailed,setRefreshFailed]=useState(false);
   const [unknownUser,setUnknownUser]=useState<number|null>(null);
   async function refreshUsers(){try{await cache.invalidateQueries({queryKey:['users']},{throwOnError:true});setRefreshFailed(false)}catch{setRefreshFailed(true)}}
+  const [checking,setChecking]=useState(false);
+  async function reconcileUser(){
+    if(checking)return;setChecking(true);
+    try{
+      const result=await users.refetch({throwOnError:true});
+      if(result.data?.runtime_confirmed){setUnknownUser(null);setError('');setMessage('Состояние сверено. Можно продолжить работу.');setRefreshFailed(false)}
+      else setError('Службы VPN ещё не подтвердили применение. Проверьте состояние подключений и журнал сервера.');
+    }catch(e){setError(explain(e))}finally{setChecking(false)}
+  }
   const create = useMutation({
     mutationFn: () => api<VPNUser>('/api/users', 'POST', { name: name.trim() }),
     onSuccess: async (created) => {
@@ -150,7 +159,7 @@ export default function Users() {
       />
       {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:traffic.data?.presence_summary&&traffic.data.presence_summary.known<traffic.data.presence_summary.total?'Онлайн · неполные данные':'Онлайн',value:!traffic.isError&&traffic.data?.presence_summary?.known&&trafficTime<=traffic.data.presence_summary.expires_at?traffic.data.presence_summary.online:'—'},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
       {error && !creating && <p className="error" role="alert">{error}</p>}
-      {unknownUser!==null&&<p className="notice" role="status">Результат изменения пользователя ID {unknownUser} неизвестен. Повтор заблокирован. <Button className="small" onClick={()=>void refreshUsers()}>Сверить список</Button></p>}
+      {unknownUser!==null&&<p className="notice" role="status">Результат изменения пользователя ID {unknownUser} неизвестен. Повтор заблокирован до подтверждения VPN. <Button className="small" pending={checking} onClick={()=>void reconcileUser()}>Сверить состояние</Button></p>}
       {refreshFailed&&<p role="status" className="notice">Изменение применено, список не обновлён. <Button className="small" onClick={()=>void refreshUsers()}>Обновить данные</Button></p>}
       {message && <p className="notice" role="status">{message}</p>}
 

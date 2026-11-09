@@ -1,3 +1,5 @@
+**Hotfix0.7.2:** исправлен отказ Hysteria при нуле активных пользователей и сверка неизвестного результата. [Восстановление зацикленной службы](docs/ops/install-and-update.md#hotfix072). Публикация через подписанный каталог.
+
 **Локальные исходники 9 ноября:** исправлены CRUD/recovery outcomes, удаление дополнительных подключений и UX пользователей; добавлен отдельный online presence Xray/Hysteria/WireGuard recent и нод. Реальные локальные Xray/Hysteria сценарии прошли, но полная browser/performance/серверная приёмка ещё не завершена. [Состояние и точный остаток](docs/planning/operations-presence-2026-11-09.md). Эти изменения включены в [подписанный выпуск0.7.1](https://github.com/Inforberi/ArcNet/releases/tag/v0.7.1).
 
 # ArcNet
