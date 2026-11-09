@@ -29,7 +29,7 @@ SECTIONS = [
     ('/vpn', 'Подключения', 'Подключения'),
     ('/nodes', 'Серверы', 'Серверы'),
     ('/routing', 'Маршруты', 'Маршруты'),
-    ('/security', 'Безопасность', 'Безопасность'),
+    ('/security', 'Настройки', 'Настройки'),
     ('/events', 'Журнал', 'Журнал'),
     ('/backup', 'Резервные копии', 'Импорт и экспорт'),
 ]
@@ -88,7 +88,7 @@ def main() -> None:
                 page = context.new_page()
                 errors: list[str] = []
                 page.on('pageerror', lambda exc: errors.append(str(exc)))
-                navigate(page, origin, '/', 'ArcVPN')
+                navigate(page, origin, '/', 'Войти в панель')
                 page.get_by_label('Логин').fill('admin')
                 page.get_by_label('Пароль').fill(password)
                 page.get_by_role('button', name='Войти').click()
@@ -106,8 +106,8 @@ def main() -> None:
                     # Test navigation itself, not only direct URL access.
                     navigate(page, origin, '/', 'Обзор')
                     if width <= 680:
-                        page.get_by_role('button', name=re.compile('Меню')).click()
-                        page.locator('#mobile-navigation').get_by_role('link', name='Серверы').click()
+                        page.get_by_role('button', name=re.compile('Открыть меню')).click()
+                        page.get_by_role('dialog', name='Меню', exact=True).get_by_role('link', name='Серверы').click()
                     else:
                         page.locator('.sidebar').get_by_role('link', name='Серверы').click()
                     page.get_by_role('heading', name='Серверы', exact=True).wait_for(timeout=10000)
@@ -115,17 +115,20 @@ def main() -> None:
 
                 page.set_viewport_size({'width': 1440, 'height': 900})
                 navigate(page, origin, '/', 'Обзор')
-                page.locator('.sidebar').get_by_role('button', name='Светлая тема').click()
-                assert page.evaluate('document.documentElement.dataset.theme') == 'light'
-                assert 'arcvpn_theme=light' in page.evaluate('document.cookie')
+                navigate(page, origin, '/security?section=interface', 'Настройки')
+                page.get_by_label('Режим интерфейса', exact=True).select_option('advanced')
+                assert page.evaluate("localStorage.getItem('arcnet-interface-mode')") == 'advanced'
                 page.reload(wait_until='networkidle')
-                assert page.evaluate('document.documentElement.dataset.theme') == 'light'
+                assert page.get_by_label('Режим интерфейса', exact=True).input_value() == 'advanced'
+                page.get_by_text('Тёмная · ArcNet v7', exact=True).wait_for()
 
                 # Real stage-4 registration, followed by the non-destructive
                 # drain operation. No VPS or shell command is executed.
                 navigate(page, origin, '/nodes', 'Серверы')
+                page.get_by_role('button', name='Добавить сервер', exact=True).click()
                 page.get_by_label('Название', exact=True).fill('e2e-node')
                 page.get_by_label('IP-адрес или DNS VPS').fill('9.9.9.9')
+                page.get_by_role('button', name='Закрыть: Добавить сервер', exact=True).click()
                 page.get_by_role('button', name='Показать ручную регистрацию').click()
                 page.get_by_role('button', name='Выдать одноразовый токен (10 минут)').click()
                 token_field = page.get_by_label('Токен регистрации (никому не передавать)')
@@ -146,8 +149,8 @@ def main() -> None:
                 row.wait_for(timeout=10000)
                 assert page.get_by_role('columnheader', name='Проверка VPN').count() == 1
                 assert row.get_by_text('Нет подтверждённой внешней проверки').count() > 0
-                page.once('dialog', lambda dialog: dialog.accept())
                 row.get_by_role('button', name='Drain: скрыть ссылки').click()
+                page.get_by_role('dialog', name='Подтвердите действие', exact=True).get_by_role('button', name='Подтвердить', exact=True).click()
                 row.get_by_text('Drain: новые ссылки скрыты').wait_for(timeout=10000)
                 # A direct diagnostic link is not available while drained.
                 suppress = context.request.get(origin + '/api/nodes/' + identity['node_id'] + '/links')
@@ -156,16 +159,20 @@ def main() -> None:
                 navigate(page, origin, '/users', 'Пользователи')
                 page.get_by_role('button', name='Добавить пользователя').click()
                 page.get_by_label('Имя пользователя').fill('test-client')
-                page.get_by_role('button', name='Создать', exact=True).click()
+                page.get_by_role('button', name='Создать и настроить', exact=True).click()
                 page.get_by_role('alert').wait_for(timeout=10000)  # no VPN configured
+                user_list = context.request.get(origin + '/api/users')
+                assert user_list.status == 200
+                assert not any(user['name'] == 'test-client' for user in user_list.json()['items'])
 
                 navigate(page, origin, '/routing', 'Маршруты')
-                assert page.get_by_text('Локальный VPN ещё не настроен', exact=False).count() > 0
+                page.get_by_role('button', name='Серверы и каскады', exact=True).click()
+                page.get_by_text('Локальный VPN ещё не настроен', exact=False).wait_for()
                 if errors:
                     raise AssertionError('JS errors: ' + '; '.join(errors))
                 context.close()
                 browser.close()
-                print('PASS: actual React bundle/API, auth, all routes, theme cookie, invalid form, node enrollment, '
+                print('PASS: actual React bundle/API, auth, all routes, interface persistence, invalid form, node enrollment, '
                       'node drain, 320/390/768/1024/1440 responsiveness')
         finally:
             server.terminate()
