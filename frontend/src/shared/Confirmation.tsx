@@ -23,6 +23,6 @@ export function ConfirmationProvider({children}:{children:ReactNode}){
  useEffect(()=>()=>{resolver.current?.(false);resolver.current=null},[]);
  return <Context value={confirm}>{children}{request&&<Dialog title={request.options.title??'Подтвердите действие'} className="confirmation-dialog" onClose={()=>finish(accepted.current)} dirty={false}>
   <div className="dialog-body"><p className="confirmation-message">{request.message}</p>{request.options.phrase&&<Field label={`Введите: ${request.options.phrase}`} value={phrase} onChange={event=>setPhrase(event.target.value)} autoComplete="off" spellCheck={false}/>}</div>
-  <footer className="dialog-footer"><DialogClose>Отмена</DialogClose><DialogClose variant="danger" disabled={!!request.options.phrase&&phrase!==request.options.phrase} onClick={()=>{accepted.current=true}}>{request.options.action??'Подтвердить'}</DialogClose></footer>
+  <footer className="dialog-footer"><DialogClose autoFocus>Отмена</DialogClose><DialogClose variant="danger" disabled={!!request.options.phrase&&phrase!==request.options.phrase} onClick={()=>{accepted.current=true}}>{request.options.action??'Подтвердить'}</DialogClose></footer>
  </Dialog>}</Context>;
 }

@@ -2,8 +2,8 @@ import {useConfirmation} from '../../shared/Confirmation';
 import {useRef, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {api, ApiError} from '../../shared/api';
-import {Badge, Button, Field, Loading, Notice} from '../../shared/ui';
-import Dialog from '../../shared/Dialog';
+import {Badge, Button, Field, Loading,ErrorState} from '../../shared/ui';
+import Dialog,{DialogClose} from '../../shared/Dialog';
 import {actionTitles, countEntries, emptyProfile, moveGroup, textEntries, withoutMetadata, type Action, type RoutingProfile} from './model';
 
 type Decision = {action: Action | ''; matched?: string; status: string; reason: string; pending: string[]; network_verified: boolean};
@@ -92,7 +92,7 @@ export default function RoutingProfiles() {
     <p className="inline-status">Сейчас это редактор профилей. Сохранение не включает правила на сервере и не обновляет клиент автоматически.</p>
     {!open && error && <p className="error" role="alert">{error}</p>}
     {!open && message && <p role="status">{message}</p>}
-    {profiles.isPending ? <Loading/> : profiles.isError ? <Notice>{profiles.error.message}</Notice> : <>
+    {profiles.isPending ? <Loading/> : profiles.isError ? <ErrorState error={profiles.error} onRetry={()=>void profiles.refetch()} retrying={profiles.isFetching}/> : <>
       {(profiles.data?.items.length ?? 0) > 3 && <Field label="Найти профиль" value={filter} onChange={event => setFilter(event.target.value)}/>}
       {visible.length === 0 ? <div className="routing-empty"><h3>{filter ? 'Профиль не найден' : 'Настройте маршрутизацию под себя'}</h3><p className="muted">Создайте профиль и добавьте нужные сайты или загрузите свои списки.</p></div> : <div className="routing-profile-grid">{visible.map(profile => <article className="routing-profile-summary" key={profile.id}>
         <div className="route-card-heading"><h3>{profile.name}</h3><Badge>{profile.enabled ? 'Правила включены в профиле' : 'Правила выключены'}</Badge></div>
@@ -130,7 +130,7 @@ export default function RoutingProfiles() {
           {error && <p className="error" role="alert">{error}</p>}
           {conflict && <p className="notice" role="alert">Ваши правки остаются в форме. {latest ? <Button type="button" onClick={() => {setInitial(''); setDraft(latest); setTexts({proxy: latest.proxy.join('\n'), direct: latest.direct.join('\n'), block: latest.block.join('\n')}); setInitial(JSON.stringify(latest)); setConflict(false); setError(''); setDecision(null);}}>Загрузить серверную версию</Button> : <Button type="button" onClick={() => {change(withoutMetadata(candidate())); setConflict(false);}}>Сохранить новым профилем</Button>}</p>}
         </fieldset>
-        <footer className="dialog-footer"><Button type="button" disabled={busy} onClick={() => setOpen(false)}>Закрыть</Button><Button type="submit" variant="primary" disabled={busy || conflict}>{save.isPending ? 'Сохранение…' : 'Сохранить профиль'}</Button></footer>
+        <footer className="dialog-footer"><DialogClose disabled={busy}>Отмена</DialogClose><Button type="submit" variant="primary" disabled={busy || conflict}>{save.isPending ? 'Сохранение…' : 'Сохранить профиль'}</Button></footer>
       </form>
     </Dialog>}
   </>;

@@ -8,6 +8,7 @@ import {MonitoringProvider} from '../features/dashboard/Monitoring';
 import { Button } from '../shared/ui';
 import {Icon,type IconName} from '../shared/Icon';
 import Dialog from '../shared/Dialog';
+import {FeedbackProvider} from '../shared/Feedback';
 
 type NavItem = {url:string;label:string;icon:IconName};
 const workspace:NavItem[]=[
@@ -28,11 +29,11 @@ function MenuLinks({items,onNavigate}:{items:NavItem[];onNavigate?:()=>void}){
  return <>{items.map(({url,label,icon})=><NavLink key={url} to={url} end={url==='/'} onClick={onNavigate} className={({isActive})=>isActive?'active':''}><Icon name={icon}/><span>{label}</span></NavLink>)}</>;
 }
 function SessionActions({busy,onLogout}:{busy:boolean;onLogout:()=>void}){
- return <div className="session-actions"><Button variant="ghost" onClick={onLogout} disabled={busy}><Icon name="logout"/>{busy?'Выходим…':'Выйти'}</Button></div>;
+ return <div className="session-actions"><Button variant="ghost" onClick={onLogout} pending={busy}><Icon name="logout"/>Выйти</Button></div>;
 }
 
 export default function Layout() {
- return <InterfacePreferences><ConfirmationProvider><WorkspaceLayout/></ConfirmationProvider></InterfacePreferences>;
+ return <InterfacePreferences><ConfirmationProvider><FeedbackProvider><WorkspaceLayout/></FeedbackProvider></ConfirmationProvider></InterfacePreferences>;
 }
 function WorkspaceLayout() {
   const queryClient = useQueryClient();

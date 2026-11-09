@@ -16,6 +16,8 @@
  --type-title:clamp(1.5rem,1.409rem + .388vw,1.875rem);
  --type-metric:clamp(1.625rem,1.443rem + .777vw,2.375rem);
  --control-radius:9px;--control-height:36px;--duration:140ms;
+ --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;
+ --z-feedback:120;--z-reauth-backdrop:199;--z-reauth:200;
  --table-header:#212228;--table-action-bg:#1b1c22;--type-control:13px;--type-table:12px;--sidebar-width:232px;--space-row:14px;
 }
 /* A theme replaces roles, never component selectors. The default remains v6 dark. */

@@ -18,14 +18,13 @@ export function ConnectionTable({items,health,assignments,busy,onDetails,onEdit,
    const service=connectionService(state),managed=item.kind!=='amneziawg';
    return <tr key={key} onClick={()=>onDetails(item)}>
     <td data-label="Протокол"><div className="connection-identity"><span className="connection-symbol"><Icon name={item.kind==='hysteria2'?'wave':item.kind==='wireguard'?'shield':'protocols'}/></span><div><Button variant="ghost" className="connection-name" onClick={event=>{event.stopPropagation();onDetails(item)}}>{connectionLabel(item.kind)}</Button><small>{connectionTransport(item.kind)}</small></div></div></td>
-    <td data-label="Сервер / порт"><code>{connectionAddress(item.address,item.port)}</code><small>{item.kind.startsWith('vless')?'TCP':item.kind==='hysteria2'?'QUIC / UDP':'UDP'}</small></td>
-    <td data-label="TLS и маскировка"><strong>{connectionProtection(item.kind)}</strong><small>{item.sni?`SNI: ${item.sni}`:'Без SNI'}</small></td>
-    <td data-label="Назначения"><strong>{assignments?`${assignments.get(key)??0} пользователей`:'Нет данных'}</strong><small>Трафик профиля: —</small></td>
+    <td data-label="Сервер / порт"><code>{connectionAddress(item.address,item.port)}</code></td>
+    <td data-label="TLS и маскировка"><strong>{connectionProtection(item.kind)}</strong>{item.sni&&<small>SNI: {item.sni}</small>}</td>
+    <td data-label="Назначения"><strong>{assignments?`${assignments.get(key)??0} пользователей`:'Нет данных'}</strong></td>
     <td data-label="Состояние"><Badge variant={service.variant}>{state==='unverified'||!state?'Не проверено':service.label}</Badge><small>{item.enabled?'Включено в настройках':'Отключено'}</small></td>
     <td data-label="Действия" onClick={event=>event.stopPropagation()}><div className="row-actions">
-     {managed&&item.kind.startsWith('vless')&&<IconButton icon="refresh" label={`Обновить параметры · ${item.port}`} disabled={busy} onClick={()=>onRefresh(item)}/>}
+     {managed&&item.kind.startsWith('vless')&&<IconButton icon="refresh" label={`Подобрать SNI · ${item.port}`} disabled={busy} onClick={()=>onRefresh(item)}/>}
      {managed&&<IconButton icon="edit" label={`Настроить подключение · ${item.port}`} disabled={busy} onClick={()=>onEdit(item)}/>}
-     <IconButton icon="info" label={`Подробнее о подключении · ${item.port}`} onClick={()=>onDetails(item)}/>
      {managed&&<SwitchButton checked={item.enabled} label={`${item.enabled?'Отключить':'Включить'} подключение · ${item.port}`} disabled={busy} onClick={()=>onToggle(item)}/>}
      {managed&&!item.enabled&&<IconButton variant="danger" icon="trash" label={`Удалить подключение · ${item.port}`} disabled={busy} onClick={()=>onRemove(item)}/>}
     </div></td>

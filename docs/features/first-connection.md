@@ -110,3 +110,7 @@ Hysteria2: Salamander с автоматически созданным32-byte UR
 Контракт проверен по [Xray v26.10.31 XHTTP config](https://raw.githubusercontent.com/XTLS/Xray-core/v26.10.31/transport/internet/splithttp/config.proto) и [server Host validation](https://raw.githubusercontent.com/XTLS/Xray-core/v26.10.31/transport/internet/splithttp/hub.go). В [REALITY config той же версии](https://raw.githubusercontent.com/XTLS/Xray-core/v26.10.31/transport/internet/reality/config.proto) отдельного ALPN нет; generic editable ALPN не добавлен, чтобы не выдавать неработающее поле за поддержку.
 
 TypeScript/Vite PASS. Новые тесты не писались по указанию владельца; Go/runtime/VM/VPS/browser NOT RUN. Перезапуск backend локального просмотра ещё нужен. Смена listen не реализована: она меняет сетевое прослушивание и остаётся за threat-model/изолированным VM rollback gate. Это не полный перенос всех расширенных полей демо.
+
+## UI-контракт — 9 ноября 2026
+
+Frontend-сценарии, сохранность draft, состояния ошибок и проверенные размеры описаны в [UI/UX-аудите](../design/ui-ux-audit-2026-11-09.md). Серверные контракты, конфигурации и ограничения этим изменением не расширяются.

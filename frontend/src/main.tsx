@@ -7,6 +7,7 @@ import{AuthGate}from'./app/Auth';
 import Layout from'./app/Layout';
 import{Loading}from'./shared/ui';
 import{PageErrorBoundary}from'./app/PageErrorBoundary';
+import {retryQuery} from './shared/api';
 import './style.css';
 import './shared/design-system/tokens.css';
 import './shared/design-system/components.css';
@@ -23,7 +24,7 @@ const NotFound=React.lazy(()=>import('./pages/NotFound'));
 const wrap=(element:React.ReactNode)=><PageErrorBoundary><Suspense fallback={<Loading/>}>{element}</Suspense></PageErrorBoundary>;
 const router=createBrowserRouter([{element:<AuthGate/>,children:[{element:<Layout/>,children:[
  {index:true,element:wrap(<Overview/>)},{path:'users',element:wrap(<Users/>)},{path:'vpn',element:wrap(<VPN/>)},{path:'nodes',element:wrap(<Nodes/>)},{path:'routing',element:wrap(<Routing/>)},{path:'security',element:wrap(<Security/>)},{path:'versions',element:wrap(<Versions/>)},{path:'events',element:wrap(<Events/>)},{path:'backup',element:wrap(<Backup/>)},{path:'*',element:wrap(<NotFound/>)}]}]}]);
-const query=new QueryClient({defaultOptions:{queries:{staleTime:5_000,retry:1,refetchOnWindowFocus:false}}});
+const query=new QueryClient({defaultOptions:{queries:{staleTime:5_000,retry:retryQuery,refetchOnWindowFocus:false},mutations:{retry:false}}});
 const element=document.getElementById('root');if(!element)throw new Error('Missing root element');
 createRoot(element).render(<React.StrictMode><PageErrorBoundary><QueryClientProvider client={query}><RouterProvider router={router}/></QueryClientProvider></PageErrorBoundary></React.StrictMode>);
 

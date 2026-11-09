@@ -103,13 +103,44 @@ export function setCSRF(token: string): void {
 }
 
 export class ApiError extends Error {
+  readonly status:number;
+  readonly outcomeUnknown:boolean;
+  readonly retryAt:number;
   constructor(
-    readonly status: number,
+    status: number,
     message: string,
+    outcomeUnknown = false,
+    retryAt = 0,
   ) {
     super(message);
     this.name = 'ApiError';
+    this.status=status;
+    this.outcomeUnknown=outcomeUnknown;
+    this.retryAt=retryAt;
   }
+}
+
+export function retryAfter(raw:string|null,now=Date.now()):number {
+ if(!raw)return 0;
+ const seconds=Number(raw),at=Number.isFinite(seconds)&&seconds>=0?now+seconds*1000:Date.parse(raw);
+ return Number.isFinite(at)&&at>now?Math.min(at,now+86400000):0;
+}
+
+export function retryQuery(failureCount:number,error:Error):boolean {
+  return failureCount<1&&!(error instanceof ApiError&&error.status>=400&&error.status<500);
+}
+
+async function request(path:string,init:RequestInit,signal?:AbortSignal):Promise<{response:Response;text:string}>{
+ const mutation=init.method!=='GET';
+ const controller=new AbortController();
+ const abort=()=>controller.abort();
+ if(signal?.aborted)controller.abort();else signal?.addEventListener('abort',abort,{once:true});
+ const timer=setTimeout(abort,mutation?120000:20000);
+ try{const response=await fetch(path,{...init,signal:controller.signal});return {response,text:await response.text()}}
+ catch(error){
+  if(signal?.aborted&&!mutation)throw error;
+  throw new ApiError(0,mutation?'Ответ сервера не получен. Результат операции неизвестен. Проверьте текущее состояние перед повтором.':'Не удалось получить ответ сервера. Проверьте соединение и повторите загрузку.',mutation);
+ }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort)}
 }
 
 export async function api<T>(
@@ -122,14 +153,13 @@ export async function api<T>(
   if (method !== 'GET') headers['X-CSRF-Token'] = csrfToken;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const response = await fetch(path, {
+  const {response,text:responseText} = await request(path, {
     method,
     headers,
     credentials: 'same-origin',
     redirect: 'error',
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal,
-  });
+  },signal);
 
   if (response.status === 401 && path !== '/api/session' && path !== '/api/login') {
     window.dispatchEvent(new Event('arcvpn:unauthorized'));
@@ -140,12 +170,11 @@ export async function api<T>(
     return undefined as T;
   }
 
-  const responseText = await response.text();
   let result: unknown;
   try {
     result = JSON.parse(responseText);
   } catch {
-    throw new ApiError(response.status, `Некорректный ответ сервера: HTTP ${response.status}`);
+    throw new ApiError(response.status, method==='GET'?`Некорректный ответ сервера: HTTP ${response.status}`:'Ответ сервера не распознан. Результат операции неизвестен; проверьте текущее состояние перед повтором.',method!=='GET');
   }
 
   if (!response.ok) {
@@ -153,7 +182,7 @@ export async function api<T>(
       result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
         ? result.error
         : `HTTP ${response.status}`;
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message+(method!=='GET'&&response.status>=500?' Проверьте текущее состояние перед повтором: применение не подтверждено.':''),method!=='GET'&&response.status>=500,response.status===429?retryAfter(response.headers.get('Retry-After')):0);
   }
 
   return result as T;
@@ -162,13 +191,13 @@ export async function api<T>(
 // Upload a signed package without base64 encoding or buffering it in JavaScript.
 // The root helper performs the actual Ed25519 verification before any update.
 export async function uploadSignedUpdate(file: File, signal?: AbortSignal): Promise<{version:string;verified:boolean}> {
-  const response = await fetch('/api/system/update/upload', {
+  const {response,text} = await request('/api/system/update/upload', {
     method: 'POST', credentials:'same-origin', redirect:'error',
     headers: {'Content-Type':'application/octet-stream', 'X-CSRF-Token':csrfToken, Accept:'application/json'},
-    body:file, signal,
-  });
+    body:file,
+  },signal);
   if (response.status===401) window.dispatchEvent(new Event('arcvpn:unauthorized'));
-  const body:unknown=await response.json().catch(()=>null);
+  let body:unknown;try{body=JSON.parse(text)}catch{body=null}
   if(!response.ok){
     const message=body&&typeof body==='object'&&'error'in body&&typeof body.error==='string'?body.error:`HTTP ${response.status}`;
     throw new ApiError(response.status,message);

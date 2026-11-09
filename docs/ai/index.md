@@ -1,3 +1,7 @@
+## 2026-11-09: UI/UX frontend
+
+`frontend/src/shared/{EditorSections,Feedback,Dialog,Confirmation,ui}.tsx`, `shared/api.ts`, `shared/design-system/{tokens,components}.css` — общие контракты UI; `app/Auth.tsx` — reauth с сохранением дерева; `features/connections/ConnectionEditor.tsx`, `features/users/UserEditor.tsx`, `pages/{Users,Routing,VPN,Backup,Security,...}` — сценарии и состояния. `frontend/tests/api-feedback.test.ts`, `tests/ui_ux_{audit,layout}_e2e.mjs` — регрессии. [Детальный отчёт](../design/ui-ux-audit-2026-11-09.md).
+
 ## 2026-11-07: TLS fingerprint
 
 `internal/xray/fingerprint.go` — enum/default; `internal/store/client_fingerprint.go` — existing-settings persistence; connection edit/create/API/backup13 — сохранение/экспорт. `features/connections/FingerprintField.tsx` — общий selector для форм; ConnectionEditor — путь XHTTP и публичные ключи. [Проверки](../testing/local-results/stage5-2026-11-07-fingerprint.md).

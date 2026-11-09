@@ -4,7 +4,7 @@ import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '../../shared/api';
 import Dialog,{canDismiss,DialogClose} from '../../shared/Dialog';
 import DirectAccess from './DirectAccess';
-import {Advanced,Button,Field,Loading,Notice} from '../../shared/ui';
+import {Advanced,Button,Field,Loading,Notice,ErrorState} from '../../shared/ui';
 
 type Device={id:string;name:string;created_at:number;revoked_at:number;wireguard_address?:string};
 type Reply={items:Device[];managed:boolean;limit:number;version:number;active:number;supported:boolean;runtime_state:string;remote_pending:boolean};
@@ -41,7 +41,7 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
   <div className="dialog-body">
    <section className="device-observation"><h3 className="section">Устройства и активные IP</h3><p className="muted">Наблюдения активных подключений пока недоступны. Обновление подписки не подтверждает, что устройство подключено к VPN.</p><details className="device-explanation"><summary>Как определяются устройства?</summary><p>IP может измениться при переключении сети, а несколько устройств могут использовать один IP. Название и версия приложения тоже не определяют устройство: обновление приложения не означает новое устройство.</p><p>Чтобы узнавать то же устройство после обновления, нужен устойчивый идентификатор от клиента. Сейчас такого источника нет, поэтому панель не показывает предполагаемые устройства как подтверждённые.</p></details></section>
    {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="notice" role="status">{message}</p>}
-   {query.isPending?<Loading/>:query.isError?<Notice>{query.error.message}</Notice>:data&&<>
+   {query.isPending?<Loading/>:query.isError?<ErrorState error={query.error} onRetry={()=>void query.refetch()} retrying={query.isFetching}/>:data&&<>
     {!data.supported&&<Notice>Поддерживаются локальные Xray/Hysteria2/WireGuard и обновлённые прямые TCP/REALITY-ноды. Для удалённых нод нужны device-capability и отсутствие конечных пакетов или активного каскада.</Notice>}
     {data.managed&&!message&&data.runtime_state!=='applied'&&<Notice>Применение доступа VPN-службой пока не подтверждено. При ошибке панель повторит применение; старые соединения могут продолжать работать.</Notice>}
     {data.managed?<p>Ранее выданных доступов: {data.active} / {data.limit||'без ограничения'}. Общий ключ отключён.</p>:<p className="muted">Используется общий профиль. Число устройств и IP нельзя определить по одному ключу.</p>}
@@ -52,7 +52,7 @@ export default function DevicesDialog({id,name,onClose,navigation}:{id:number;na
      {!device.revoked_at&&<div className="flex wrap"><Button disabled={busy} onClick={()=>void showLinks(device)}>Подключить</Button><Button variant="danger" disabled={busy} onClick={async ()=>{if((await confirm(`Отозвать доступ «${device.name}»? Его подписка перестанет работать. Завершение VPN-соединений зависит от применения изменения службой.`)))void change('DELETE',{},device.id)}}>Отозвать</Button></div>}
     </div>)}</div></Advanced>}
     {links&&<div>
-      <DirectAccess links={links.links} ids={links.link_ids} subscription={{title:links.title,url:links.url,qrURL:`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?format=subscription`}} qrURL={selection=>`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?selection=${encodeURIComponent(selection)}`} onCopy={async value=>{try{await navigator.clipboard.writeText(value);setMessage('Ссылка скопирована')}catch{setError('Скопируйте ссылку вручную')}}} onError={()=>setError('QR недоступен: обновите подключение или скопируйте ссылку.')}/>
+      <DirectAccess links={links.links} ids={links.link_ids} subscription={{title:links.title,url:links.url,qrURL:`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?format=subscription`}} qrURL={selection=>`/api/users/${id}/devices/${encodeURIComponent(links.device_id)}/qr?selection=${encodeURIComponent(selection)}`} onCopy={value=>navigator.clipboard.writeText(value)} onError={()=>{}}/>
       {links.wireguard_url&&<a className="button inline-action" href={links.wireguard_url} download>Скачать WireGuard .conf</a>}
     </div>}
     {!data.managed&&<div className="notice"><strong>Лимит одновременных подключений</strong><p>Исполнение ограничения устройств или IP ещё не подключено. Сохранение числа в интерфейсе само по себе не ограничит доступ.</p></div>}

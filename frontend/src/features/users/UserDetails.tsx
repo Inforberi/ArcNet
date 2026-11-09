@@ -24,7 +24,7 @@ export default function UserDetails({initialTab='overview',trafficNow,traffic,tr
   setBusy(true);setError('');try{if(remove){await onDelete();close()}else await onToggle()}catch(e){setError(e instanceof Error?e.message:'Не удалось изменить доступ')}finally{setBusy(false)}
  }
  const access=userAccess(user,account);
- return <><Dialog title={`Пользователь · ${user.name}`} className="user-editor user-workspace" onClose={close} busy={locked} dirty={editorState.dirty}>
+ return <><Dialog title={`Пользователь · ${user.name}`} className="user-editor user-workspace sectioned-editor" onClose={close} busy={locked} dirty={editorState.dirty}>
   <div className="user-workspace-toolbar"><nav className="segmented-control" aria-label="Разделы пользователя"><Button aria-pressed={tab==='edit'} disabled={locked} onClick={()=>setTab('edit')}>Параметры</Button><Button aria-pressed={tab==='activity'} disabled={locked} onClick={()=>setTab('activity')}>Активность</Button></nav><Button disabled={locked} variant="primary" onClick={()=>void connect()}>Подключить</Button></div>
   <div className="user-parameters-pane" hidden={tab!=='edit'}><UserEditor user={user} onStateChange={setEditorState} onClose={close}/></div>
   <div hidden={tab!=='activity'}><div className="dialog-body">

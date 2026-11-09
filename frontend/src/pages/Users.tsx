@@ -8,20 +8,23 @@ import BulkCreateUsers from '../features/users/BulkCreateUsers';
 import BulkEditUsers from '../features/users/BulkEditUsers';
 import {sortUsers,usersCSV,matchesUserSearch,type UserSort} from '../features/users/user-table';
 import BulkUserAccess from '../features/users/BulkUserAccess';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect,useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
+import { api,ApiError, type VPNUser, type Subscription, type ConnectionProfile } from '../shared/api';
 import {UsageSummary} from '../features/users/PackageDialog';
 import DevicesDialog from '../features/users/DevicesDialog';
 import DirectAccess from '../features/users/DirectAccess';
 import UserDetails from '../features/users/UserDetails';
-import Dialog from '../shared/Dialog';
+import Dialog,{DialogClose} from '../shared/Dialog';
+import {useFeedback} from '../shared/Feedback';
 import {userAccess, type UsageReply,type UserPackage} from '../features/users/usage';
-import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty,StatStrip,IconButton,SwitchButton } from '../shared/ui';
+import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty,StatStrip,IconButton,SwitchButton,ErrorState } from '../shared/ui';
 
 
 
 export default function Users() {
+  const feedback=useFeedback();
+  const accessRequest=useRef(0);
   const cache = useQueryClient();
   const users = useQuery({ queryKey: ['users'], queryFn: () => api<{ items: VPNUser[] }>('/api/users') });
   const usage = useQuery({queryKey:['user-usage'],queryFn:()=>api<UsageReply>('/api/users/usage')});
@@ -58,6 +61,7 @@ export default function Users() {
   }
 
   const [creating, setCreating] = useState(false);
+  const [creationUnknown,setCreationUnknown]=useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -65,10 +69,13 @@ export default function Users() {
   const [subscriptionUser, setSubscriptionUser] = useState<VPNUser | null>(null);
   const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const [accessError,setAccessError]=useState(''),[accessPending,setAccessPending]=useState(false);
+  function closeAccess(){accessRequest.current++;setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);setAccessPending(false);setAccessError('')}
+  useEffect(()=>()=>{accessRequest.current++},[]);
 
   useEffect(() => {
     if (subscriptionUser && (packages.get(subscriptionUser.id)?.block_reason || users.data?.items.find(item=>item.id===subscriptionUser.id)?.enabled === false)) {
-      setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);
+      closeAccess();
     }
   }, [usage.data, users.data, subscriptionUser]);
 
@@ -78,7 +85,7 @@ export default function Users() {
       setDetailTab('edit');setDetailID(created.id);
       setName('');
       setCreating(false);
-      setMessage('Пользователь создан');
+      feedback('Пользователь создан');
       await cache.invalidateQueries({ queryKey: ['users'] });
     },
   });
@@ -94,36 +101,39 @@ export default function Users() {
   function explain(e: unknown): string { return e instanceof Error ? e.message : 'Неизвестная ошибка'; }
 
   async function showSubscription(user: VPNUser) {
-    setError('');
-    setMessage('');
+    const request=++accessRequest.current;
+    setAccessError('');setAccessPending(true);setSubscriptionUser(user);
     setSubscription(null);
+    setConnections([]);setSelectedQR(null);
     try {
       const [result, linked] = await Promise.all([
         api<Subscription>(`/api/users/${user.id}/subscription`),
         api<{items: ConnectionProfile[]}>(`/api/users/${user.id}/connections`),
       ]);
+      if(request!==accessRequest.current)return;
       setConnections(linked.items);
       setSelectedQR(null);
       setSubscription(result);
       setSubscriptionUser(user);
     } catch (err) {
-      setError(explain(err));
-    }
+      if(request===accessRequest.current)setAccessError(explain(err));
+    }finally{if(request===accessRequest.current)setAccessPending(false)}
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if(create.isPending||creationUnknown)return;
     setError('');
     setMessage('');
     if (!name.trim()) { setError('Укажи имя пользователя'); return; }
     try { await create.mutateAsync(); }
-    catch (err) { setError(explain(err)); }
+    catch (err) { if(err instanceof ApiError&&err.outcomeUnknown)setCreationUnknown(true);setError(explain(err)); }
   }
 
   async function copy(value: string) {
     setError('');
-    try { await navigator.clipboard.writeText(value); setMessage('Скопировано в буфер обмена'); }
-    catch { setError('Не удалось скопировать. Выдели и скопируй ссылку вручную.'); }
+    try { await navigator.clipboard.writeText(value); feedback('Ссылка скопирована'); }
+    catch { setAccessError('Не удалось скопировать. Откройте «Показать ссылку» и скопируйте её вручную.'); }
   }
 
   return (
@@ -131,25 +141,26 @@ export default function Users() {
       <PageHeading
         title="Пользователи"
         description="Выдавайте доступ, следите за трафиком и управляйте ограничениями."
-        actions={<><Button onClick={()=>setBulkCreating(true)}><Icon name="plus"/>Массовое добавление</Button><Button variant="primary" onClick={() => setCreating(true)}><Icon name="plus"/>Добавить пользователя</Button></>}
+        actions={<><Button onClick={()=>setBulkCreating(true)}><Icon name="plus"/>Массовое добавление</Button><Button variant="primary" onClick={() => {setError('');setCreationUnknown(false);setCreating(true)}}><Icon name="plus"/>Добавить пользователя</Button></>}
       />
       {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && !creating && <p className="error" role="alert">{error}</p>}
       {message && <p className="notice" role="status">{message}</p>}
 
       {bulkCreating&&<BulkCreateUsers onClose={()=>setBulkCreating(false)}/>}
       {bulkEditing&&<BulkEditUsers users={bulkEditing.users} packages={bulkEditing.packages} onDone={()=>setSelected([])} onClose={()=>setBulkEditing(null)}/>}
       {creating && (
-        <Dialog title="Добавить пользователя" onClose={()=>setCreating(false)} busy={create.isPending} dirty={!!name.trim()}>
+        <Dialog title="Добавить пользователя" onClose={()=>{setCreating(false);setName('');setError('');void users.refetch()}} busy={create.isPending} dirty={!!name.trim()}>
           <form className="panel-body" onSubmit={e => void submit(e)}>
             <Field
               label="Имя пользователя" value={name} maxLength={60} required
               onChange={e => setName(e.target.value)}
               autoComplete="off"
             />
+            {error&&<p className="error" role="alert">{error}</p>}
             <div className="form-actions">
-              <Button type="button" onClick={() => { setCreating(false); setName(''); }}>Отмена</Button>
-              <Button type="submit" variant="primary" disabled={create.isPending}>Создать и настроить</Button>
+              <DialogClose disabled={create.isPending}>Отмена</DialogClose>
+              <Button type="submit" variant="primary" pending={create.isPending} disabled={creationUnknown}>Создать и настроить</Button>
             </div>
           </form>
         </Dialog>
@@ -158,7 +169,7 @@ export default function Users() {
       {usage.isError && <Notice>{usage.error.message}</Notice>}
       {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&!usage.data.source_fresh&&<p className="muted">Учёт пакетов временно недоступен. Сохранённый расход показан в таблице.</p>}
       {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state)&&<Notice>Изменение ограничений ещё не подтверждено VPN-службой. Проверьте состояние сервера.</Notice>}
-      {users.isPending ? <Loading /> : users.isError ? <Notice>{explain(users.error)}</Notice> : (
+      {users.isPending ? <Loading /> : users.isError ? <ErrorState error={users.error} onRetry={()=>void users.refetch()} retrying={users.isFetching}/> : (
         <Panel title="Список пользователей" actions={<Button className="small inline-action" disabled={!selectedUsers.length&&!visibleUsers.length} onClick={exportCSV} title="Скачать CSV без ключей и ссылок подписок"><Icon name="download"/>{selectedUsers.length?`Скачать выбранных (${selectedUsers.length})`:'Скачать список'}</Button>}>
           <UserToolbar value={{search,status:filter,group:groupFilter,sort,descending}} groups={groups} onChange={next=>{if(next.search!==search||next.status!==filter||next.group!==groupFilter)setSelected([]);setSearch(next.search);setFilter(next.status);setGroupFilter(next.group);setSort(next.sort);setDescending(next.descending);setPage(0)}}/>
           <div className="users-list-meta"><span className="muted">{visibleUsers.length===users.data.items.length?`Всего: ${visibleUsers.length}`:`Найдено: ${visibleUsers.length} из ${users.data.items.length}`}</span><UserDataStatus failed={traffic.isError} incomplete={!!traffic.data&&!traffic.data.complete_coverage}/></div>
@@ -196,15 +207,18 @@ export default function Users() {
       {deviceUser && <DevicesDialog id={deviceUser.id} name={deviceUser.name} onClose={()=>setDeviceUser(null)}/>}
       {detailUser&&<UserDetails trafficNow={trafficTime} traffic={traffic.data?.detail} trafficPending={traffic.isPending} trafficFailed={traffic.isError} initialTab={detailTab} key={`${detailUser.id}:${detailTab}`} user={detailUser} usage={usage.data} account={packages.get(detailUser.id)} onClose={()=>setDetailID(null)} onConnect={()=>{setDetailID(null);void showSubscription(detailUser);}} onToggle={()=>toggle.mutateAsync(detailUser)} onDelete={()=>remove.mutateAsync(detailUser)}/>}
 
-      {subscription && subscriptionUser && (
-        <Dialog className="access-dialog" title={`Подключить · ${subscriptionUser.name}`} onClose={()=>{setSubscription(null);setSubscriptionUser(null);setConnections([]);setSelectedQR(null);}}>
+      {subscriptionUser && (
+        <Dialog className="access-dialog" title={`Подключить · ${subscriptionUser.name}`} onClose={closeAccess}>
           <div className="dialog-body">
-            <DirectAccess preferredMode={subscriptionUser.preferences?.access_mode} preferredKind={subscriptionUser.preferences?.direct_kind} links={subscription.links} ids={subscription.link_ids} subscription={{title:subscription.title,url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={copy} onError={() => setError('QR недоступен: обновите подключения или скопируйте ссылку вручную.')}/>
+            {accessPending&&<Loading/>}
+            {accessError&&<p className="error" role="alert">{accessError}</p>}
+            {!subscription&&!accessPending&&<Button onClick={()=>void showSubscription(subscriptionUser)}>Повторить загрузку подключений</Button>}
+            {subscription&&<><DirectAccess preferredMode={subscriptionUser.preferences?.access_mode} preferredKind={subscriptionUser.preferences?.direct_kind} links={subscription.links} ids={subscription.link_ids} subscription={{title:subscription.title,url:subscription.url,qrURL:`/api/users/${subscriptionUser.id}/qr?format=subscription`}} qrURL={selection => `/api/users/${subscriptionUser.id}/qr?format=link&selection=${encodeURIComponent(selection)}`} onCopy={value=>navigator.clipboard.writeText(value)} onError={()=>{}}/>
             <details className="profile-advanced"><summary>Дополнительные форматы</summary>
               <div className="profile-settings">
                 <div className="flex wrap"><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=raw`} download>Скачать ссылки</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=base64`} download>Скачать Base64</a><a className="button inline-action" href={`/api/users/${subscriptionUser.id}/export?format=url`} download>Скачать URL</a></div>
               </div>
-            </details>
+            </details></>}
             <div className="protocol-grid" aria-label="Отдельные VPN-подключения">
               {connections.filter(connection => connection.format === 'conf').map(connection => <div className="protocol-card" key={connection.kind}>
                 <strong>{connection.label}</strong>
@@ -232,7 +246,7 @@ export default function Users() {
               <Button onClick={() => setSelectedQR(null)}>Закрыть QR</Button>
             </div>}
             <div className="form-actions">
-              <Button onClick={() => { setSubscription(null); setSubscriptionUser(null); setConnections([]); setSelectedQR(null); }}>Закрыть</Button>
+              <Button onClick={closeAccess}>Закрыть</Button>
             </div>
           </div>
         </Dialog>

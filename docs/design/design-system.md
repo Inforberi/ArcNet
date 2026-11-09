@@ -51,3 +51,7 @@
 ## Экран схемы и таблицы
 
 Для интерактивной карты VPN-нод допускается изолированный React-компонент с SVG (или Canvas **только при доказанной необходимости**). Использовать существующие `NodeCard`, `Status`, `Tooltip`, `ActionMenu`, `Drawer`, `DataTable`, цвета/токены статусов, типографику, поля, кнопки. Один UI-store содержит selection, фильтры и выбранный режим вида; графическая библиотека не должна приносить большой bundle без замеров. См. [topology-and-table.md](topology-and-table.md).
+
+## Реализованные контракты UI — 9 ноября 2026
+
+[Аудит, результаты и ограничения](ui-ux-audit-2026-11-09.md) — текущий источник по frontend. Sectioned editor сохраняет mounted sections и один baseline; invalid поле раскрывается, error связан с полем отдельно от стабильного accessible name. Dialog владеет focus/dirty/serial dismiss; workspace-variant фиксирует верхнюю границу и оставляет один основной scroll owner. Ошибки операций остаются в форме; Feedback предназначен для короткого подтверждения, один viewport внутри активного modal либо в оболочке, pause/dismiss/dedupe. Button pending скрывает исходную подпись визуально, сохраняя размеры. ErrorState различает 403 и Retry-After429; mutation unknown не называется гарантированным отказом. Новых библиотек/цветов нет.

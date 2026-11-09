@@ -1,17 +1,18 @@
-import {useState, type FormEvent, type ReactNode} from 'react';
+import {useRef,useState, type FormEvent, type ReactNode} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {Outlet} from 'react-router';
 import {api, ApiError, setCSRF, type Session} from '../shared/api';
 import {Button, Field, Loading} from '../shared/ui';
+import Dialog from '../shared/Dialog';
 
 export function AuthGate() {
+  const hadSession=useRef(false);
   const session = useQuery({queryKey:['session'],queryFn:async()=>{const s=await api<Session>('/api/session');setCSRF(s.csrf);return s;},retry:false,staleTime:300_000,refetchInterval:300_000,refetchOnWindowFocus:true});
-  if(session.isPending) return <Loading/>;
-  if(session.isError) {
-    if(session.error instanceof ApiError && session.error.status===401) return <FirstAccess/>;
-    return <AuthFrame title="Панель недоступна"><p role="alert">{session.error.message}</p><Button onClick={()=>void session.refetch()}>Повторить</Button></AuthFrame>;
-  }
-  return <Outlet/>;
+  if(session.isSuccess)hadSession.current=true;
+  // Reauthentication hides the workspace, but keeps in-memory drafts mounted.
+  // Server authorization remains authoritative for every request.
+  const recovery=session.isPending?<Loading/>:session.isError?(session.error instanceof ApiError&&session.error.status===401?<FirstAccess/>:<AuthFrame title="Панель недоступна"><p role="alert">{session.error.message}</p><Button onClick={()=>void session.refetch()}>Повторить</Button></AuthFrame>):null;
+  return <><div hidden={!session.isSuccess}>{hadSession.current&&<Outlet/>}</div>{recovery&&(hadSession.current?<Dialog title="Восстановите вход в панель" className="reauth-dialog" dismissible={false} onClose={()=>{}}>{recovery}</Dialog>:recovery)}</>;
 }
 function AuthFrame({title,children}:{title:string;children:ReactNode}) {
   return <main className="auth-container"><section className="auth-card"><span className="brand-mark">A</span><p className="muted">ArcNet · управление VPN</p><h1>{title}</h1>{children}</section></main>;
@@ -43,7 +44,7 @@ function RegisterAdmin({available}:{available:boolean}) {
       <Field label="Ваш пароль" type="password" autoComplete="new-password" required minLength={16} maxLength={256} description="Не менее 16 символов" value={password} onChange={e=>setPassword(e.target.value)}/>
       <Field label="Повторите пароль" type="password" autoComplete="new-password" required value={confirm} onChange={e=>setConfirm(e.target.value)}/>
       {error&&<p className="error" role="alert">{error}</p>}
-      <Button type="submit" variant="primary" disabled={busy}>{busy?'Создаём…':'Создать администратора'}</Button>
+      <Button type="submit" variant="primary" pending={busy}>Создать администратора</Button>
     </form>
   </AuthFrame>;
 }
@@ -52,13 +53,14 @@ function Login() {
   const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[code,setCode]=useState('');
   const [secondFactor,setSecondFactor]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   async function submit(event:FormEvent) {
-    event.preventDefault();setError('');setBusy(true);
+    event.preventDefault();if(busy)return;setError('');setBusy(true);
     try {
       const reply=await api<{ok:boolean;csrf?:string;mfa_required?:boolean}>('/api/login','POST',{username,password,code});
       if(reply.mfa_required){setSecondFactor(true);return;}
       if(!reply.ok||!reply.csrf)throw new Error('Не удалось завершить вход');
       setPassword('');setCode('');setCSRF(reply.csrf);
       cache.setQueryData(['session'],{authenticated:true,username,csrf:reply.csrf} satisfies Session);
+      void cache.invalidateQueries({predicate:query=>query.queryKey[0]!=='session'});
     }catch(err){setError(err instanceof Error?err.message:'Ошибка входа');}
     finally{setBusy(false);}
   }
@@ -68,7 +70,7 @@ function Login() {
       <Field label="Пароль" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/>
     </>}
     {error&&<p className="error" role="alert">{error}</p>}
-    <Button type="submit" variant="primary" disabled={busy}>{busy?'Проверка…':secondFactor?'Подтвердить':'Войти'}</Button>
+    <Button type="submit" variant="primary" pending={busy}>{secondFactor?'Подтвердить':'Войти'}</Button>
     {secondFactor&&<Button type="button" variant="ghost" disabled={busy} onClick={()=>{setSecondFactor(false);setPassword('');setCode('');setError('');}}>Назад</Button>}
   </form></AuthFrame>;
 }

@@ -57,7 +57,7 @@ export function RealitySetup({busy, onSubmit}: {busy: boolean; onSubmit: (input:
    <Button type="button" onClick={() => {setAddress(undefined); setPort(undefined); setTarget(undefined);}}>Вернуть автоматические параметры</Button>
   </Advanced>
   {!chosenTarget && <p className="muted">Если подбор не найдёт подходящий SNI, откройте расширенные настройки для повторной проверки или ручного ввода.</p>}
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || !chosenTarget}>{busy?'Применяем…':'Создать протокол'}</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" pending={busy} disabled={defaults.isPending || !address || !chosenTarget}>Создать протокол</Button></div>
  </form>;
 }
 
@@ -93,6 +93,6 @@ export function ProtocolSetup({vpn, available, busy, onSubmit}: {vpn: VPNConfig;
    </>}
    <Button type="button" onClick={() => {setAddress(undefined); setDrafts(all => ({...all, [kind]: {}}));}}>Вернуть автоматические параметры</Button>
   </Advanced>
-  <div className="form-actions"><Button type="submit" variant="primary" disabled={busy || defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>{busy?'Применяем…':'Создать протокол'}</Button></div>
+  <div className="form-actions"><Button type="submit" variant="primary" pending={busy} disabled={defaults.isPending || !address || (kind === 'vless-xhttp' && (!target || !sni))}>Создать протокол</Button></div>
  </form>;
 }

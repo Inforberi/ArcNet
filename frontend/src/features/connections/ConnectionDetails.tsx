@@ -16,7 +16,7 @@ export default function ConnectionDetails({item,state,checking,checkFailed,onChe
  ];
  return <Dialog title={connectionLabel(item.kind)} onClose={onClose} className="connection-details compact-details">
   <div className="dialog-body">
-   <div className="connection-status-strip"><div><span>В настройках</span><Badge variant={item.enabled?'green':'neutral'}>{item.enabled?'Включено':'Выключено'}</Badge></div><div><span>Служба</span><Badge variant={service.variant}>{service.label}</Badge></div><Button disabled={checking} onClick={onCheck}>{checking?'Проверяем…':'Проверить службу'}</Button></div>
+   <div className="connection-status-strip"><div><span>В настройках</span><Badge variant={item.enabled?'green':'neutral'}>{item.enabled?'Включено':'Выключено'}</Badge></div><div><span>Служба</span><Badge variant={service.variant}>{service.label}</Badge></div><Button pending={checking} onClick={onCheck}>Проверить службу</Button></div>
    {checkFailed&&<p className="error" role="alert">Состояние службы недоступно. Повторите проверку.</p>}
    <div className="compact-properties"><Properties items={[{label:'Адрес подключения',value:<code>{connectionAddress(item.address,item.port)}</code>},{label:'Транспорт / защита',value:`${connectionTransport(item.kind)} · ${connectionProtection(item.kind)}`},...(item.sni?[{label:reality?'Домен SNI':'Имя TLS',value:item.sni}]:[])]}/></div>
    {technical.length>0&&<details className="profile-advanced"><summary>Технические параметры<Icon name="chevron" className="advanced-chevron"/></summary><div className="profile-settings"><Properties items={technical}/>{reality&&<Button onClick={onPickTarget}>Подобрать SNI</Button>}</div></details>}

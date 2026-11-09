@@ -171,12 +171,6 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 .profile-actions{margin-top:14px}
 .profile-actions summary,.profile-advanced summary{cursor:pointer;color:var(--muted);font-size:13px;padding:10px 0;min-height:40px}
 .profile-actions .flex{margin-top:8px}
-.app-dialog{padding:0;border:1px solid var(--stroke);border-radius:14px;background:var(--surface);color:var(--text);width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:var(--shadow)}
-.app-dialog::backdrop{background:var(--backdrop)}
-.dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--stroke);position:sticky;top:0;background:var(--surface);z-index:2}
-.dialog-heading h2{font-size:18px;margin:0}
-.dialog-body{padding:20px;display:grid;gap:18px;min-width:0}
-.dialog-footer{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;padding:14px 20px max(14px,env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--stroke);z-index:2}
 .routing-enable{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--stroke);background:var(--surface2);border-radius:9px;padding:14px}
 .routing-enable small{display:block;color:var(--muted);font-size:12px;margin-top:5px;max-width:45ch}
 .routing-enable input{width:23px;height:23px;accent-color:var(--accent);flex-shrink:0}
@@ -193,9 +187,6 @@ pre.code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-w
 @media(max-width:680px){
  .routing-intro>.flex{width:100%}.routing-intro>.flex>.button{flex:1 1 140px}
  .routing-profile-grid{grid-template-columns:1fr}.routing-page-tabs .button{flex:1}
- .app-dialog{width:100%;max-width:none;max-height:100dvh;min-height:100dvh;margin:0;border:0;border-radius:0}
- .dialog-heading,.dialog-body,.dialog-footer{padding-left:16px;padding-right:16px}
- .dialog-heading h2{font-size:17px}.dialog-footer .button{flex:1 1 120px}
  .routing-group-tabs .button{flex:1 1 90px;padding:10px 7px;font-size:12px}
  .routing-order li>span{min-width:115px}
 }

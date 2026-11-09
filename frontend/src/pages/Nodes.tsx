@@ -3,7 +3,7 @@ import Dialog,{DialogClose} from '../shared/Dialog';
 import TargetPicker from '../features/targets/TargetPicker';
 import {useEffect,useState} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {PageHeading,Panel,Notice,Button,Field,Loading,Badge} from '../shared/ui';
+import {PageHeading,Panel,Notice,Button,Field,Loading,Badge,ErrorState} from '../shared/ui';
 import {api} from '../shared/api';
 
 type NodeControl={
@@ -220,7 +220,7 @@ export default function Nodes(){
         <Field label="Поиск ноды" value={filter} onChange={event=>setFilter(event.target.value)} placeholder="Имя, IP или ID"/>
         <label className="field"><span>Связь агента</span><select value={onlineFilter} onChange={event=>setOnlineFilter(event.target.value as 'all'|'online'|'offline')}><option value="all">Все</option><option value="online">На связи</option><option value="offline">Без связи</option></select></label>
       </div>
-      {nodes.isPending?<Loading/>:nodes.isError?<Notice>Не удалось получить состояние нод.</Notice>:nodes.data?.items.length===0?<div className="empty">Ноды ещё не зарегистрированы.</div>:filteredNodes.length===0?<div className="empty">По заданным фильтрам ноды не найдены.</div>:view==='table'?<div className="table-scroll"><table><thead><tr><th>Нода</th><th>Управление</th><th>Ревизия</th><th>Проверка VPN</th><th>Последний сигнал</th><th>Действия</th></tr></thead><tbody>
+      {nodes.isPending?<Loading/>:nodes.isError?<ErrorState error={nodes.error} onRetry={()=>void nodes.refetch()} retrying={nodes.isFetching}/>:nodes.data?.items.length===0?<div className="empty">Ноды ещё не зарегистрированы.</div>:filteredNodes.length===0?<div className="empty">По заданным фильтрам ноды не найдены.</div>:view==='table'?<div className="table-scroll"><table><thead><tr><th>Нода</th><th>Управление</th><th>Ревизия</th><th>Проверка VPN</th><th>Последний сигнал</th><th>Действия</th></tr></thead><tbody>
         {filteredNodes.map(node=><tr key={node.id}><td><strong>{node.name}</strong><small className="muted node-secondary">{node.control.address||'Адрес не назначен'} · {node.version||'Версия неизвестна'} · протокол {node.agent_protocol===1?'v1':'неизвестен'}</small></td><td><Badge variant={node.online?'green':'red'}>{node.online?'Агент на связи':'Нет связи'}</Badge><small className="node-secondary">Xray: {node.online?node.xray_state:'неизвестно'}</small></td><td>{revState(node)}{node.control.draining&&<small className="node-secondary">Drain: новые ссылки скрыты</small>}{node.control.last_error&&<small className="error node-secondary">{node.control.last_error}</small>}</td><td>{probeLabel(node)}</td><td>{readableTime(node.last_seen)}</td><td>{actionButtons(node)}</td></tr>)}
       </tbody></table></div>:<div className="node-diagram" aria-label="Схема управления удалёнными серверами">
         <div className="node-controller"><strong>Контроллер ArcNet</strong><small>{nodes.data?.controller||'HTTPS URL не задан'}</small></div>
@@ -268,7 +268,6 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
       </div>}
       <Button onClick={()=>{setRemovalNode('');setRemovalPrivateKey('');resetRemoval();}}>Закрыть без изменений</Button>
     </div></Panel>}
-    <section className="server-add-prompt"><div><h2>Добавьте сервер</h2><p className="muted">Подключите новый VPS через SSH с проверкой ключа и планом изменений.</p></div><Button onClick={()=>setInstallOpen(true)}>Подключить сервер</Button></section>
     {installOpen&&<Dialog title="Добавить сервер" onClose={()=>{setInstallOpen(false);setPrivateKey('');setPreflight(null);}} busy={inspect.isPending||check.isPending||install.isPending} dirty={!!privateKey}><div className="dialog-body node-wizard">
       {error&&<Notice>{error}</Notice>}
       <p className="muted">Только публичный VPS с Debian/Ubuntu, Linux amd64, systemd и SSH-ключом. Для установки нужен заранее подписанный пакет агента и Xray на контроллере. SSH-пароль не используется; приватный ключ не сохраняется в базе.</p>
@@ -295,7 +294,7 @@ arcvpn node-probe --link-file ./vless.txt --xray /usr/local/bin/xray --controlle
       {latestOperation&&<p role="status">Установка запущена. ID операции: <code>{latestOperation}</code>. Закрытие вкладки не отменяет серверную операцию.</p>}
     </div><div className="dialog-footer"><DialogClose disabled={inspect.isPending||check.isPending||install.isPending}>Закрыть</DialogClose></div></Dialog>}
     <Panel title="Операции SSH-установки"><div className="panel-body">
-      {operations.isPending?<Loading/>:operations.isError?<Notice>Журнал установок сейчас недоступен.</Notice>:<div className="table-scroll"><table><thead><tr><th>ID / нода</th><th>Шаг</th><th>Статус</th><th>Последнее обновление</th></tr></thead><tbody>
+      {operations.isPending?<Loading/>:operations.isError?<ErrorState error={operations.error} onRetry={()=>void operations.refetch()} retrying={operations.isFetching}/>:<div className="table-scroll"><table><thead><tr><th>ID / нода</th><th>Шаг</th><th>Статус</th><th>Последнее обновление</th></tr></thead><tbody>
         {(operations.data?.items??[]).map(op=><tr key={op.id}><td>{op.name}<small className="node-secondary">{op.operation_type==='remove'?`Удаление (${op.removal_mode})`:op.operation_type==='upgrade'?`Обновление → ${op.target_version??'?'}`:'Установка'} · <code>{op.id}</code></small></td><td>{op.step}</td><td>{op.status}{op.error&&<small className="error node-secondary">{op.error}</small>}</td><td>{readableTime(op.updated_at)}</td></tr>)}
       </tbody></table>{operations.data?.items.length===0&&<div className="empty">Операций пока нет.</div>}</div>}
     </div></Panel>

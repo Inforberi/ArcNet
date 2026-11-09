@@ -11,6 +11,7 @@ export default function AccountSettings(){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  async function submit(event:FormEvent){
   event.preventDefault();setError('');
+  if(busy)return;
   if(password!==confirm){setError('Пароли не совпадают');return;}
   setBusy(true);
   try{await api('/api/security/account','PUT',{username:manualName??session.data?.username,current_password:current,password});setCurrent('');setPassword('');setConfirm('');setCSRF('');await cache.invalidateQueries({queryKey:['session']});}
@@ -21,9 +22,9 @@ export default function AccountSettings(){
   <Field label="Логин" autoComplete="username" required minLength={3} maxLength={64} pattern="[a-zA-Z0-9][a-zA-Z0-9_.-]{2,63}" value={manualName??session.data?.username??''} onChange={e=>setName(e.target.value)}/>
   <Field label="Текущий пароль" type="password" autoComplete="current-password" required maxLength={256} value={current} onChange={e=>setCurrent(e.target.value)}/>
   <Field label="Новый пароль" type="password" autoComplete="new-password" required minLength={16} maxLength={256} value={password} onChange={e=>setPassword(e.target.value)}/>
-  <Field label="Повторите новый пароль" type="password" autoComplete="new-password" required value={confirm} onChange={e=>setConfirm(e.target.value)}/>
+  <Field label="Повторите новый пароль" type="password" autoComplete="new-password" required value={confirm} error={confirm&&confirm!==password?'Пароли не совпадают':undefined} onChange={e=>setConfirm(e.target.value)}/>
   <p className="muted">После изменения войдите заново. Настройки 2FA и VPN сохранятся.</p>
   {error&&<p className="error" role="alert">{error}</p>}
-  <Button type="submit" variant="primary" disabled={busy||session.isPending}>{busy?'Сохраняем…':'Сохранить и войти заново'}</Button>
+  <Button type="submit" variant="primary" pending={busy} disabled={session.isPending||session.isError}>Сохранить и войти заново</Button>
  </form></Panel>;
 }

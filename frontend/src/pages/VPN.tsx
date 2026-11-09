@@ -23,7 +23,7 @@ export default function VPN() {
  const [editing,setEditing]=useState<ConnectionItem>(),[action,setAction]=useState<PendingAction>();
  const [rotation,setRotation]=useState<ConnectionItem>();
  const [detailKind,setDetailKind]=useState<string>(),[pickTarget,setPickTarget]=useState(false);
- const [error,setError]=useState(''),[created,setCreated]=useState(false);
+ const [error,setError]=useState(''),[created,setCreated]=useState(false),[unknown,setUnknown]=useState(false);
  const configured=new Set(profiles.data?.items.map(p=>p.kind)??[]);
  const available=[{kind:'vless-reality' as const,name:'VLESS + Reality TCP'},...protocolCatalog.filter(p=>p.kind==='vless-xhttp'||!configured.has(p.kind))];
  async function refresh(){await Promise.all(['vpn','protocols','protocol-health','connection-defaults','users','user-devices','user-usage'].map(key=>cache.invalidateQueries({queryKey:[key]})));}
@@ -33,36 +33,36 @@ export default function VPN() {
   else await api('/api/protocols','POST',input);
  },onSuccess:async()=>{await refresh();setCreating(false);setCreated(true);}});
  const change=useMutation({mutationFn:({item,settings,remove=false}:{item:ConnectionItem;settings?:ConnectionSettings;remove?:boolean})=>api(`/api/connections/${connectionKey(item)}`,remove?'DELETE':'PUT',remove?{revision:item.revision}:{revision:item.revision,...settings}),onSuccess:async()=>{await refresh();setEditing(undefined);setAction(undefined);}});
- async function submit(input:RealityInput|ProtocolInput){setError('');try{await create.mutateAsync(input);}catch(err){setError(err instanceof Error?err.message:'Не удалось создать протокол');}}
- async function save(item:ConnectionItem,settings?:ConnectionSettings,remove=false){setError('');try{await change.mutateAsync({item,settings,remove});}catch(err){if(err instanceof ApiError&&err.status===409)await refresh();setError(err instanceof Error?err.message:'Не удалось применить изменение');}}
- function openCreate(){setKind(available[0]?.kind??'vless-reality');setError('');setCreated(false);setCreating(true);}
+ async function submit(input:RealityInput|ProtocolInput){if(unknown||create.isPending)return;setError('');try{await create.mutateAsync(input);}catch(err){if(err instanceof ApiError&&err.outcomeUnknown)setUnknown(true);setError(err instanceof Error?err.message:'Не удалось создать протокол');}}
+ async function save(item:ConnectionItem,settings?:ConnectionSettings,remove=false){if(unknown||change.isPending)return;setError('');try{await change.mutateAsync({item,settings,remove});}catch(err){if(err instanceof ApiError){if(err.status===409)await refresh();if(err.outcomeUnknown)setUnknown(true)}setError(err instanceof Error?err.message:'Не удалось применить изменение');}}
+ function openCreate(){setKind(available[0]?.kind??'vless-reality');setError('');setCreated(false);setUnknown(false);setCreating(true);}
  const busy=create.isPending||change.isPending;
  const items=vpn.data&&profiles.data?connectionItems(vpn.data,profiles.data.items):[];
  const assignments=users.data?new Map(items.map(item=>[connectionKey(item),users.data.items.filter(user=>user.preferences?.allowed_kinds==null||user.preferences.allowed_kinds.includes(connectionKey(item))).length])):undefined;
  const detail=items.find(item=>connectionKey(item)===detailKind);
- function edit(item:ConnectionItem,pick=false){setError('');setDetailKind(undefined);setPickTarget(pick);setEditing(item);setCreated(false)}
+ function edit(item:ConnectionItem,pick=false){setError('');setUnknown(false);setDetailKind(undefined);setPickTarget(pick);setEditing(item);setCreated(false)}
  return <>
   <PageHeading title="Подключения" description="Входящие подключения сервера, назначенные пользователи и параметры защиты." actions={<>{available.length>0&&<Button variant="primary" disabled={busy||vpn.isPending||profiles.isPending||vpn.isError||profiles.isError} onClick={openCreate}><Icon name="plus"/>Добавить подключение</Button>}</>}/>
   {created&&<p className="connection-success" role="status">Протокол добавлен. <Link to="/users">Выдать доступ пользователю</Link></p>}
   <StatStrip label="Сводка подключений" items={[{label:'Подключений',value:items.length},{label:'Включены',value:items.filter(item=>item.enabled).length},{label:'Назначено пользователям',value:users.data?users.data.items.filter(user=>items.some(item=>user.preferences?.allowed_kinds==null||user.preferences.allowed_kinds.includes(connectionKey(item)))).length:'—'},{label:'VPN-проверка',value:'Нет данных',tone:'neutral'}]}/>
   <section className="connections-section"><div className="section-heading"><h2>Входящие подключения</h2><small className="muted">Нажмите на подключение, чтобы открыть подробности</small></div>
-   {vpn.isPending||profiles.isPending?<Loading/>:vpn.isError||profiles.isError?<div className="panel-body"><p className="error" role="alert">{vpn.error?.message??profiles.error?.message}</p><Button onClick={()=>void refresh()}>Повторить</Button></div>:<ConnectionTable assignments={users.isError?undefined:assignments} onRefresh={item=>edit(item,true)} items={items} health={health.isError?[]:health.data?.items??[]} busy={busy} onDetails={item=>setDetailKind(connectionKey(item))} onEdit={item=>edit(item)} onToggle={item=>{setError('');setAction({item,remove:false});setCreated(false);}} onRemove={item=>{setError('');setAction({item,remove:true});setCreated(false);}}/>}
+   {vpn.isPending||profiles.isPending?<Loading/>:vpn.isError||profiles.isError?<div className="panel-body"><p className="error" role="alert">{vpn.error?.message??profiles.error?.message}</p><Button onClick={()=>void refresh()}>Повторить</Button></div>:<ConnectionTable assignments={users.isError?undefined:assignments} onRefresh={item=>edit(item,true)} items={items} health={health.isError?[]:health.data?.items??[]} busy={busy} onDetails={item=>setDetailKind(connectionKey(item))} onEdit={item=>edit(item)} onToggle={item=>{setError('');setUnknown(false);setAction({item,remove:false});setCreated(false);}} onRemove={item=>{setError('');setUnknown(false);setAction({item,remove:true});setCreated(false);}}/>}
    {health.isError&&<p className="panel-body muted">Состояние служб недоступно. <Button className="small" onClick={()=>void health.refetch()}>Проверить снова</Button></p>}
   </section>
-  {creating&&vpn.data&&<Dialog title="Добавить подключение" busy={create.isPending} onClose={()=>setCreating(false)}>
-   <div className="panel-body"><ProtocolChoice kind={kind} available={available.map(p=>p.kind)} configured={new Set([...configured,...(vpn.data.configured?['vless-reality']:[])])} busy={create.isPending} onChange={value=>{setKind(value);setError('');}}/>
+  {creating&&vpn.data&&<Dialog title="Добавить подключение" busy={create.isPending} onClose={()=>{setCreating(false);void refresh()}}>
+   <div className="panel-body"><ProtocolChoice kind={kind} available={available.map(p=>p.kind)} configured={new Set([...configured,...(vpn.data.configured?['vless-reality']:[])])} busy={create.isPending||unknown} onChange={value=>{setKind(value);setError('');}}/>
     {error&&<p className="error" role="alert">{error}</p>}
    </div>
-   {kind==='vless-reality'?<RealitySetup busy={create.isPending} onSubmit={submit}/>:<ProtocolSetup key={kind} vpn={vpn.data} available={[kind]} busy={create.isPending} onSubmit={submit}/>}
+   <fieldset className="user-editor-fields" disabled={unknown}>{kind==='vless-reality'?<RealitySetup busy={create.isPending} onSubmit={submit}/>:<ProtocolSetup key={kind} vpn={vpn.data} available={[kind]} busy={create.isPending} onSubmit={submit}/>}</fieldset>
   </Dialog>}
   {detail&&<ConnectionDetails item={detail} state={health.data?.items.find(h=>h.kind===connectionKey(detail))?.state} checking={health.isFetching} checkFailed={health.isError} onCheck={()=>void health.refetch()} onEdit={()=>edit(detail)} onRotate={()=>{setDetailKind(undefined);setRotation(detail)}} onPickTarget={()=>edit(detail,true)} onClose={()=>setDetailKind(undefined)}/>}
   {rotation&&<KeyRotationDialog item={rotation} onClose={()=>setRotation(undefined)} onDone={refresh}/>}
-  {editing&&<ConnectionEditor key={connectionKey(editing)} item={editing} initialPickingTarget={pickTarget} busy={change.isPending} error={error} onClose={()=>setEditing(undefined)} onSubmit={settings=>save(editing,settings)}/>}
-  {action&&<Dialog title={`${action.remove?'Удалить':action.item.enabled?'Отключить':'Включить'} · ${connectionLabel(action.item.kind)}`} busy={change.isPending} onClose={()=>setAction(undefined)}>
+  {editing&&<ConnectionEditor key={connectionKey(editing)} item={editing} initialPickingTarget={pickTarget} busy={change.isPending} unknown={unknown} error={error} onClose={()=>{setEditing(undefined);void refresh()}} onSubmit={settings=>save(editing,settings)}/>}
+  {action&&<Dialog title={`${action.remove?'Удалить':action.item.enabled?'Отключить':'Включить'} · ${connectionLabel(action.item.kind)}`} busy={change.isPending} onClose={()=>{setAction(undefined);void refresh()}}>
    <div className="dialog-body"><p>{action.remove?'Протокол и его ключи будут удалены. При повторном создании потребуется заново импортировать конфигурацию. Пользователи и другие протоколы сохранятся.':action.item.enabled?'Доступ через этот протокол будет отключён. Ключи сохранятся — протокол можно включить снова.':'Протокол будет включён с сохранёнными настройками и ключами.'}</p>
     {error&&<p className="error" role="alert">{error}</p>}
    </div>
-   <footer className="dialog-footer"><DialogClose disabled={change.isPending}>Отмена</DialogClose><Button variant={action.remove?'danger':'primary'} disabled={change.isPending} onClick={()=>void save(action.item,{port:action.item.port,sni:action.item.sni,target:action.item.target,enabled:!action.item.enabled},action.remove)}>{change.isPending?'Применяем…':action.remove?'Удалить':action.item.enabled?'Отключить':'Включить'}</Button></footer>
+   <footer className="dialog-footer"><DialogClose disabled={change.isPending}>Отмена</DialogClose><Button variant={action.remove?'danger':'primary'} disabled={change.isPending||unknown} onClick={()=>void save(action.item,{port:action.item.port,sni:action.item.sni,target:action.item.target,enabled:!action.item.enabled},action.remove)}>{change.isPending?'Применяем…':action.remove?'Удалить':action.item.enabled?'Отключить':'Включить'}</Button></footer>
   </Dialog>}
  </>;
 }

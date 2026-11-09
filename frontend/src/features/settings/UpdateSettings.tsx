@@ -3,7 +3,7 @@ import {versionLabel,releaseLabel} from './version-label';
 import {useEffect,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {api,ApiError,uploadSignedUpdate} from '../../shared/api';
-import {Button,Loading,Panel} from '../../shared/ui';
+import {Button,Loading,Panel,ErrorState} from '../../shared/ui';
 
 type Download={version:string;state:'downloading'|'verified'|'failed';message?:string};
 type Status={download?:Download;available:boolean;trusted:boolean;staged:boolean;version?:string;current_version:string;applying?:boolean;result?:string;started_at?:number;message?:string};
@@ -52,7 +52,7 @@ export default function UpdateSettings({active}:{active:boolean}){
    {!state.data.available||!state.data.trusted?<p role="status" className="muted">{state.data.message??'Доверенный ключ обновлений не настроен. Нужна проверенная первоначальная установка.'}</p>:<>
     {!state.data.staged&&<>
      <div className="flex flex-wrap items-center justify-between gap-3"><strong>Доступные версии</strong><Button disabled={disabled||releases.isFetching} onClick={()=>{void state.refetch();void releases.refetch();}}>Проверить обновления</Button></div>
-     {releases.isPending?<Loading/>:releases.isError?<p role="alert" className="error">{releases.error.message}</p>:selected?<>
+     {releases.isPending?<Loading/>:releases.isError?<ErrorState error={releases.error} onRetry={()=>void releases.refetch()} retrying={releases.isFetching}/>:selected?<>
       <label className="field"><span>Версия</span><select disabled={disabled} value={selected.version} onChange={e=>setSelection(e.target.value)}>{items.map(item=><option key={item.version} value={item.version}>{releaseLabel(item.version,items.map(v=>v.version))}</option>)}</select></label>
       <p className="muted whitespace-pre-wrap break-words">{selected.notes}</p><small className="muted">{selected.platform} · {selected.size<1048576?`${Math.ceil(selected.size/1024)} КиБ`:`${(selected.size/1048576).toFixed(1)} МБ`} · Подписанный пакет панели и интерфейса</small>
       <Button variant="primary" disabled={disabled} onClick={()=>void prepare()}>{busy?'Загружаем и проверяем…':'Загрузить выбранную версию'}</Button>

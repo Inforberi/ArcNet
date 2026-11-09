@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Link} from 'react-router';
 import {api} from '../shared/api';
-import {Badge, Button, Field, Loading, Notice, PageHeading, Panel} from '../shared/ui';
+import {Badge, Button, Field, Loading, ErrorState, PageHeading, Panel} from '../shared/ui';
 import {ageText, formatBytes, formatPercent, needsAttention, percentUsed, rateText, statusText, type FleetOverview, type ServerDetail} from '../features/dashboard/model';
 import {MonitoringControls} from '../features/dashboard/Monitoring';
 import TrafficChart from '../shared/TrafficChart';
@@ -35,8 +35,8 @@ export default function Overview() {
   <PageHeading title="Обзор" description="Ресурсы серверов и отдельные статусы агента, Xray и VPN" actions={<Button onClick={() => {void overview.refetch(); void details.refetch(); void history.refetch();}} disabled={overview.isFetching || details.isFetching}>Обновить</Button>}/>
   <MonitoringControls/>
   <div className="dashboard-toolbar"><label className="field"><span>Сервер на дашборде</span><select aria-label="Сервер на дашборде" value={selected} onChange={event => setSelected(event.target.value)}><option value="local">Сервер панели</option>{fleet.filter(item => item.id !== 'local').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="muted">{overview.data ? `Серверов: ${overview.data.nodes} · пользователей включено: ${overview.data.enabled_users} из ${overview.data.users}` : 'Получаем состояние инфраструктуры'}</p></div>
-  {overview.isError && <Notice>{overview.error.message}</Notice>}
-  {details.isError && <Notice>{details.error.message} <Button onClick={() => setSelected('local')}>Открыть сервер панели</Button></Notice>}
+  {overview.isError && <ErrorState error={overview.error} onRetry={()=>void overview.refetch()} retrying={overview.isFetching}/>}
+  {details.isError && <ErrorState error={details.error} onRetry={()=>void details.refetch()} retrying={details.isFetching}/>}
   {details.isPending ? <Loading/> : data && server && <>
    <div className="dashboard-status-row"><strong>{server.name}</strong>{server.address && <span>{server.address}</span>}<span className="muted">Метрики: {ageText(server.telemetry?.received_at, now)}{!fresh ? ' · нет свежих данных' : ''}</span></div>
    {server.legacy && <p className="inline-status">Агент передаёт базовые показатели. Для CPU, диска и сети нужен агент с расширенной телеметрией.</p>}

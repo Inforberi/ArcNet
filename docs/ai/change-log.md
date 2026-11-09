@@ -1,3 +1,7 @@
+## 2026-11-09 — UI/UX, фронтенд
+
+Сохранение draft при query refetch, смене панели и reauth; секции подключения/один submit; локальные ошибки и безопасный unknown, 4xx/Retry-After; доступные transient уведомления и clipboard status; Dialog focus/geometry/scroll; мобильные фильтры и формы. Без backend/API/БД/палитры/новых зависимостей. [Полный аудит и проверка](../design/ui-ux-audit-2026-11-09.md).
+
 **2026-11-09 — проверка всей текущей рабочей копии:** Linux Go suite30 packages/438 tests+subtests PASS,10 opt-in SKIP; frontend30 PASS, TS/Vite PASS; live local auth/CSRF/user CRUD/editor persistence/subscription/QR PASS, временный пользователь удалён. Fingerprint исходников до/после одинаковый. Новых тестов/кода/релиза/VPS изменений нет. Browser/real VPN/VM acceptance NOT RUN. [Полный отчёт и пропуски](../testing/local-results/functional-check-2026-11-09.md).
 
 **2026-11-09 — исправления общего UX/UI (локально):** shared Button/Field/Advanced, bounded context ConfirmationProvider для опасных операций и dirty Dialog; адаптив table→compact rows→mobile cards, единая оболочка user editor/activity с сохранением draft, compact toggles, QR load/error frame, backup preview, журнал search/empty/retry и monitoring. API/DB/runtime не менялись. TS/Vite и существующие frontend30 tests PASS, новые тесты не писались; stateful/browser/keyboard/mobile/QR scan NOT RUN. Локальный fixture перезапущен на18394, mock runtime. Без релиза/VPS. [Сделано и ограничения](../design/v6-local-implementation.md#исправления-после-общего-аудита--9-ноября-2026).

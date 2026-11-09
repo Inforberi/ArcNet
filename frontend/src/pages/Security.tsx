@@ -27,7 +27,9 @@ export default function Security(){
  const [journalLimit,setJournalLimit]=useState<number|null>(null);
  const updateJournal=useMutation({mutationFn:(value:number)=>api('/api/settings/journal','POST',{budget_mb:value}),onSuccess:()=>queryClient.invalidateQueries({queryKey:['journal-settings']})});
  const[limit,setLimit]=useState<number|null>(null);const [service,setService]=useState('xray');const [serviceTail,setServiceTail]=useState<string|null>(null);
- const[error,setError]=useState('');const[message,setMessage]=useState('');const[tail,setTail]=useState<string|null>(null);
+ const[errors,setErrors]=useState<Record<string,string>>({});const error=errors[section]??'';
+ function setError(message:string){setErrors(previous=>({...previous,[section]:message}))}
+ const[message,setMessage]=useState('');const[tail,setTail]=useState<string|null>(null);
  const[password,setPassword]=useState('');const[code,setCode]=useState('');const[setup,setSetup]=useState<MFASetup|null>(null);
  const[authBusy,setAuthBusy]=useState(false);
  const update=useMutation({mutationFn:(v:number)=>api('/api/settings/logs','POST',{budget_mb:v}),onSuccess:()=>queryClient.invalidateQueries({queryKey:['log-settings']})});
@@ -39,7 +41,7 @@ export default function Security(){
  return <>
   <PageHeading title="Настройки" description="Аккаунт, интерфейс и обслуживание сервера"/>
   <SettingsLayout navigation={<nav className="settings-navigation" aria-label="Разделы настроек">
-   {([{id:'account',label:'Аккаунт'},{id:'interface',label:'Интерфейс'},{id:'server',label:'Сервер'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant="ghost" disabled={authBusy||firewallMutation.isPending||updateJournal.isPending||update.isPending||clear.isPending} onClick={()=>{setSection(item.id);setError('');setMessage('');}}>{item.label}</Button>)}
+   {([{id:'account',label:'Аккаунт'},{id:'interface',label:'Интерфейс'},{id:'server',label:'Сервер'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant="ghost" onClick={()=>{setSection(item.id);setMessage('');}}>{item.label}</Button>)}
    <Link to="/versions" className="button ghost">Версии ArcNet</Link>
   </nav>}>
   {error&&<p className="error" role="alert">{error}</p>}
