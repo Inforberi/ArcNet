@@ -18,9 +18,11 @@ import (
 	"time"
 
 	"github.com/arcvpn/arcvpn/internal/publicnet"
+	"github.com/arcvpn/arcvpn/internal/releaseversion"
 )
 
 const CatalogURL = "https://raw.githubusercontent.com/Inforberi/ArcNet/main/deploy/update-catalog.json"
+const CatalogV2URL = "https://raw.githubusercontent.com/Inforberi/ArcNet/main/deploy/update-catalog-v2.json"
 const catalogPrefix = "ArcNet update catalog v1\n"
 
 var previewVersion = regexp.MustCompile(`^0\.7\.0-stage5-a([1-9][0-9]{0,3})$`)
@@ -34,11 +36,13 @@ type Release struct {
 	Size           int64  `json:"size"`
 	SHA256         string `json:"sha256"`
 	Notes          string `json:"notes"`
+	PublishedAt    string `json:"published_at,omitempty"`
 }
 type Catalog struct {
 	Signed   []byte    `json:"-"`
 	Format   string    `json:"format"`
 	Releases []Release `json:"releases"`
+	Partial  bool      `json:"-"`
 }
 type signedCatalog struct {
 	Payload   string `json:"payload"`
@@ -60,7 +64,7 @@ func decodeCatalog(raw []byte) (Catalog, error) {
 	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
-	if d.Decode(&c) != nil || c.Format != "arcnet-update-catalog-v1" || len(c.Releases) > 32 {
+	if d.Decode(&c) != nil || (c.Format != "arcnet-update-catalog-v1" && c.Format != "arcnet-update-catalog-v2") || len(c.Releases) > 32 {
 		return c, ErrInvalid
 	}
 	if d.Decode(new(any)) != io.EOF {
@@ -70,14 +74,31 @@ func decodeCatalog(raw []byte) (Catalog, error) {
 	for _, r := range c.Releases {
 		n := previewNumber(r.Version)
 		min := previewNumber(r.MinimumVersion)
+		comparison, valid := releaseversion.Compare(r.MinimumVersion, r.Version)
+		file := "update-" + r.Version + ".zip"
+		if n > 0 {
+			file = "update-a" + strconv.Itoa(n) + ".zip"
+		}
+		if c.Format == "arcnet-update-catalog-v1" && (n < 5 || min < 5 || min > n || r.PublishedAt != "") {
+			return c, ErrInvalid
+		}
+		if !valid || comparison > 0 || !releaseversion.Publishable(r.Version) || !releaseversion.Publishable(r.MinimumVersion) {
+			return c, ErrInvalid
+		}
+		if r.PublishedAt != "" {
+			if _, err := time.Parse(time.RFC3339, r.PublishedAt); err != nil {
+				return c, ErrInvalid
+			}
+		}
 		digest, err := hex.DecodeString(r.SHA256)
-		if n < 5 || min < 5 || min > n || r.Platform != "linux/amd64" || r.Scope != "core-ui" || r.File != "update-a"+strconv.Itoa(n)+".zip" || r.Size < 1 || r.Size > MaxArchive || err != nil || len(digest) != 32 || r.SHA256 != strings.ToLower(r.SHA256) || len(r.Notes) > 2000 || seen[r.Version] {
+		if r.Platform != "linux/amd64" || r.Scope != "core-ui" || r.File != file || r.Size < 1 || r.Size > MaxArchive || err != nil || len(digest) != 32 || r.SHA256 != strings.ToLower(r.SHA256) || len(r.Notes) > 2000 || seen[r.Version] {
 			return c, ErrInvalid
 		}
 		seen[r.Version] = true
 	}
 	sort.Slice(c.Releases, func(i, j int) bool {
-		return previewNumber(c.Releases[i].Version) > previewNumber(c.Releases[j].Version)
+		n, _ := releaseversion.Compare(c.Releases[i].Version, c.Releases[j].Version)
+		return n > 0
 	})
 	return c, nil
 }
@@ -111,20 +132,34 @@ func VerifyCatalog(raw []byte, key ed25519.PublicKey) (Catalog, error) {
 	return c, nil
 }
 func IsUpgrade(current, next string) bool {
-	return previewNumber(current) >= 5 && previewNumber(next) > previewNumber(current)
+	n, ok := releaseversion.Compare(current, next)
+	return ok && n < 0 && (!releaseversion.Legacy(current) || previewNumber(current) >= 5)
 }
 func (r Release) Compatible(current, platform string) bool {
-	return r.Platform == platform && previewNumber(current) >= previewNumber(r.MinimumVersion) && IsUpgrade(current, r.Version)
+	n, ok := releaseversion.Compare(current, r.MinimumVersion)
+	return ok && n >= 0 && r.Platform == platform && IsUpgrade(current, r.Version)
 }
 func (r Release) URL() string {
 	return "https://github.com/Inforberi/ArcNet/releases/download/v" + r.Version + "/" + r.File
 }
 func FetchCatalog(ctx context.Context, key ed25519.PublicKey) (Catalog, error) {
-	raw, err := publicnet.New().Fetch(ctx, CatalogURL, 96<<10)
+	guard := publicnet.New()
+	return fetchCatalog(ctx, key, guard.Fetch)
+}
+func fetchCatalog(ctx context.Context, key ed25519.PublicKey, fetch func(context.Context, string, int64) ([]byte, error)) (Catalog, error) {
+	call, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	raw, err := fetch(call, CatalogV2URL, 96<<10)
+	if err == nil {
+		return VerifyCatalog(raw, key)
+	} // A bad signature never falls back.
+	raw, err = fetch(call, CatalogURL, 96<<10)
 	if err != nil {
 		return Catalog{}, err
 	}
-	return VerifyCatalog(raw, key)
+	c, err := VerifyCatalog(raw, key)
+	c.Partial = true
+	return c, err
 }
 
 // Downloads are fixed to release assets, public IPs and HTTPS; no environment proxy or arbitrary URL is accepted.

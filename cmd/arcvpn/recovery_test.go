@@ -36,7 +36,7 @@ func TestResetAdministratorReadsStdinWithoutEchoAndRevokesSessions(t *testing.T)
 	if err := st.AddSession(ctx, "session", "csrf", 9999999999); err != nil {
 		t.Fatal(err)
 	}
-	const password = "custom-new-password-2026"
+	const password = " абвгде "
 	var output bytes.Buffer
 	if err := resetAdministrator(ctx, st, []string{"--password-stdin"}, strings.NewReader(password+"\n"), &output); err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func TestResetAdministratorReadsStdinWithoutEchoAndRevokesSessions(t *testing.T)
 	if _, valid, _ := st.Session(ctx, "session"); valid {
 		t.Fatal("old session survived")
 	}
-	for _, input := range []string{"short", strings.Repeat("x", 257), strings.Repeat("x", 256) + "\r\nignored", "multi-line-password-2026\nsecond"} {
+	for _, input := range []string{"12345678\r", "short", strings.Repeat("x", 257), strings.Repeat("x", 256) + "\r\nignored", "multi-line-password-2026\nsecond"} {
 		if err := resetAdministrator(ctx, st, []string{"--password-stdin"}, strings.NewReader(input), &output); err == nil {
 			t.Fatal("invalid password accepted")
 		}

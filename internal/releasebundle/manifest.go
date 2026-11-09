@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/arcvpn/arcvpn/internal/releaseversion"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,7 +20,6 @@ const MaxArchive = 128 << 20
 const SignatureDomain = "ArcVPN installer manifest v1\n"
 
 var ErrInvalid = errors.New("invalid or untrusted ArcVPN installer bundle")
-var versionPattern = regexp.MustCompile(`^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$`)
 var digestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type Manifest struct {
@@ -33,7 +33,7 @@ type Manifest struct {
 }
 
 func (m Manifest) Validate() error {
-	if m.Format != "arcvpn-installer-v1" || !versionPattern.MatchString(m.Version) || m.Platform != "linux/amd64" || m.File != "arcvpn-"+m.Version+"-linux-amd64.tar.gz" || m.Size <= 0 || m.Size > MaxArchive || !digestPattern.MatchString(m.SHA256) || !digestPattern.MatchString(m.SourceSHA256) {
+	if m.Format != "arcvpn-installer-v1" || !releaseversion.Publishable(m.Version) || m.Platform != "linux/amd64" || m.File != "arcvpn-"+m.Version+"-linux-amd64.tar.gz" || m.Size <= 0 || m.Size > MaxArchive || !digestPattern.MatchString(m.SHA256) || !digestPattern.MatchString(m.SourceSHA256) {
 		return ErrInvalid
 	}
 	return nil

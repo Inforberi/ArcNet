@@ -53,8 +53,8 @@ func pbkdf2(password, salt []byte, iterations int, dkLen int) []byte {
 	return out[:dkLen]
 }
 func HashPassword(password string) (string, error) {
-	if len(password) < 16 || len(password) > 256 {
-		return "", fmt.Errorf("password must be between 16 and 256 bytes")
+	if err := ValidateNewPassword(password); err != nil {
+		return "", err
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {

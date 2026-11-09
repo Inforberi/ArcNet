@@ -32,9 +32,12 @@ func resetAdministrator(ctx context.Context, st *store.Store, args []string, inp
 		if err != nil {
 			return errors.New("не удалось прочитать пароль")
 		}
-		password = strings.TrimSuffix(strings.TrimSuffix(string(raw), "\n"), "\r")
-		if len(raw) > 258 || len(password) < 16 || len(password) > 256 || strings.ContainsAny(password, "\x00\r\n") {
-			return errors.New("пароль должен содержать 16–256 байт в одной строке")
+		password = string(raw)
+		if strings.HasSuffix(password, "\n") {
+			password = strings.TrimSuffix(strings.TrimSuffix(password, "\n"), "\r")
+		}
+		if len(raw) > 258 || auth.ValidateNewPassword(password) != nil {
+			return errors.New("пароль: от 8 Unicode-символов, до 256 байт UTF-8 в одной строке")
 		}
 	} else {
 		var err error

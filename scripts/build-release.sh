@@ -8,6 +8,7 @@ cd "$ROOT"
 command -v go >/dev/null || { echo 'Go is required' >&2; exit 1; }
 command -v npm >/dev/null || { echo 'Node.js/npm are required for the build machine' >&2; exit 1; }
 command -v gcc >/dev/null || { echo 'A C compiler is required for SQLite/QR code bindings' >&2; exit 1; }
+command -v python3 >/dev/null || { echo 'Python 3 is required only on the release host for build receipts' >&2; exit 1; }
 [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]] || { echo 'This CGO build script currently requires Linux x86_64; use a Linux CI runner.' >&2; exit 1; }
 
 echo '[1/5] Install pinned frontend dependencies'
@@ -35,8 +36,9 @@ install -m 0644 deploy/update-public.hex dist/update-public.hex
 rm -rf web/react-dist
 trap 'rm -rf "$ROOT/web/react-dist"' EXIT
 cp -a frontend/dist web/react-dist
-ARCVPN_BUILD_VERSION="${ARCVPN_BUILD_VERSION:-0.7.0-stage5}"
-[[ "$ARCVPN_BUILD_VERSION" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Unsupported panel release version; use 0.6.x or 0.7.x' >&2; exit 65; }
+ARCVPN_BUILD_VERSION="${ARCVPN_BUILD_VERSION:-$(cat VERSION)}"
+[[ "$ARCVPN_BUILD_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[A-Za-z0-9.-]+)?$ ]] || { echo 'Invalid SemVer release version' >&2; exit 65; }
+CGO_ENABLED=0 go run ./cmd/arcvpn-release version-check --version "$ARCVPN_BUILD_VERSION"
 revision="${ARCVPN_SOURCE_REVISION:-$(git rev-parse --verify HEAD)}"
 dirty="${ARCVPN_SOURCE_DIRTY:-}"
 if [[ -z "$dirty" ]]; then
@@ -57,6 +59,11 @@ CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags arcvpn_embed_react -trimpat
 ./dist/arcvpn-linux-amd64 frontend-check
 ./dist/arcvpn-linux-amd64 version | grep -Fx "arcvpn $ARCVPN_BUILD_VERSION"
 ./dist/arcvpn-linux-amd64 help | grep -Fx 'local management protocol: lifecycle-v1'
+python3 - <<'PYBUILDINFO'
+from pathlib import Path
+import hashlib,json
+p=Path('dist/BUILDINFO.json');info=json.loads(p.read_text());info['core_sha256']=hashlib.sha256(Path('dist/arcvpn-linux-amd64').read_bytes()).hexdigest();info['frontend_verified']=True;p.write_text(json.dumps(info,separators=(',',':'))+'\n')
+PYBUILDINFO
 echo '[5/5] Package the installer and verified runtime'
 # Legacy compatibility only; not part of the default supported scope.
 ARCVPN_WITH_AMNEZIAWG="${ARCVPN_WITH_AMNEZIAWG:-0}"

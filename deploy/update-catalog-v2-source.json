@@ -1,0 +1,45 @@
+{
+  "format": "arcnet-update-catalog-v2",
+  "releases": [
+    {
+      "version": "0.7.0-stage5-a9",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a7",
+      "scope": "core-ui",
+      "file": "update-a9.zip",
+      "size": 4780474,
+      "sha256": "e7f98341935cbab44356c165eafdc8b1fb862d9ef7f13c172eb29f9a776f4945",
+      "notes": "UI v7, компактные формы и QR, редактор пользователя, календарные пакеты, несколько VLESS TCP/XHTTP, расширенные параметры. Backup v21: сохраните копию до обновления; старые сборки новые архивы не читают. Core/UI без изменения SSH/UFW/units; реальная VPS-приёмка ещё требуется."
+    },
+    {
+      "version": "0.7.0-stage5-a8",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a7",
+      "scope": "core-ui",
+      "file": "update-a8.zip",
+      "size": 4557919,
+      "sha256": "340634f3df0bf8bc6bcab288b115b3f7e987b9dd7e6535ad9f1c3ca04fc383cb",
+      "notes": "Карточка и поиск пользователей, UI/график/SNI, TLS fingerprint (Firefox и др.) и путь XHTTP. Backup v13: старые сборки его не читают; сохраните текущую копию до обновления. Firewall — только просмотр; VLESS handshake ещё не подтверждён."
+    },
+    {
+      "version": "0.7.0-stage5-a7",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a5",
+      "scope": "core-ui",
+      "file": "update-a7.zip",
+      "sha256": "92bb14d969c5c4eacd900086c8a63f8d8c59e828e2a0e7c06219844ee036abfb",
+      "size": 4542753,
+      "notes": "Онлайн-обновления: выбор версии, загрузка на сервере, проверка подписи и установка через панель. Исправлен обработчик обновлений."
+    },
+    {
+      "version": "0.7.0-stage5-a6",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a5",
+      "scope": "core-ui",
+      "file": "update-a6.zip",
+      "size": 4519417,
+      "sha256": "753032258d156d14eb27e8630649e37e0fc576039159ebb5dc9b6619f5dfc937",
+      "notes": "ArcNet: управление протоколами, мобильное меню, настройки и название подписки."
+    }
+  ]
+}

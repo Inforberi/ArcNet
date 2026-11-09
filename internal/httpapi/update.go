@@ -15,6 +15,7 @@ import (
 
 	"github.com/arcvpn/arcvpn/internal/nodeagent"
 	"github.com/arcvpn/arcvpn/internal/ops"
+	"github.com/arcvpn/arcvpn/internal/releaseversion"
 	"github.com/arcvpn/arcvpn/internal/updater"
 )
 
@@ -218,13 +219,48 @@ func (s *Server) updateCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	items := make([]updater.Release, 0, len(catalog.Releases))
+	type historical struct {
+		updater.Release
+		Installable bool   `json:"installable"`
+		Reason      string `json:"reason"`
+		Prerelease  bool   `json:"prerelease"`
+	}
+	history := make([]historical, 0, len(catalog.Releases))
 	platform := s.updates.platform
 	for _, item := range catalog.Releases {
+		reason := ""
+		allowed := item.Compatible(s.updates.version, platform)
+		if !allowed {
+			reason = "Совместимость перехода не подтверждена"
+			if item.Version == s.updates.version {
+				reason = "Установлена сейчас"
+			} else if !updater.IsUpgrade(s.updates.version, item.Version) {
+				reason = "Возврат заблокирован: нет проверенного восстановления БД и конфигурации"
+			} else if item.Platform != platform {
+				reason = "Другая платформа"
+			}
+		}
+		history = append(history, historical{item, allowed, reason, releaseversion.Prerelease(item.Version)})
 		if item.Compatible(s.updates.version, platform) {
 			items = append(items, item)
 		}
 	}
-	respond(w, 200, map[string]any{"items": items, "current_version": s.updates.version, "platform": platform})
+	respond(w, 200, map[string]any{"items": items, "history": history, "history_partial": catalog.Partial, "current_version": s.updates.version, "platform": platform})
+}
+func (s *Server) updateHistory(w http.ResponseWriter, r *http.Request) {
+	select {
+	case s.updates.catalogSlots <- struct{}{}:
+		defer func() { <-s.updates.catalogSlots }()
+	default:
+		catalogFailure(w, errCatalogBusy)
+		return
+	}
+	rows, err := updater.FetchReleaseHistory(r.Context())
+	if err != nil {
+		fail(w, 502, "История GitHub недоступна. Подписанные версии показаны отдельно.")
+		return
+	}
+	respond(w, 200, map[string]any{"items": rows, "informational_only": true})
 }
 func (s *Server) updateDownload(w http.ResponseWriter, r *http.Request) {
 	if !s.beginUpdate(w, r) {

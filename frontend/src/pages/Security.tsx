@@ -3,7 +3,8 @@ import {useState, type FormEvent} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {api} from '../shared/api';
 import AccountSettings from '../features/users/AccountSettings';
-import {Link} from 'react-router';
+import {useSearchParams} from 'react-router';
+import UpdateSettings from '../features/settings/UpdateSettings';
 import InterfaceSettings from '../features/settings/InterfaceSettings';
 import {Button,Field,Loading,Notice,PageHeading,Panel,SettingsLayout} from '../shared/ui';
 
@@ -18,7 +19,9 @@ type MFASetup={secret:string;uri:string;qr_svg_base64:string;expires_in:string};
 export default function Security(){
  const confirm=useConfirmation();
  const queryClient=useQueryClient();
- const [section,setSection]=useState<'account'|'server'|'interface'>('account');
+ const [params,setParams]=useSearchParams();
+ const section=['account','server','interface','updates'].includes(params.get('section')??'')?params.get('section')!:'account';
+ function setSection(value:string){setParams({section:value})}
  const query=useQuery({queryKey:['log-settings'],queryFn:()=>api<LogSettings>('/api/settings/logs'),enabled:section==='server'});
  const firewall=useQuery({queryKey:['firewall'],queryFn:()=>api<FirewallState>('/api/settings/firewall'),enabled:section==='server'});
  const firewallMutation=useMutation({mutationFn:(value:{port:number;transport:string;allow:boolean})=>api('/api/settings/firewall','POST',value),onSuccess:()=>queryClient.invalidateQueries({queryKey:['firewall']})});
@@ -41,8 +44,7 @@ export default function Security(){
  return <>
   <PageHeading title="Настройки" description="Аккаунт, интерфейс и обслуживание сервера"/>
   <SettingsLayout navigation={<nav className="settings-navigation" aria-label="Разделы настроек">
-   {([{id:'account',label:'Аккаунт'},{id:'interface',label:'Интерфейс'},{id:'server',label:'Сервер'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant="ghost" onClick={()=>{setSection(item.id);setMessage('');}}>{item.label}</Button>)}
-   <Link to="/versions" className="button ghost">Версии ArcNet</Link>
+   {([{id:'account',label:'Аккаунт'},{id:'interface',label:'Интерфейс'},{id:'server',label:'Сервер'},{id:'updates',label:'Обновления'}] as const).map(item=><Button key={item.id} aria-pressed={section===item.id} variant="ghost" onClick={()=>{setSection(item.id);setMessage('');}}>{item.label}</Button>)}
   </nav>}>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<Notice>{message}</Notice>}
@@ -128,6 +130,7 @@ export default function Security(){
    </>}
   </div></Panel>
   </section>
+  <section aria-label="Обновления" hidden={section!=='updates'}><UpdateSettings active={section==='updates'}/></section>
   <section aria-label="Настройки интерфейса" hidden={section!=='interface'}><InterfaceSettings/></section>
   </SettingsLayout>
  </>;

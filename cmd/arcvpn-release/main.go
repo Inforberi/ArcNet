@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/arcvpn/arcvpn/internal/releasebundle"
+	"github.com/arcvpn/arcvpn/internal/releaseversion"
 	"github.com/arcvpn/arcvpn/internal/updater"
 )
 
@@ -23,9 +24,32 @@ func main() {
 }
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("arcvpn-release: keygen | sign | verify | catalog-sign")
+		return errors.New("arcvpn-release: prepare-update | key-check | version-check | keygen | sign | verify | catalog-sign")
+	}
+	if args[0] == "prepare-update" {
+		return prepareUpdate(args[1:])
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	if args[0] == "version-check" {
+		version := flags.String("version", "", "release ID")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if flags.NArg() != 0 || !releaseversion.Publishable(*version) {
+			return errors.New("нужен уникальный SemVer без build metadata")
+		}
+		return nil
+	}
+	if args[0] == "key-check" {
+		keyPath := flags.String("key", "", "private key")
+		publicPath := flags.String("public-key", "deploy/update-public.hex", "trusted key")
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		key, _, err := signingKey(*keyPath, *publicPath)
+		clear(key)
+		return err
+	}
 	if args[0] == "keygen" {
 		dir := flags.String("out-dir", "", "private offline key directory")
 		if err := flags.Parse(args[1:]); err != nil {

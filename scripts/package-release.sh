@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 IFS= read -r version < dist/VERSION
-[[ "$version" =~ ^0\.(6|7)\.(0|[1-9][0-9]{0,5})(-[A-Za-z0-9_-]+)?$ ]] || { echo 'Invalid dist/VERSION' >&2; exit 65; }
+[[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[A-Za-z0-9.-]+)?$ ]] || { echo 'Invalid dist/VERSION' >&2; exit 65; }
 files=(dist/arcvpn-linux-amd64 dist/VERSION dist/BUILDINFO.json SOURCE_MANIFEST.sha256 install.sh deploy/arcvpn-menu.sh deploy/arcvpn-tunnel-net.sh README.md LICENSE
  docs/ops/install-and-update.md docs/ops/local-admin-recovery.md docs/ops/local-service-control.md docs/planning/short-work-blocks.md)
 legacy="${ARCVPN_WITH_AMNEZIAWG:-0}"

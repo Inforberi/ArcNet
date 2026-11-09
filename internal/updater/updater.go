@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/arcvpn/arcvpn/internal/releaseversion"
 	"io"
 	"os"
 	"path/filepath"
@@ -174,15 +175,7 @@ func Verify(blob []byte, public ed25519.PublicKey) (Payload, error) {
 	return out, nil
 }
 func validVersion(v string) bool {
-	if len(v) < 3 || len(v) > 64 {
-		return false
-	}
-	for _, r := range v {
-		if !(r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r == '.' || r == '-' || r == '_') {
-			return false
-		}
-	}
-	return true
+	return releaseversion.Publishable(v)
 }
 func MakePackage(binary []byte, version string, private ed25519.PrivateKey) ([]byte, error) {
 	return MakePackageWithComponents(binary, version, private, nil)

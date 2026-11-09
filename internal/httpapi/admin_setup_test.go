@@ -54,7 +54,7 @@ func TestAdminRegistrationAndCredentialChange(t *testing.T) {
 		router.ServeHTTP(w, r)
 		return w
 	}
-	password := "owner-selected-password-1234"
+	password := "пароль я"
 	input := map[string]string{"code": code, "username": "owner", "password": password}
 	if w := request("POST", "/api/setup", input, nil, "", "https://evil.test"); w.Code != 403 {
 		t.Fatal("cross-origin claim", w.Code)
@@ -93,7 +93,7 @@ func TestAdminRegistrationAndCredentialChange(t *testing.T) {
 	if withOTP.Code != 200 || len(withOTP.Result().Cookies()) != 1 {
 		t.Fatal("second-factor login failed", withOTP.Code)
 	}
-	change := map[string]string{"username": "new-owner", "current_password": password, "password": "next-owner-password-12345"}
+	change := map[string]string{"username": "new-owner", "current_password": password, "password": "12345678"}
 	if w := request("PUT", "/api/security/account", change, cookie, "", ""); w.Code != 403 {
 		t.Fatal("CSRF bypass", w.Code)
 	}

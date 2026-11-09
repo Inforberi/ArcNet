@@ -1,3 +1,7 @@
+## 2026-11-09: пароли и менеджер версий
+
+`internal/auth/policy.go` и `frontend/src/shared/password-policy.ts` —8 Unicode points/256 UTF-8 bytes; setup/change/CLI recovery используют одну политику, login прежний. `internal/releaseversion` — SemVer/legacy numeric ordering; `internal/updater/{catalog,history}.go` — v2/v1 trust и отдельная информационная история; `internal/httpapi/update.go` — additive history API. `UpdateSettings.tsx` — Settings, alias `/versions`, signed-only install, bounded persistent unknown. `cmd/arcvpn-release/update.go`, `scripts/release-update.sh`, `VERSION`, `docs/releases/` — trusted-host выпуск; [инструкция](../ops/release-update.md), [результат и остаток](../planning/passwords-and-version-manager-2026-11-09.md), `tests/version_manager_e2e.mjs`.
+
 ## 2026-11-09: UI/UX frontend
 
 `frontend/src/shared/{EditorSections,Feedback,Dialog,Confirmation,ui}.tsx`, `shared/api.ts`, `shared/design-system/{tokens,components}.css` — общие контракты UI; `app/Auth.tsx` — reauth с сохранением дерева; `features/connections/ConnectionEditor.tsx`, `features/users/UserEditor.tsx`, `pages/{Users,Routing,VPN,Backup,Security,...}` — сценарии и состояния. `frontend/tests/api-feedback.test.ts`, `tests/ui_ux_{audit,layout}_e2e.mjs` — регрессии. [Детальный отчёт](../design/ui-ux-audit-2026-11-09.md).

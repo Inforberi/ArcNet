@@ -8,6 +8,8 @@
 
 # Установка, обновление и выпуск ArcVPN
 
+**Новые исходники 9 ноября:** [одна команда выпуска core/UI](release-update.md), SemVer и история в «Настройки → Обновления». Сначала необходим bridge A10 для A7–A9, затем normal0.7.1; оба ещё не опубликованы этим блоком. Приватный ключ остаётся на доверенном компьютере. История не разрешает произвольный downgrade. Новые пароли:8 Unicode code points, максимум256 UTF-8 байт; существующие пароли не сбрасываются.
+
 Это руководство для нового администратора и сопровождающего. Текущая версия — 0.7 preview; systemd/ACME/VPN/полный update на VPS ещё требуют внешней приёмки. Публичный репозиторий: [Inforberi/ArcNet](https://github.com/Inforberi/ArcNet), лицензия проекта — [MIT](../../LICENSE).
 
 Пользователь проведёт серверные испытания самостоятельно. A1 CLI и A2 локальный подписанный Linux x86_64 пакет подготовлены: [release/migration guide](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md). Нужны core/wrapper/units/tmpfiles/hook вместе; core-only updater не мигрирует обвязку. Опубликованы тестовый prerelease и A3 bootstrap: [одна команда и короткая приёмка](vps-preview-acceptance.md). Systemd/VPS ещё не приняты.
@@ -20,7 +22,7 @@
 
 ## Сборка пакета сопровождающим
 
-На отдельной Linux x86_64 машине: Go 1.26+, Node.js 22.12+, npm, GCC, GNU tar/coreutils, SQLite headers и qrencode runtime. Для Debian/Ubuntu системные build dependencies: `build-essential libsqlite3-dev libqrencode4`. Версии Go/Node устанавливает сопровождающий по доверенному процессу своей машины.
+На отдельной Linux x86_64 машине: Go 1.26+, Node.js 22.12+, npm, GCC, Python3, GNU tar/coreutils, SQLite headers и qrencode runtime. Для Debian/Ubuntu системные build dependencies: `build-essential libsqlite3-dev libqrencode4 python3`. Версии Go/Node устанавливает сопровождающий по доверенному процессу своей машины. Docker recipe включает эти зависимости; на VPS Go/Node/Python3 для обновления не нужны.
 
 Проверенный рецепт A2: Ubuntu22.04 + Go1.26.6/Node22.21.1, опционально через `./scripts/build-installer-docker.sh`. Native builder требует актуальный SOURCE_MANIFEST.sha256 и проверяет его перед упаковкой; BUILDINFO показывает revision/dirty/source hash. Для подписи используйте offline `arcvpn-release`, а не приватный ключ на VPS. [Подробности](https://github.com/Inforberi/ArcNet/blob/main/docs/ops/installer-release-and-migration.md).
 

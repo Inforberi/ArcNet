@@ -41,8 +41,8 @@ func (s *Server) setupAdmin(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	if len(in.Code) < 24 || len(in.Code) > 128 || !adminNamePattern.MatchString(in.Username) || len(in.Password) < 16 || len(in.Password) > 256 {
-		fail(w, 422, "Логин: 3–64 латинских символа. Пароль: 16–256 символов. Укажите код из терминала.")
+	if len(in.Code) < 24 || len(in.Code) > 128 || !adminNamePattern.MatchString(in.Username) || auth.ValidateNewPassword(in.Password) != nil {
+		fail(w, 422, "Логин: 3–64 латинских символа. Пароль: от 8 Unicode-символов, до 256 байт UTF-8. Укажите код из терминала.")
 		return
 	}
 	select {
@@ -78,8 +78,8 @@ func (s *Server) changeCredentials(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	if !adminNamePattern.MatchString(in.Username) || len(in.Password) < 16 || len(in.Password) > 256 || len(in.CurrentPassword) > 256 {
-		fail(w, 422, "Укажите логин (3–64 символа) и новый пароль (16–256 символов)")
+	if !adminNamePattern.MatchString(in.Username) || auth.ValidateNewPassword(in.Password) != nil || len(in.CurrentPassword) > 256 {
+		fail(w, 422, "Укажите логин (3–64 символа) и новый пароль: от 8 Unicode-символов, до 256 байт UTF-8")
 		return
 	}
 	select {

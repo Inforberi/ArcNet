@@ -1,3 +1,4 @@
+import {passwordError} from '../shared/password-policy';
 import {useRef,useState, type FormEvent, type ReactNode} from 'react';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {Outlet} from 'react-router';
@@ -29,6 +30,7 @@ function RegisterAdmin({available}:{available:boolean}) {
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   async function submit(event:FormEvent) {
     event.preventDefault();setError('');
+    const invalidPassword=passwordError(password);if(invalidPassword){setError(invalidPassword);return;}
     if(password!==confirm){setError('Пароли не совпадают');return;}
     setBusy(true);
     try {await api('/api/setup','POST',{username,password,code});setPassword('');setConfirm('');setCode('');await cache.invalidateQueries({queryKey:['admin-setup']});}
@@ -41,7 +43,7 @@ function RegisterAdmin({available}:{available:boolean}) {
     <form onSubmit={submit}>
       <Field label="Одноразовый код из терминала" autoComplete="off" required minLength={24} maxLength={128} value={code} onChange={e=>setCode(e.target.value.trim())}/>
       <Field label="Ваш логин" autoComplete="username" required minLength={3} maxLength={64} pattern="[a-zA-Z0-9][a-zA-Z0-9_.-]{2,63}" description="3–64 символа: латиница, цифры, точка, дефис" value={username} onChange={e=>setUsername(e.target.value)}/>
-      <Field label="Ваш пароль" type="password" autoComplete="new-password" required minLength={16} maxLength={256} description="Не менее 16 символов" value={password} onChange={e=>setPassword(e.target.value)}/>
+      <Field label="Ваш пароль" type="password" autoComplete="new-password" required minLength={8} description="От 8 Unicode-символов, до 256 байт UTF-8. Пробелы разрешены." value={password} onChange={e=>setPassword(e.target.value)}/>
       <Field label="Повторите пароль" type="password" autoComplete="new-password" required value={confirm} onChange={e=>setConfirm(e.target.value)}/>
       {error&&<p className="error" role="alert">{error}</p>}
       <Button type="submit" variant="primary" pending={busy}>Создать администратора</Button>

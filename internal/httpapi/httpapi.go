@@ -291,6 +291,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/events", s.mustAuth(s.events, false))
 	mux.HandleFunc("GET /api/system/update", s.mustAuth(s.updateStatus, false))
 	mux.HandleFunc("GET /api/system/update/releases", s.mustAuth(s.updateCatalog, false))
+	mux.HandleFunc("GET /api/system/update/history", s.mustAuth(s.updateHistory, false))
 	mux.HandleFunc("POST /api/system/update/download", s.mustAuth(s.updateDownload, true))
 	mux.HandleFunc("POST /api/system/update/download/cancel", s.mustAuth(s.updateCancelDownload, true))
 	mux.HandleFunc("POST /api/system/update/upload", s.mustAuth(s.updateUpload, true))

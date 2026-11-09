@@ -19,7 +19,6 @@ const workspace:NavItem[]=[
  {url:'/routing',label:'Маршруты',icon:'routes'},
 ];
 const system:NavItem[]=[
- {url:'/versions',label:'Версии ArcNet',icon:'backup'},
  {url:'/events',label:'Журнал',icon:'logs'},
  {url:'/backup',label:'Резервные копии',icon:'backup'},
  {url:'/security',label:'Настройки',icon:'settings'},

@@ -47,14 +47,35 @@ func onlineUpdateFixture(t *testing.T) updateFixture {
 	if err := os.WriteFile(s.updates.publicKey, []byte(hex.EncodeToString(pub)), 0644); err != nil {
 		t.Fatal(err)
 	}
-	payload, err := updater.MakePackage([]byte(strings.Repeat("program bytes", 500)), "0.7.0-stage5-a8", key)
+	targetVersion := "0.7.0-stage5-a8"
+	if os.Getenv("ARCVPN_VERSION_MANAGER_BROWSER") == "1" {
+		targetVersion = "0.7.1"
+		s.updates.version = "0.7.0-stage5-a10"
+	}
+	payload, err := updater.MakePackage([]byte(strings.Repeat("program bytes", 500)), targetVersion, key)
 	if err != nil {
 		t.Fatal(err)
 	}
 	release := updater.Release{Version: "0.7.0-stage5-a8", Platform: "linux/amd64", MinimumVersion: "0.7.0-stage5-a5", Scope: "core-ui", File: "update-a8.zip", Size: int64(len(payload))}
 	hash := sha256.Sum256(payload)
 	release.SHA256 = hex.EncodeToString(hash[:])
-	raw, _ := json.Marshal(updater.Catalog{Format: "arcnet-update-catalog-v1", Releases: []updater.Release{release}})
+	format := "arcnet-update-catalog-v1"
+	entries := []updater.Release{release}
+	if targetVersion == "0.7.1" {
+		format = "arcnet-update-catalog-v2"
+		release.Version = targetVersion
+		release.MinimumVersion = "0.7.0-stage5-a10"
+		release.File = "update-0.7.1.zip"
+		release.Notes = "Новый менеджер версий и пароли от 8 символов"
+		entries = []updater.Release{release}
+		old, err := updater.MakePackage([]byte(strings.Repeat("old bytes", 500)), "0.7.0-stage5-a9", key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldHash := sha256.Sum256(old)
+		entries = append(entries, updater.Release{Version: "0.7.0-stage5-a9", MinimumVersion: "0.7.0-stage5-a7", Platform: "linux/amd64", Scope: "core-ui", File: "update-a9.zip", Size: int64(len(old)), SHA256: hex.EncodeToString(oldHash[:]), Notes: "Исторические подключения и UI"})
+	}
+	raw, _ := json.Marshal(updater.Catalog{Format: format, Releases: entries})
 	signed, err := updater.SignCatalog(raw, key)
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +286,7 @@ func TestOnlineUpdateBrowserFixture(t *testing.T) {
 		if err := os.WriteFile(binary, []byte("#!/bin/sh\n[ \"$1\" = run ]\n"), 0700); err != nil {
 			t.Fatal(err)
 		}
-		s.App.Core = xray.Controller{Binary: binary, Path: filepath.Join(dir, "xray.json"), SkipRestart: true}
+		s.App.Core = xray.Controller{Binary: binary, Path: filepath.Join(dir, "xray.json"), SkipRestart: true, ControlSocket: s.App.Core.ControlSocket}
 		s.App.Engines = &engines.Manager{Dir: filepath.Join(dir, "engines"), SkipRestart: true}
 		if err := s.App.Store.UpsertProtocol(context.Background(), store.Protocol{Kind: "hysteria2", Address: "198.51.100.25", Port: 8444, SNI: "198.51.100.25", TLSCert: "/etc/arcvpn/tls/fullchain.pem", TLSKey: "/etc/arcvpn/tls/privkey.pem", Enabled: true}); err != nil {
 			t.Fatal(err)
@@ -347,5 +368,31 @@ func TestOnlineUpdateCancellationLeavesNoPackage(t *testing.T) {
 	}
 	if f.s.updates.progress.Load().State != "verified" {
 		t.Fatal("retry did not verify")
+	}
+}
+
+func TestUpdateHistoryAndLegacyRowsNeverAuthorizeDowngrade(t *testing.T) {
+	f := onlineUpdateFixture(t)
+	r := httptest.NewRequest("GET", "https://example.test/api/system/update/history", nil)
+	w := httptest.NewRecorder()
+	f.s.Routes().ServeHTTP(w, r)
+	if w.Code != 401 {
+		t.Fatal("public history auth bypass", w.Code)
+	}
+	f.s.updates.version = "0.7.0-stage5-a9"
+	r = httptest.NewRequest("GET", "https://example.test/api/system/update/releases", nil)
+	r.AddCookie(f.cookie)
+	w = httptest.NewRecorder()
+	f.s.Routes().ServeHTTP(w, r)
+	var reply struct {
+		Items   []updater.Release `json:"items"`
+		History []struct {
+			Version     string `json:"version"`
+			Installable bool   `json:"installable"`
+			Reason      string `json:"reason"`
+		} `json:"history"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &reply) != nil || len(reply.Items) != 0 || len(reply.History) != 1 || reply.History[0].Installable || reply.History[0].Reason == "" {
+		t.Fatal("legacy history granted installation", w.Code, w.Body.String())
 	}
 }

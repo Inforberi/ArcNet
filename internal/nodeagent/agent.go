@@ -24,7 +24,7 @@ import (
 )
 
 // Version can be stamped by the reproducible release build at link time.
-var Version = "0.6.5-stage4"
+var Version = "0.7.1-dev"
 
 type Configuration struct {
 	Controller     string `json:"controller"`
