@@ -2,6 +2,16 @@
   "format": "arcnet-update-catalog-v1",
   "releases": [
     {
+      "version": "0.7.0-stage5-a9",
+      "platform": "linux/amd64",
+      "minimum_version": "0.7.0-stage5-a7",
+      "scope": "core-ui",
+      "file": "update-a9.zip",
+      "size": 4780474,
+      "sha256": "e7f98341935cbab44356c165eafdc8b1fb862d9ef7f13c172eb29f9a776f4945",
+      "notes": "UI v7, компактные формы и QR, редактор пользователя, календарные пакеты, несколько VLESS TCP/XHTTP, расширенные параметры. Backup v21: сохраните копию до обновления; старые сборки новые архивы не читают. Core/UI без изменения SSH/UFW/units; реальная VPS-приёмка ещё требуется."
+    },
+    {
       "version": "0.7.0-stage5-a8",
       "platform": "linux/amd64",
       "minimum_version": "0.7.0-stage5-a7",
