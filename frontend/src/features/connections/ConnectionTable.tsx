@@ -1,5 +1,6 @@
 import {type ServerOptions,type ClientOptions,type ProtocolHealth, type ProtocolProfile, type VPNConfig} from '../../shared/api';
 import {Badge, Button, Empty,IconButton,SwitchButton} from '../../shared/ui';
+import ActionMenu from '../../shared/ActionMenu';
 import {Icon} from '../../shared/Icon';
 import {protocolCatalog} from './ConnectionForms';
 import {connectionAddress,connectionService,connectionTransport,connectionProtection} from './presentation';
@@ -26,7 +27,7 @@ export function ConnectionTable({items,health,assignments,busy,onDetails,onEdit,
      {managed&&item.kind.startsWith('vless')&&<IconButton icon="refresh" label={`Подобрать SNI · ${item.port}`} disabled={busy} onClick={()=>onRefresh(item)}/>}
      {managed&&<IconButton icon="edit" label={`Настроить подключение · ${item.port}`} disabled={busy} onClick={()=>onEdit(item)}/>}
      {managed&&<SwitchButton checked={item.enabled} label={`${item.enabled?'Отключить':'Включить'} подключение · ${item.port}`} disabled={busy} onClick={()=>onToggle(item)}/>}
-     {managed&&!item.enabled&&<IconButton variant="danger" icon="trash" label={`Удалить подключение · ${item.port}`} disabled={busy} onClick={()=>onRemove(item)}/>}
+     {managed&&<ActionMenu label={`Действия подключения · ${item.port}`} disabled={busy} items={[{label:'Удалить подключение',danger:true,disabled:item.enabled,reason:item.enabled?'Сначала отключите подключение переключателем в строке. Ключи сохранятся до удаления.':undefined,onClick:()=>onRemove(item)}]}/>}
     </div></td>
    </tr>;
   })}

@@ -23,16 +23,17 @@ export default function VPN() {
  const [editing,setEditing]=useState<ConnectionItem>(),[action,setAction]=useState<PendingAction>();
  const [rotation,setRotation]=useState<ConnectionItem>();
  const [detailKind,setDetailKind]=useState<string>(),[pickTarget,setPickTarget]=useState(false);
+ const [refreshFailed,setRefreshFailed]=useState(false);
  const [error,setError]=useState(''),[created,setCreated]=useState(false),[unknown,setUnknown]=useState(false);
  const configured=new Set(profiles.data?.items.map(p=>p.kind)??[]);
  const available=[{kind:'vless-reality' as const,name:'VLESS + Reality TCP'},...protocolCatalog.filter(p=>p.kind==='vless-xhttp'||!configured.has(p.kind))];
- async function refresh(){await Promise.all(['vpn','protocols','protocol-health','connection-defaults','users','user-devices','user-usage'].map(key=>cache.invalidateQueries({queryKey:[key]})));}
+ async function refresh(){const results=await Promise.allSettled(['vpn','protocols','protocol-health','connection-defaults','users','user-devices','user-usage'].map(key=>cache.invalidateQueries({queryKey:[key]},{throwOnError:true})));setRefreshFailed(results.some(result=>result.status==='rejected'));}
  const create=useMutation({mutationFn:async(input:RealityInput|ProtocolInput)=>{
   if(kind==='vless-reality'&&!vpn.data?.configured)await api('/api/vpn','POST',input);
   else if(kind==='vless-reality')await api('/api/protocols','POST',{...input,kind});
   else await api('/api/protocols','POST',input);
- },onSuccess:async()=>{await refresh();setCreating(false);setCreated(true);}});
- const change=useMutation({mutationFn:({item,settings,remove=false}:{item:ConnectionItem;settings?:ConnectionSettings;remove?:boolean})=>api(`/api/connections/${connectionKey(item)}`,remove?'DELETE':'PUT',remove?{revision:item.revision}:{revision:item.revision,...settings}),onSuccess:async()=>{await refresh();setEditing(undefined);setAction(undefined);}});
+ },onSuccess:async()=>{setCreating(false);setCreated(true);await refresh();}});
+ const change=useMutation({mutationFn:({item,settings,remove=false}:{item:ConnectionItem;settings?:ConnectionSettings;remove?:boolean})=>api(`/api/connections/${connectionKey(item)}`,remove?'DELETE':'PUT',remove?{revision:item.revision}:{revision:item.revision,...settings}),onSuccess:async()=>{setEditing(undefined);setAction(undefined);await refresh();}});
  async function submit(input:RealityInput|ProtocolInput){if(unknown||create.isPending)return;setError('');try{await create.mutateAsync(input);}catch(err){if(err instanceof ApiError&&err.outcomeUnknown)setUnknown(true);setError(err instanceof Error?err.message:'Не удалось создать протокол');}}
  async function save(item:ConnectionItem,settings?:ConnectionSettings,remove=false){if(unknown||change.isPending)return;setError('');try{await change.mutateAsync({item,settings,remove});}catch(err){if(err instanceof ApiError){if(err.status===409)await refresh();if(err.outcomeUnknown)setUnknown(true)}setError(err instanceof Error?err.message:'Не удалось применить изменение');}}
  function openCreate(){setKind(available[0]?.kind??'vless-reality');setError('');setCreated(false);setUnknown(false);setCreating(true);}
@@ -43,6 +44,7 @@ export default function VPN() {
  function edit(item:ConnectionItem,pick=false){setError('');setUnknown(false);setDetailKind(undefined);setPickTarget(pick);setEditing(item);setCreated(false)}
  return <>
   <PageHeading title="Подключения" description="Входящие подключения сервера, назначенные пользователи и параметры защиты." actions={<>{available.length>0&&<Button variant="primary" disabled={busy||vpn.isPending||profiles.isPending||vpn.isError||profiles.isError} onClick={openCreate}><Icon name="plus"/>Добавить подключение</Button>}</>}/>
+  {refreshFailed&&<p className="notice" role="status">Изменение применено, список не обновлён. <Button className="small" onClick={()=>void refresh()}>Обновить данные</Button></p>}
   {created&&<p className="connection-success" role="status">Протокол добавлен. <Link to="/users">Выдать доступ пользователю</Link></p>}
   <StatStrip label="Сводка подключений" items={[{label:'Подключений',value:items.length},{label:'Включены',value:items.filter(item=>item.enabled).length},{label:'Назначено пользователям',value:users.data?users.data.items.filter(user=>items.some(item=>user.preferences?.allowed_kinds==null||user.preferences.allowed_kinds.includes(connectionKey(item)))).length:'—'},{label:'VPN-проверка',value:'Нет данных',tone:'neutral'}]}/>
   <section className="connections-section"><div className="section-heading"><h2>Входящие подключения</h2><small className="muted">Нажмите на подключение, чтобы открыть подробности</small></div>

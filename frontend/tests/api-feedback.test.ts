@@ -45,6 +45,16 @@ test('explicit caller cancellation is preserved instead of reported as a mutatio
  try{await assert.rejects(api('/fixture','GET',undefined,controller.signal),{name:'AbortError'})}finally{globalThis.fetch=original}
 });
 
+test('proven rollback is distinct from unknown application, without concatenated error text',async()=>{
+ const original=globalThis.fetch;
+ try{
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:'Предыдущее состояние восстановлено',code:'runtime_apply_failed',stage:'apply',outcome:'rolled_back'}),{status:500});
+  await assert.rejects(api('/fixture','PATCH',{}),(e:unknown)=>e instanceof ApiError&&!e.outcomeUnknown&&e.outcome==='rolled_back'&&e.message==='Предыдущее состояние восстановлено');
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:'Откат не подтверждён',stage:'rollback',outcome:'unknown'}),{status:422});
+  await assert.rejects(api('/fixture','PUT',{}),(e:unknown)=>e instanceof ApiError&&e.outcomeUnknown&&e.stage==='rollback');
+ }finally{globalThis.fetch=original}
+});
+
 test('read and mutation deadlines settle hung requests with different outcome semantics',async t=>{
  const original=globalThis.fetch;
  t.mock.timers.enable({apis:['setTimeout']});

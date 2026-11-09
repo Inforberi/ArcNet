@@ -1,9 +1,9 @@
+import {useConfirmation} from '../shared/Confirmation';
+import ActionMenu from '../shared/ActionMenu';
 import UserToolbar from '../features/users/UserToolbar';
 import UserDataStatus from '../features/users/UserDataStatus';
-import {connectionTitle} from '../features/connections/presentation';
 import {Icon} from '../shared/Icon';
-import {activityText,trafficFresh,trafficNow,type TrafficReply} from '../features/users/traffic';
-import {rateText} from '../shared/traffic-chart';
+import {activityText,trafficNow,type TrafficReply} from '../features/users/traffic';
 import BulkCreateUsers from '../features/users/BulkCreateUsers';
 import BulkEditUsers from '../features/users/BulkEditUsers';
 import {sortUsers,usersCSV,matchesUserSearch,type UserSort} from '../features/users/user-table';
@@ -23,6 +23,7 @@ import { Badge, Button, Field, Loading, PageHeading, Panel, Notice, Empty,StatSt
 
 
 export default function Users() {
+  const confirm=useConfirmation();
   const feedback=useFeedback();
   const accessRequest=useRef(0);
   const cache = useQueryClient();
@@ -79,6 +80,9 @@ export default function Users() {
     }
   }, [usage.data, users.data, subscriptionUser]);
 
+  const [refreshFailed,setRefreshFailed]=useState(false);
+  const [unknownUser,setUnknownUser]=useState<number|null>(null);
+  async function refreshUsers(){try{await cache.invalidateQueries({queryKey:['users']},{throwOnError:true});setRefreshFailed(false)}catch{setRefreshFailed(true)}}
   const create = useMutation({
     mutationFn: () => api<VPNUser>('/api/users', 'POST', { name: name.trim() }),
     onSuccess: async (created) => {
@@ -86,18 +90,19 @@ export default function Users() {
       setName('');
       setCreating(false);
       feedback('Пользователь создан');
-      await cache.invalidateQueries({ queryKey: ['users'] });
+      await refreshUsers();
     },
   });
   const toggle = useMutation({
     mutationFn: (u: VPNUser) => api(`/api/users/${u.id}`, 'PATCH', { enabled: !u.enabled }),
-    onSuccess: async () => { await cache.invalidateQueries({ queryKey: ['users'] }); },
+    onSuccess: async () => { await refreshUsers(); },
   });
   const remove = useMutation({
     mutationFn: (u: VPNUser) => api(`/api/users/${u.id}`, 'DELETE'),
-    onSuccess: async () => { await cache.invalidateQueries({ queryKey: ['users'] }); },
+    onSuccess: async () => { await refreshUsers(); },
   });
 
+  async function deleteUser(user:VPNUser){if(remove.isPending)return;if(!await confirm(`Удалить пользователя «${user.name}» и отозвать его доступ?`,{title:'Удалить пользователя?',action:'Удалить пользователя'}))return;try{await remove.mutateAsync(user);feedback('Пользователь удалён')}catch(e){if(e instanceof ApiError&&e.outcomeUnknown)setUnknownUser(user.id);setError(explain(e))}}
   function explain(e: unknown): string { return e instanceof Error ? e.message : 'Неизвестная ошибка'; }
 
   async function showSubscription(user: VPNUser) {
@@ -145,6 +150,8 @@ export default function Users() {
       />
       {users.data&&<StatStrip label="Сводка пользователей" items={[{label:'Всего пользователей',value:users.data.items.length},{label:'Доступ разрешён',value:usage.isSuccess?users.data.items.filter(user=>userAccess(user,packages.get(user.id)).allowed).length:'—'},{label:'Ограничены',value:usage.isSuccess?users.data.items.filter(user=>!user.enabled||!!packages.get(user.id)?.block_reason||user.preferences?.allowed_kinds?.length===0).length:'—',tone:'amber'}]}/>}
       {error && !creating && <p className="error" role="alert">{error}</p>}
+      {unknownUser!==null&&<p className="notice" role="status">Результат изменения пользователя ID {unknownUser} неизвестен. Повтор заблокирован. <Button className="small" onClick={()=>void refreshUsers()}>Сверить список</Button></p>}
+      {refreshFailed&&<p role="status" className="notice">Изменение применено, список не обновлён. <Button className="small" onClick={()=>void refreshUsers()}>Обновить данные</Button></p>}
       {message && <p className="notice" role="status">{message}</p>}
 
       {bulkCreating&&<BulkCreateUsers onClose={()=>setBulkCreating(false)}/>}
@@ -169,7 +176,7 @@ export default function Users() {
       {usage.isError && <Notice>{usage.error.message}</Notice>}
       {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&!usage.data.source_fresh&&<p className="muted">Учёт пакетов временно недоступен. Сохранённый расход показан в таблице.</p>}
       {usage.data?.items.some(p=>p.quota_bytes>0||p.expires_at>0)&&['apply_failed','source_unavailable','unverified'].includes(usage.data.runtime_state)&&<Notice>Изменение ограничений ещё не подтверждено VPN-службой. Проверьте состояние сервера.</Notice>}
-      {users.isPending ? <Loading /> : users.isError ? <ErrorState error={users.error} onRetry={()=>void users.refetch()} retrying={users.isFetching}/> : (
+      {users.isPending ? <Loading /> : users.isError&&!users.data ? <ErrorState error={users.error} onRetry={()=>void users.refetch()} retrying={users.isFetching}/> : (
         <Panel title="Список пользователей" actions={<Button className="small inline-action" disabled={!selectedUsers.length&&!visibleUsers.length} onClick={exportCSV} title="Скачать CSV без ключей и ссылок подписок"><Icon name="download"/>{selectedUsers.length?`Скачать выбранных (${selectedUsers.length})`:'Скачать список'}</Button>}>
           <UserToolbar value={{search,status:filter,group:groupFilter,sort,descending}} groups={groups} onChange={next=>{if(next.search!==search||next.status!==filter||next.group!==groupFilter)setSelected([]);setSearch(next.search);setFilter(next.status);setGroupFilter(next.group);setSort(next.sort);setDescending(next.descending);setPage(0)}}/>
           <div className="users-list-meta"><span className="muted">{visibleUsers.length===users.data.items.length?`Всего: ${visibleUsers.length}`:`Найдено: ${visibleUsers.length} из ${users.data.items.length}`}</span><UserDataStatus failed={traffic.isError} incomplete={!!traffic.data&&!traffic.data.complete_coverage}/></div>
@@ -177,22 +184,21 @@ export default function Users() {
           <div className="table-scroll users-table responsive-data">
             {users.data.items.length === 0 ? <Empty>Добавьте пользователя, затем нажмите «Подключить», чтобы получить QR и подписку.</Empty> : (
               <table>
-                <thead><tr><th scope="col"><label className="user-select"><input type="checkbox" aria-label="Выбрать пользователей на странице" checked={allSelected} ref={el=>{if(el)el.indeterminate=displayedUsers.some(u=>selected.includes(u.id))&&!allSelected}} onChange={e=>selectVisible(e.target.checked)}/>Пользователь</label></th><th scope="col">Доступ</th><th scope="col">Подключения</th><th scope="col">Трафик</th><th scope="col">Скорость</th><th scope="col">Активность</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
+                <thead><tr><th scope="col"><label className="user-select"><input type="checkbox" aria-label="Выбрать пользователей на странице" checked={allSelected} ref={el=>{if(el)el.indeterminate=displayedUsers.some(u=>selected.includes(u.id))&&!allSelected}} onChange={e=>selectVisible(e.target.checked)}/>Пользователь</label></th><th scope="col">Доступ</th><th scope="col">Трафик</th><th scope="col">Активность</th><th scope="col">Срок действия</th><th scope="col">Действия</th></tr></thead>
                 <tbody>
-                  {!visibleUsers.length&&<tr><td colSpan={8}><Empty>Ничего не найдено. Измените поиск или фильтр.</Empty></td></tr>}
+                  {!visibleUsers.length&&<tr><td colSpan={6}><Empty>Ничего не найдено. Измените поиск или фильтр.</Empty></td></tr>}
                   {displayedUsers.map(u => (
                     <tr key={u.id}>
                       <td data-label="Пользователь"><div className="user-identity"><input type="checkbox" aria-label={`Выбрать ${u.name}`} checked={selected.includes(u.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,u.id]:ids.filter(id=>id!==u.id))}/><Button className="user-name" variant="ghost" onClick={()=>{setDetailTab('overview');setDetailID(u.id)}}>{u.name}</Button><small className="muted">ID {u.id}{u.preferences?.group?` · ${u.preferences.group}`:''}</small></div></td>
                       <td data-label="Доступ"><Badge variant={userAccess(u,packages.get(u.id)).tone} title={userAccess(u,packages.get(u.id)).description}>{userAccess(u,packages.get(u.id)).label}</Badge></td>
-                      <td data-label="Подключения"><div className="user-connection-tags">{u.preferences?.allowed_kinds==null?<Badge variant="neutral">Все подключения</Badge>:u.preferences.allowed_kinds.length?u.preferences.allowed_kinds.map(kind=><Badge variant="neutral" key={kind}>{connectionTitle(kind)}</Badge>):<span className="muted">Нет разрешённых</span>}</div><small className="muted">{u.preferences?.access_mode==='direct'?'Прямая ссылка':'Подписка'}</small></td>
                       <td data-label="Трафик"><UsageSummary item={packages.get(u.id)} complete={usage.data?.complete_coverage ?? false}/></td>
-                      <td data-label="Скорость">{!traffic.isError&&trafficFresh(trafficItems.get(u.id),trafficTime)?<div className="user-rate"><span>↓ {rateText(trafficItems.get(u.id)?.download_bps)}</span><span>↑ {rateText(trafficItems.get(u.id)?.upload_bps)}</span></div>:<span className="muted" aria-label="Скорость неизвестна" title="Панель ещё не получила свежие счётчики">—</span>}</td>
                       <td data-label="Активность"><span>{activityText(trafficItems.get(u.id),traffic.isError,trafficTime)}</span>{trafficItems.get(u.id)?.last_activity_at?<small className="muted user-activity-time">Трафик замечен {new Date(trafficItems.get(u.id)!.last_activity_at*1000).toLocaleString('ru-RU')}</small>:null}</td>
                       <td data-label="Срок действия">{packages.has(u.id)?packages.get(u.id)!.expires_at?new Date(packages.get(u.id)!.expires_at*1000).toLocaleDateString('ru-RU'):'Без срока':'Нет данных'}</td>
                       <td data-label="Действия"><div className="row-actions">
                         <IconButton icon="qr" label={`Подключить · ${u.name}`} onClick={()=>{if(u.devices_managed){setSubscription(null);setSubscriptionUser(null);setDeviceUser(u);}else void showSubscription(u);}}/>
                         <IconButton icon="edit" label={`Настроить · ${u.name}`} onClick={()=>{setDetailTab('edit');setDetailID(u.id)}}/>
-                        <SwitchButton checked={u.enabled} label={`${u.enabled?'Отключить':'Включить'} доступ · ${u.name}`} disabled={toggle.isPending} onClick={()=>{setError('');void toggle.mutateAsync(u).catch(error=>setError(explain(error)))}}/>
+                        <ActionMenu label={`Действия пользователя · ${u.name}`} disabled={remove.isPending||toggle.isPending||unknownUser===u.id} items={[{label:'Удалить пользователя',danger:true,onClick:()=>void deleteUser(u)}]}/>
+                        <SwitchButton checked={u.enabled} label={`${u.enabled?'Отключить':'Включить'} доступ · ${u.name}`} disabled={toggle.isPending||unknownUser===u.id} onClick={()=>{setError('');void toggle.mutateAsync(u).catch(error=>{if(error instanceof ApiError&&error.outcomeUnknown)setUnknownUser(u.id);setError(explain(error))})}}/>
                       </div></td>
                     </tr>
                   ))}

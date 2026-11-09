@@ -84,8 +84,9 @@ func (a *App) SetupWithFingerprint(ctx context.Context, address, target string, 
 		return err
 	}
 	if err = a.Store.SaveReality(ctx, candidate); err != nil {
-		_ = a.applyAll(context.Background(), old, users)
-		return err
+		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return mutationFailure(err, a.applyAll(recovery, old, users))
 	}
 	a.Store.Event(ctx, "vpn.setup", fmt.Sprintf("port %d", port))
 	return nil
@@ -124,21 +125,21 @@ func (a *App) AddUser(ctx context.Context, name string) (store.User, error) {
 		return store.User{}, findErr
 	}
 	if err = a.ensureCredentials(ctx, newUser); err != nil {
-		_ = a.Store.DeleteUser(context.Background(), newUser.ID)
-		return store.User{}, err
+		return store.User{}, mutationFailure(err, a.Store.DeleteUser(context.Background(), newUser.ID))
 	}
 	users, err := a.Store.ListUsers(ctx)
 	if err == nil {
 		err = a.applyAll(ctx, r, users)
 	}
 	if err != nil {
-		if rollbackUser, findErr := a.Store.ByToken(context.Background(), u.Subscription); findErr == nil {
-			_ = a.Store.DeleteUser(context.Background(), rollbackUser.ID)
-			if oldUsers, e := a.Store.ListUsers(context.Background()); e == nil {
-				_ = a.applyAll(context.Background(), r, oldUsers)
-			}
+		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		recoveryErr := a.Store.DeleteUser(recovery, newUser.ID)
+		oldUsers, readErr := a.Store.ListUsers(recovery)
+		if readErr == nil {
+			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		return store.User{}, fmt.Errorf("user not activated: %w", err)
+		return store.User{}, mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	for _, one := range users {
 		if one.UUID == u.UUID {
@@ -171,11 +172,14 @@ func (a *App) ToggleUser(ctx context.Context, id int64, enabled bool) error {
 		err = a.applyAll(ctx, r, users)
 	}
 	if err != nil {
-		_ = a.Store.SetEnabled(context.Background(), id, old.Enabled)
-		if oldUsers, e := a.Store.ListUsers(context.Background()); e == nil {
-			_ = a.applyAll(context.Background(), r, oldUsers)
+		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		recoveryErr := a.Store.SetEnabled(recovery, id, old.Enabled)
+		oldUsers, readErr := a.Store.ListUsers(recovery)
+		if readErr == nil {
+			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		return fmt.Errorf("toggle not activated: %w", err)
+		return mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	a.Store.Event(ctx, "user.status", fmt.Sprintf("ID %d enabled=%t", id, enabled))
 	return nil
@@ -211,13 +215,14 @@ func (a *App) DeleteUser(ctx context.Context, id int64) error {
 		err = a.applyAll(ctx, r, users)
 	}
 	if err != nil {
-		if rollbackErr := a.Store.RestoreDeletedUser(context.Background(), old, oldCredentials, accounting, deviceState); rollbackErr != nil {
-			return fmt.Errorf("deletion failed and user/accounting rollback failed: %w", rollbackErr)
+		recovery, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		recoveryErr := a.Store.RestoreDeletedUser(recovery, old, oldCredentials, accounting, deviceState)
+		oldUsers, readErr := a.Store.ListUsers(recovery)
+		if readErr == nil {
+			recoveryErr = errors.Join(recoveryErr, a.applyAll(recovery, r, oldUsers))
 		}
-		if oldUsers, e := a.Store.ListUsers(context.Background()); e == nil {
-			_ = a.applyAll(context.Background(), r, oldUsers)
-		}
-		return fmt.Errorf("deletion not activated: %w", err)
+		return mutationFailure(err, errors.Join(recoveryErr, readErr))
 	}
 	a.Store.Event(ctx, "user.deleted", fmt.Sprintf("ID %d", id))
 	return nil

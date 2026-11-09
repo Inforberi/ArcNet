@@ -106,17 +106,22 @@ export class ApiError extends Error {
   readonly status:number;
   readonly outcomeUnknown:boolean;
   readonly retryAt:number;
+  readonly code?:string;
+  readonly stage?:string;
+  readonly outcome?:string;
   constructor(
     status: number,
     message: string,
     outcomeUnknown = false,
     retryAt = 0,
+    metadata:{code?:string;stage?:string;outcome?:string} = {},
   ) {
     super(message);
     this.name = 'ApiError';
     this.status=status;
     this.outcomeUnknown=outcomeUnknown;
     this.retryAt=retryAt;
+    this.code=metadata.code;this.stage=metadata.stage;this.outcome=metadata.outcome;
   }
 }
 
@@ -182,7 +187,10 @@ export async function api<T>(
       result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
         ? result.error
         : `HTTP ${response.status}`;
-    throw new ApiError(response.status, message+(method!=='GET'&&response.status>=500?' Проверьте текущее состояние перед повтором: применение не подтверждено.':''),method!=='GET'&&response.status>=500,response.status===429?retryAfter(response.headers.get('Retry-After')):0);
+    const value=result as Record<string,unknown>|null;
+    const outcome=typeof value?.outcome==='string'&&['rejected','applied','saved_pending','rolled_back','unknown'].includes(value.outcome)?value.outcome:undefined;
+    const unknown=method!=='GET'&&(outcome==='unknown'||(!outcome&&response.status>=500));
+    throw new ApiError(response.status,message,unknown,response.status===429?retryAfter(response.headers.get('Retry-After')):0,{outcome,code:typeof value?.code==='string'?value.code:undefined,stage:typeof value?.stage==='string'?value.stage:undefined});
   }
 
   return result as T;

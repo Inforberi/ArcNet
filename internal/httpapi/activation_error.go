@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/arcvpn/arcvpn/internal/app"
 	"net/http"
 	"os"
 
@@ -11,6 +12,11 @@ import (
 )
 
 func activationFailure(w http.ResponseWriter, err error) {
+	var mutation *app.MutationError
+	if errors.As(err, &mutation) {
+		handleErr(w, err)
+		return
+	}
 	message, code := "Не удалось применить подключение. Откройте диагностику сервера; ключи в сообщении не показываются.", "apply_failed"
 	var operation *xray.OperationError
 	var engine *engines.OperationError
@@ -54,5 +60,18 @@ func activationFailure(w http.ResponseWriter, err error) {
 	case errors.Is(err, os.ErrNotExist):
 		message, code = "Не найден файл движка или установки. Проверьте установку в диагностике сервера.", "runtime_missing"
 	}
-	respond(w, 422, map[string]string{"error": message, "code": code})
+	stage, outcome := "apply", "unknown"
+	if operation != nil {
+		stage = operation.Stage
+	}
+	if engine != nil {
+		stage = engine.Stage
+	}
+	switch stage {
+	case "keys", "validation":
+		outcome = "rejected"
+	case "restart":
+		outcome = "rolled_back"
+	}
+	respond(w, 422, map[string]string{"error": message, "code": code, "stage": stage, "outcome": outcome})
 }

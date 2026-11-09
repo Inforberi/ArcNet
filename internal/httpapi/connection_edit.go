@@ -77,7 +77,7 @@ func (s *Server) connectionDelete(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if kind == "vless-reality" {
 		err = s.App.DeleteReality(r.Context(), in.Revision)
-	} else if kind == protocols.XHTTP || kind == protocols.Hysteria2 || kind == protocols.WireGuard {
+	} else if kind == protocols.XHTTP || kind == protocols.Hysteria2 || kind == protocols.WireGuard || store.IsAdditionalConnection(kind) {
 		err = s.App.DeleteProtocolRevision(r.Context(), kind, in.Revision)
 	} else {
 		err = protocols.ErrInvalid

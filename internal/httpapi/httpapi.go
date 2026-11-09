@@ -769,6 +769,15 @@ func (s *Server) subscription(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(strings.Join(links, "\n") + "\n"))
 }
 func handleErr(w http.ResponseWriter, err error) {
+	var mutation *app.MutationError
+	if errors.As(err, &mutation) {
+		outcome, stage, message := "unknown", "recovery", "Применение не подтверждено. Сверьте состояние и журнал перед повтором."
+		if mutation.Recovered {
+			outcome, stage, message = "rolled_back", "apply", "Изменение не применено. Предыдущее состояние восстановлено. Проверьте службу VPN перед повтором."
+		}
+		respond(w, 500, map[string]string{"error": message, "code": "runtime_apply_failed", "stage": stage, "outcome": outcome})
+		return
+	}
 	if errors.Is(err, store.ErrRemoteCredentialsPending) {
 		fail(w, 409, "Удалённые ноды ещё не подтвердили доступы. Дождитесь синхронизации; при ошибке повторите применение на ноде.")
 		return
