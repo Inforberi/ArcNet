@@ -116,10 +116,10 @@ def main() -> None:
                 page.set_viewport_size({'width': 1440, 'height': 900})
                 navigate(page, origin, '/', 'Обзор')
                 navigate(page, origin, '/security?section=interface', 'Настройки')
-                page.get_by_label('Режим интерфейса', exact=True).select_option('advanced')
+                page.get_by_role('combobox', name='Режим интерфейса', exact=True).select_option('advanced')
                 assert page.evaluate("localStorage.getItem('arcnet-interface-mode')") == 'advanced'
                 page.reload(wait_until='networkidle')
-                assert page.get_by_label('Режим интерфейса', exact=True).input_value() == 'advanced'
+                assert page.get_by_role('combobox', name='Режим интерфейса', exact=True).input_value() == 'advanced'
                 page.get_by_text('Тёмная · ArcNet v7', exact=True).wait_for()
 
                 # Real stage-4 registration, followed by the non-destructive
